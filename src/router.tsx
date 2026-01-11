@@ -7,6 +7,8 @@ import { LoginPage } from '@/pages/auth/LoginPage'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { ForbiddenPage } from '@/pages/ForbiddenPage'
+import { UsersPage, UserDetailsPage } from '@/pages/users'
+import { OrdersPage, OrderDetailsPage } from '@/pages/orders'
 
 // Placeholder pages - will be implemented in later phases
 function PlaceholderPage({ title }: { title: string }) {
@@ -46,7 +48,11 @@ export const router = createBrowserRouter([
       // Users
       {
         path: 'users',
-        element: <PlaceholderPage title="Пользователи" />,
+        element: <UsersPage />,
+      },
+      {
+        path: 'users/:id',
+        element: <UserDetailsPage />,
       },
       {
         path: 'users/roles',
@@ -77,7 +83,11 @@ export const router = createBrowserRouter([
       // Orders
       {
         path: 'orders',
-        element: <PlaceholderPage title="Заказы" />,
+        element: <OrdersPage />,
+      },
+      {
+        path: 'orders/:id',
+        element: <OrderDetailsPage />,
       },
       {
         path: 'orders/issues',
