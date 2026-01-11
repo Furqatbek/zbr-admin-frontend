@@ -9,6 +9,8 @@ import { NotFoundPage } from '@/pages/NotFoundPage'
 import { ForbiddenPage } from '@/pages/ForbiddenPage'
 import { UsersPage, UserDetailsPage } from '@/pages/users'
 import { OrdersPage, OrderDetailsPage } from '@/pages/orders'
+import { CouriersPage, CourierDetailsPage, CourierVerificationPage } from '@/pages/couriers'
+import { RestaurantsPage, RestaurantDetailsPage, RestaurantModerationPage } from '@/pages/restaurants'
 
 // Placeholder pages - will be implemented in later phases
 function PlaceholderPage({ title }: { title: string }) {
@@ -61,11 +63,15 @@ export const router = createBrowserRouter([
       // Couriers
       {
         path: 'couriers',
-        element: <PlaceholderPage title="Курьеры" />,
+        element: <CouriersPage />,
+      },
+      {
+        path: 'couriers/:id',
+        element: <CourierDetailsPage />,
       },
       {
         path: 'couriers/verification',
-        element: <PlaceholderPage title="Верификация курьеров" />,
+        element: <CourierVerificationPage />,
       },
       {
         path: 'couriers/map',
@@ -74,11 +80,15 @@ export const router = createBrowserRouter([
       // Restaurants
       {
         path: 'restaurants',
-        element: <PlaceholderPage title="Рестораны" />,
+        element: <RestaurantsPage />,
+      },
+      {
+        path: 'restaurants/:id',
+        element: <RestaurantDetailsPage />,
       },
       {
         path: 'restaurants/moderation',
-        element: <PlaceholderPage title="Модерация ресторанов" />,
+        element: <RestaurantModerationPage />,
       },
       // Orders
       {
