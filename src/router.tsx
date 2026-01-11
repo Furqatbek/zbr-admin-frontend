@@ -11,6 +11,15 @@ import { UsersPage, UserDetailsPage } from '@/pages/users'
 import { OrdersPage, OrderDetailsPage } from '@/pages/orders'
 import { CouriersPage, CourierDetailsPage, CourierVerificationPage } from '@/pages/couriers'
 import { RestaurantsPage, RestaurantDetailsPage, RestaurantModerationPage } from '@/pages/restaurants'
+import {
+  RevenueAnalyticsPage,
+  OrdersAnalyticsPage,
+  OperationsAnalyticsPage,
+  FinancialAnalyticsPage,
+  CustomerExperienceAnalyticsPage,
+  FraudAnalyticsPage,
+  TechnicalMetricsPage,
+} from '@/pages/analytics'
 
 // Placeholder pages - will be implemented in later phases
 function PlaceholderPage({ title }: { title: string }) {
@@ -106,35 +115,35 @@ export const router = createBrowserRouter([
       // Analytics
       {
         path: 'analytics/revenue',
-        element: <PlaceholderPage title="Аналитика доходов" />,
+        element: <RevenueAnalyticsPage />,
       },
       {
         path: 'analytics/orders',
-        element: <PlaceholderPage title="Аналитика заказов" />,
+        element: <OrdersAnalyticsPage />,
       },
       {
         path: 'analytics/operations',
-        element: <PlaceholderPage title="Операционная аналитика" />,
+        element: <OperationsAnalyticsPage />,
       },
       {
         path: 'analytics/financial',
-        element: <PlaceholderPage title="Финансовая аналитика" />,
+        element: <FinancialAnalyticsPage />,
       },
       {
         path: 'analytics/cx',
-        element: <PlaceholderPage title="Клиентский опыт" />,
+        element: <CustomerExperienceAnalyticsPage />,
       },
       {
         path: 'analytics/fraud',
         element: (
           <AuthGuard requiredRoles={['ADMIN']}>
-            <PlaceholderPage title="Безопасность и фрод" />
+            <FraudAnalyticsPage />
           </AuthGuard>
         ),
       },
       {
         path: 'analytics/technical',
-        element: <PlaceholderPage title="Технические метрики" />,
+        element: <TechnicalMetricsPage />,
       },
       // Notifications
       {
