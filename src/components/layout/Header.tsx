@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell, LogOut, User, ChevronDown, Search } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
-import { Avatar, Badge, Button, Input } from '@/components/ui'
+import { Avatar, Badge, Button, Input, ThemeToggle } from '@/components/ui'
 
 export function Header() {
   const navigate = useNavigate()
@@ -52,7 +52,10 @@ export function Header() {
       </div>
 
       {/* Right side */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
+        {/* Theme toggle */}
+        <ThemeToggle />
+
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
