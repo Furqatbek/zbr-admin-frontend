@@ -7,9 +7,9 @@ import { LoginPage } from '@/pages/auth/LoginPage'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { ForbiddenPage } from '@/pages/ForbiddenPage'
-import { UsersPage, UserDetailsPage } from '@/pages/users'
-import { OrdersPage, OrderDetailsPage } from '@/pages/orders'
-import { CouriersPage, CourierDetailsPage, CourierVerificationPage } from '@/pages/couriers'
+import { UsersPage, UserDetailsPage, UserRolesPage } from '@/pages/users'
+import { OrdersPage, OrderDetailsPage, ProblematicOrdersPage } from '@/pages/orders'
+import { CouriersPage, CourierDetailsPage, CourierVerificationPage, CouriersMapPage } from '@/pages/couriers'
 import { RestaurantsPage, RestaurantDetailsPage, RestaurantModerationPage } from '@/pages/restaurants'
 import {
   RevenueAnalyticsPage,
@@ -20,20 +20,8 @@ import {
   FraudAnalyticsPage,
   TechnicalMetricsPage,
 } from '@/pages/analytics'
-
-// Placeholder pages - will be implemented in later phases
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div className="flex items-center justify-center h-[60vh]">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold">{title}</h1>
-        <p className="mt-2 text-[hsl(var(--muted-foreground))]">
-          Эта страница будет реализована в следующих фазах разработки
-        </p>
-      </div>
-    </div>
-  )
-}
+import { NotificationBroadcastPage, NotificationCleanupPage } from '@/pages/notifications'
+import { PlatformSettingsPage, DataExportPage } from '@/pages/settings'
 
 export const router = createBrowserRouter([
   {
@@ -67,7 +55,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'users/roles',
-        element: <PlaceholderPage title="Роли и права" />,
+        element: <UserRolesPage />,
       },
       // Couriers
       {
@@ -84,7 +72,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'couriers/map',
-        element: <PlaceholderPage title="Карта курьеров" />,
+        element: <CouriersMapPage />,
       },
       // Restaurants
       {
@@ -110,7 +98,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'orders/issues',
-        element: <PlaceholderPage title="Проблемные заказы" />,
+        element: <ProblematicOrdersPage />,
       },
       // Analytics
       {
@@ -148,18 +136,18 @@ export const router = createBrowserRouter([
       // Notifications
       {
         path: 'notifications/broadcast',
-        element: <PlaceholderPage title="Рассылка уведомлений" />,
+        element: <NotificationBroadcastPage />,
       },
       {
         path: 'notifications/cleanup',
-        element: <PlaceholderPage title="Очистка уведомлений" />,
+        element: <NotificationCleanupPage />,
       },
       // Settings (Admin only)
       {
         path: 'settings',
         element: (
           <AuthGuard requiredRoles={['ADMIN']}>
-            <PlaceholderPage title="Настройки платформы" />
+            <PlatformSettingsPage />
           </AuthGuard>
         ),
       },
@@ -167,7 +155,7 @@ export const router = createBrowserRouter([
         path: 'settings/export',
         element: (
           <AuthGuard requiredRoles={['ADMIN']}>
-            <PlaceholderPage title="Экспорт данных" />
+            <DataExportPage />
           </AuthGuard>
         ),
       },
