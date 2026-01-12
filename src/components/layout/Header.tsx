@@ -26,7 +26,7 @@ export function Header() {
     navigate('/login')
   }
 
-  const userName = user ? `${user.firstName} ${user.lastName}` : 'Пользователь'
+  const userName = user?.fullName || 'Пользователь'
   const userRole = user?.roles[0] || 'USER'
 
   const roleLabels: Record<string, string> = {

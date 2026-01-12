@@ -1,35 +1,33 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useAuthStore } from '../auth.store'
-import type { User, AuthTokens } from '@/types'
+import type { LoginResponse } from '@/types'
 
 // Mock the auth API
 vi.mock('@/api/auth.api', () => ({
   authApi: {
     login: vi.fn(),
     logout: vi.fn(),
-    getMe: vi.fn(),
   },
 }))
 
 import { authApi } from '@/api/auth.api'
 
-const mockUser: User = {
-  id: 1,
-  email: 'admin@test.com',
-  firstName: 'Admin',
-  lastName: 'User',
-  roles: ['ADMIN'],
-  phone: '+7900000000',
-  status: 'ACTIVE',
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-}
-
-const mockTokens: AuthTokens = {
+const mockLoginResponse: LoginResponse = {
   accessToken: 'access-token',
   refreshToken: 'refresh-token',
   tokenType: 'Bearer',
-  expiresIn: 3600,
+  expiresIn: 900,
+  userId: 1,
+  email: 'admin@test.com',
+  fullName: 'System Admin',
+  roles: ['ADMIN'],
+}
+
+const mockUser = {
+  id: 1,
+  email: 'admin@test.com',
+  fullName: 'System Admin',
+  roles: ['ADMIN' as const],
 }
 
 describe('useAuthStore', () => {
@@ -70,13 +68,12 @@ describe('useAuthStore', () => {
               () =>
                 resolve({
                   success: true,
-                  data: mockTokens,
+                  data: mockLoginResponse,
                 }),
               100
             )
           )
       )
-      vi.mocked(authApi.getMe).mockResolvedValue({ success: true, data: mockUser })
 
       const loginPromise = useAuthStore.getState().login({
         emailOrPhone: 'admin@test.com',
@@ -88,12 +85,11 @@ describe('useAuthStore', () => {
       expect(useAuthStore.getState().isLoading).toBe(false)
     })
 
-    it('stores tokens after successful login', async () => {
+    it('stores tokens and user after successful login', async () => {
       vi.mocked(authApi.login).mockResolvedValue({
         success: true,
-        data: mockTokens,
+        data: mockLoginResponse,
       })
-      vi.mocked(authApi.getMe).mockResolvedValue({ success: true, data: mockUser })
 
       await useAuthStore.getState().login({
         emailOrPhone: 'admin@test.com',
@@ -104,24 +100,27 @@ describe('useAuthStore', () => {
       expect(state.accessToken).toBe('access-token')
       expect(state.refreshToken).toBe('refresh-token')
       expect(state.isAuthenticated).toBe(true)
+      expect(state.user).toEqual(mockUser)
       expect(localStorage.getItem('accessToken')).toBe('access-token')
       expect(localStorage.getItem('refreshToken')).toBe('refresh-token')
     })
 
-    it('fetches user after login', async () => {
+    it('extracts user from login response', async () => {
       vi.mocked(authApi.login).mockResolvedValue({
         success: true,
-        data: mockTokens,
+        data: mockLoginResponse,
       })
-      vi.mocked(authApi.getMe).mockResolvedValue({ success: true, data: mockUser })
 
       await useAuthStore.getState().login({
         emailOrPhone: 'admin@test.com',
         password: 'password',
       })
 
-      expect(authApi.getMe).toHaveBeenCalled()
-      expect(useAuthStore.getState().user).toEqual(mockUser)
+      const user = useAuthStore.getState().user
+      expect(user?.id).toBe(1)
+      expect(user?.email).toBe('admin@test.com')
+      expect(user?.fullName).toBe('System Admin')
+      expect(user?.roles).toEqual(['ADMIN'])
     })
 
     it('sets error on login failure', async () => {

@@ -38,6 +38,17 @@ export interface LoginRequest {
   password: string
 }
 
+export interface LoginResponse {
+  accessToken: string
+  refreshToken: string
+  tokenType: string
+  expiresIn: number
+  userId: number
+  email: string
+  fullName: string
+  roles: UserRole[]
+}
+
 export interface AuthTokens {
   accessToken: string
   refreshToken: string

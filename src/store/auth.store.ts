@@ -1,10 +1,18 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { authApi } from '@/api/auth.api'
-import type { User, LoginRequest, UserRole } from '@/types'
+import type { LoginRequest, UserRole } from '@/types'
+
+// Simplified user type for auth store (matches login response)
+interface AuthUser {
+  id: number
+  email: string
+  fullName: string
+  roles: UserRole[]
+}
 
 interface AuthState {
-  user: User | null
+  user: AuthUser | null
   accessToken: string | null
   refreshToken: string | null
   isAuthenticated: boolean
@@ -15,7 +23,6 @@ interface AuthState {
 interface AuthActions {
   login: (credentials: LoginRequest) => Promise<void>
   logout: () => void
-  fetchUser: () => Promise<void>
   clearError: () => void
   hasRole: (role: UserRole) => boolean
   hasAnyRole: (roles: UserRole[]) => boolean
@@ -39,21 +46,27 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true, error: null })
         try {
           const response = await authApi.login(credentials)
-          const { accessToken, refreshToken } = response.data
+          const { accessToken, refreshToken, userId, email, fullName, roles } = response.data
 
           // Store tokens
           localStorage.setItem('accessToken', accessToken)
           localStorage.setItem('refreshToken', refreshToken)
 
+          // Create user from login response
+          const user: AuthUser = {
+            id: userId,
+            email,
+            fullName,
+            roles: roles || [],
+          }
+
           set({
             accessToken,
             refreshToken,
+            user,
             isAuthenticated: true,
             isLoading: false,
           })
-
-          // Fetch user data
-          await get().fetchUser()
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Ошибка авторизации'
           set({ error: message, isLoading: false })
@@ -72,32 +85,22 @@ export const useAuthStore = create<AuthStore>()(
         })
       },
 
-      fetchUser: async () => {
-        try {
-          const response = await authApi.getMe()
-          set({ user: response.data })
-        } catch (error) {
-          // If fetching user fails, logout
-          get().logout()
-          throw error
-        }
-      },
-
       clearError: () => set({ error: null }),
 
       hasRole: (role: UserRole) => {
         const { user } = get()
-        return user?.roles.includes(role) ?? false
+        return user?.roles?.includes(role) ?? false
       },
 
       hasAnyRole: (roles: UserRole[]) => {
         const { user } = get()
-        return roles.some((role) => user?.roles.includes(role)) ?? false
+        return roles.some((role) => user?.roles?.includes(role)) ?? false
       },
     }),
     {
       name: 'auth-storage',
       partialize: (state) => ({
+        user: state.user,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
