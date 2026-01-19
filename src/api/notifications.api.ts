@@ -11,11 +11,6 @@ import type {
   CleanupResponse,
   BulkActionResponse,
   MarkReadResponse,
-  NotificationEnums,
-  NotificationCategoryOption,
-  NotificationRoleOption,
-  NotificationPriorityOption,
-  NotificationIconOption,
 } from '@/types'
 
 // Paginated response type for notifications
@@ -241,48 +236,6 @@ export const notificationsApi = {
       null,
       { params: { daysOld } }
     )
-    return response.data
-  },
-
-  // ==================== ENUMS ====================
-
-  /**
-   * Get all notification enums (categories, roles, priorities, icons)
-   */
-  getEnums: async (): Promise<NotificationEnums> => {
-    const response = await apiClient.get<NotificationEnums>('/notifications/enums')
-    return response.data
-  },
-
-  /**
-   * Get notification categories
-   */
-  getCategories: async (): Promise<NotificationCategoryOption[]> => {
-    const response = await apiClient.get<NotificationCategoryOption[]>('/notifications/enums/categories')
-    return response.data
-  },
-
-  /**
-   * Get notification roles
-   */
-  getRoles: async (): Promise<NotificationRoleOption[]> => {
-    const response = await apiClient.get<NotificationRoleOption[]>('/notifications/enums/roles')
-    return response.data
-  },
-
-  /**
-   * Get notification priorities
-   */
-  getPriorities: async (): Promise<NotificationPriorityOption[]> => {
-    const response = await apiClient.get<NotificationPriorityOption[]>('/notifications/enums/priorities')
-    return response.data
-  },
-
-  /**
-   * Get notification icons
-   */
-  getIcons: async (): Promise<NotificationIconOption[]> => {
-    const response = await apiClient.get<NotificationIconOption[]>('/notifications/enums/icons')
     return response.data
   },
 }

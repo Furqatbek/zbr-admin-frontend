@@ -27,16 +27,52 @@ import {
   useDismissNotification,
   useDeleteNotification,
   useBulkAction,
-  useNotificationCategories,
-  useNotificationRoles,
 } from '@/hooks/useNotifications'
-import type { NotificationCategory, NotificationRole, Notification } from '@/types'
+import type { NotificationCategory, NotificationRole } from '@/types'
+
+// Based on notification-api.md documentation
+const CATEGORY_OPTIONS: { value: NotificationCategory | ''; label: string }[] = [
+  { value: '', label: 'All Categories' },
+  { value: 'ORDER', label: 'Order Updates' },
+  { value: 'FINANCE', label: 'Financial' },
+  { value: 'SUPPORT', label: 'Customer Support' },
+  { value: 'SYSTEM', label: 'System' },
+  { value: 'PROMOTION', label: 'Promotions' },
+  { value: 'ACCOUNT', label: 'Account' },
+  { value: 'DELIVERY', label: 'Delivery' },
+  { value: 'RESTAURANT_OPS', label: 'Restaurant Operations' },
+  { value: 'ALERT', label: 'Alerts' },
+]
+
+const ROLE_OPTIONS: { value: NotificationRole | ''; label: string }[] = [
+  { value: '', label: 'All Roles' },
+  { value: 'ALL', label: 'All Users' },
+  { value: 'CUSTOMER', label: 'Customer' },
+  { value: 'COURIER', label: 'Courier' },
+  { value: 'RESTAURANT', label: 'Restaurant' },
+  { value: 'ADMIN', label: 'Admin' },
+  { value: 'SUPPORT', label: 'Support Agent' },
+  { value: 'FINANCE', label: 'Finance' },
+  { value: 'OPERATIONS', label: 'Operations Manager' },
+]
 
 const READ_STATUS_OPTIONS = [
-  { value: '', label: 'Все' },
-  { value: 'false', label: 'Непрочитанные' },
-  { value: 'true', label: 'Прочитанные' },
+  { value: '', label: 'All' },
+  { value: 'false', label: 'Unread' },
+  { value: 'true', label: 'Read' },
 ]
+
+const CATEGORY_LABELS: Record<NotificationCategory, string> = {
+  ORDER: 'Order Updates',
+  FINANCE: 'Financial',
+  SUPPORT: 'Customer Support',
+  SYSTEM: 'System',
+  PROMOTION: 'Promotions',
+  ACCOUNT: 'Account',
+  DELIVERY: 'Delivery',
+  RESTAURANT_OPS: 'Restaurant Operations',
+  ALERT: 'Alerts',
+}
 
 const CATEGORY_COLORS: Record<NotificationCategory, string> = {
   ORDER: 'bg-blue-100 text-blue-800',
@@ -58,10 +94,6 @@ export function NotificationsListPage() {
   const [isRead, setIsRead] = useState<string>('')
   const [selectedIds, setSelectedIds] = useState<number[]>([])
 
-  // Fetch enums from backend
-  const { data: categoryOptions, isLoading: categoriesLoading } = useNotificationCategories()
-  const { data: roleOptions, isLoading: rolesLoading } = useNotificationRoles()
-
   const { data, isLoading, refetch } = useNotifications({
     page,
     pageSize: 20,
@@ -81,15 +113,6 @@ export function NotificationsListPage() {
   const notifications = data?.data?.content || []
   const totalPages = data?.data?.totalPages || 0
   const totalElements = data?.data?.totalElements || 0
-
-  const categories = categoryOptions || []
-  const roles = roleOptions || []
-
-  // Create category label map from fetched data
-  const categoryLabels: Record<string, string> = {}
-  categories.forEach((cat) => {
-    categoryLabels[cat.value] = cat.label
-  })
 
   const handleSelectAll = () => {
     if (selectedIds.length === notifications.length) {
@@ -122,12 +145,6 @@ export function NotificationsListPage() {
     await bulkAction.mutateAsync({ notificationIds: selectedIds, action: 'DELETE' })
     setSelectedIds([])
   }
-
-  const getCategoryLabel = (notification: Notification) => {
-    return categoryLabels[notification.category] || notification.category
-  }
-
-  const isEnumsLoading = categoriesLoading || rolesLoading
 
   return (
     <div className="space-y-6">
@@ -168,10 +185,8 @@ export function NotificationsListPage() {
             <Select
               value={category}
               onChange={(e) => setCategory(e.target.value as NotificationCategory | '')}
-              disabled={isEnumsLoading}
             >
-              <option value="">Все категории</option>
-              {categories.map((opt) => (
+              {CATEGORY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -181,10 +196,8 @@ export function NotificationsListPage() {
             <Select
               value={role}
               onChange={(e) => setRole(e.target.value as NotificationRole | '')}
-              disabled={isEnumsLoading}
             >
-              <option value="">Все роли</option>
-              {roles.map((opt) => (
+              {ROLE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -304,7 +317,7 @@ export function NotificationsListPage() {
                             variant="secondary"
                             className={CATEGORY_COLORS[notification.category]}
                           >
-                            {getCategoryLabel(notification)}
+                            {CATEGORY_LABELS[notification.category]}
                           </Badge>
                           {!notification.isRead && (
                             <span className="h-2 w-2 rounded-full bg-[hsl(var(--primary))]" />

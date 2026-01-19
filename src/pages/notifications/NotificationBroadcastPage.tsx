@@ -5,7 +5,6 @@ import {
   Bell,
   Loader2,
   User,
-  RefreshCw,
 } from 'lucide-react'
 import {
   Card,
@@ -21,23 +20,63 @@ import {
   Modal,
   ModalFooter,
 } from '@/components/ui'
-import {
-  useCreateNotification,
-  useNotificationCategories,
-  useNotificationRoles,
-  useNotificationPriorities,
-  useNotificationIcons,
-} from '@/hooks/useNotifications'
+import { useCreateNotification } from '@/hooks/useNotifications'
 import type { NotificationCategory, NotificationRole, NotificationPriority } from '@/types'
+
+// Based on notification-api.md documentation
+const CATEGORY_OPTIONS: { value: NotificationCategory; label: string }[] = [
+  { value: 'ORDER', label: 'Order Updates' },
+  { value: 'FINANCE', label: 'Financial' },
+  { value: 'SUPPORT', label: 'Customer Support' },
+  { value: 'SYSTEM', label: 'System' },
+  { value: 'PROMOTION', label: 'Promotions' },
+  { value: 'ACCOUNT', label: 'Account' },
+  { value: 'DELIVERY', label: 'Delivery' },
+  { value: 'RESTAURANT_OPS', label: 'Restaurant Operations' },
+  { value: 'ALERT', label: 'Alerts' },
+]
+
+const ROLE_OPTIONS: { value: NotificationRole; label: string }[] = [
+  { value: 'ALL', label: 'All Users' },
+  { value: 'CUSTOMER', label: 'Customer' },
+  { value: 'COURIER', label: 'Courier' },
+  { value: 'RESTAURANT', label: 'Restaurant' },
+  { value: 'ADMIN', label: 'Admin' },
+  { value: 'SUPPORT', label: 'Support Agent' },
+  { value: 'FINANCE', label: 'Finance' },
+  { value: 'OPERATIONS', label: 'Operations Manager' },
+]
+
+const PRIORITY_OPTIONS: { value: NotificationPriority; label: string }[] = [
+  { value: 'LOW', label: 'Low' },
+  { value: 'NORMAL', label: 'Normal' },
+  { value: 'HIGH', label: 'High' },
+  { value: 'URGENT', label: 'Urgent' },
+]
+
+// Based on Icons Reference in notification-api.md
+const ICON_OPTIONS: { value: string; label: string }[] = [
+  { value: 'shopping-bag', label: 'Order' },
+  { value: 'truck', label: 'Delivery' },
+  { value: 'credit-card', label: 'Payment' },
+  { value: 'alert-triangle', label: 'Alert' },
+  { value: 'check-circle', label: 'Success' },
+  { value: 'x-circle', label: 'Error' },
+  { value: 'info', label: 'Information' },
+  { value: 'headphones', label: 'Support' },
+  { value: 'tag', label: 'Promotional' },
+  { value: 'user', label: 'Account' },
+  { value: 'settings', label: 'System' },
+]
 
 export function NotificationBroadcastPage() {
   const [formData, setFormData] = useState({
     title: '',
     message: '',
-    category: '' as NotificationCategory | '',
-    role: '' as NotificationRole | '',
-    priority: '' as NotificationPriority | '',
-    icon: '',
+    category: 'SYSTEM' as NotificationCategory,
+    role: 'ALL' as NotificationRole,
+    priority: 'NORMAL' as NotificationPriority,
+    icon: 'info',
     actionUrl: '',
     expiresAt: '',
     userId: '',
@@ -45,41 +84,24 @@ export function NotificationBroadcastPage() {
   const [targetType, setTargetType] = useState<'role' | 'user'>('role')
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
 
-  // Fetch enums from backend
-  const { data: categories, isLoading: categoriesLoading } = useNotificationCategories()
-  const { data: roles, isLoading: rolesLoading } = useNotificationRoles()
-  const { data: priorities, isLoading: prioritiesLoading } = useNotificationPriorities()
-  const { data: icons, isLoading: iconsLoading } = useNotificationIcons()
-
   const createNotification = useCreateNotification()
 
-  const isEnumsLoading = categoriesLoading || rolesLoading || prioritiesLoading || iconsLoading
-
-  // Set default values when enums load
-  const categoryOptions = categories || []
-  const roleOptions = roles || []
-  const priorityOptions = priorities || []
-  const iconOptions = icons || []
-
-  // Get selected options for display
-  const selectedRole = roleOptions.find((r) => r.value === formData.role)
-  const selectedCategory = categoryOptions.find((c) => c.value === formData.category)
-  const selectedPriority = priorityOptions.find((p) => p.value === formData.priority)
-  const selectedIcon = iconOptions.find((i) => i.value === formData.icon)
+  const selectedRole = ROLE_OPTIONS.find((r) => r.value === formData.role)
+  const selectedCategory = CATEGORY_OPTIONS.find((c) => c.value === formData.category)
+  const selectedPriority = PRIORITY_OPTIONS.find((p) => p.value === formData.priority)
+  const selectedIcon = ICON_OPTIONS.find((i) => i.value === formData.icon)
 
   const handleSend = async () => {
-    if (!formData.category || !formData.priority) return
-
     try {
       await createNotification.mutateAsync({
         title: formData.title,
         message: formData.message,
         category: formData.category,
-        ...(targetType === 'role' && formData.role
+        ...(targetType === 'role'
           ? { role: formData.role }
           : { userId: parseInt(formData.userId, 10) }),
         priority: formData.priority,
-        icon: formData.icon || undefined,
+        icon: formData.icon,
         actionUrl: formData.actionUrl || undefined,
         expiresAt: formData.expiresAt || undefined,
       })
@@ -88,10 +110,10 @@ export function NotificationBroadcastPage() {
       setFormData({
         title: '',
         message: '',
-        category: categoryOptions[0]?.value || '',
-        role: roleOptions[0]?.value || '',
-        priority: priorityOptions.find((p) => p.value === 'NORMAL')?.value || priorityOptions[0]?.value || '',
-        icon: iconOptions[0]?.value || '',
+        category: 'SYSTEM',
+        role: 'ALL',
+        priority: 'NORMAL',
+        icon: 'info',
         actionUrl: '',
         expiresAt: '',
         userId: '',
@@ -104,19 +126,7 @@ export function NotificationBroadcastPage() {
   const isFormValid =
     formData.title.trim() &&
     formData.message.trim() &&
-    formData.category &&
-    formData.priority &&
-    (targetType === 'role' ? formData.role : formData.userId)
-
-  // Show loading state while enums are being fetched
-  if (isEnumsLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <RefreshCw className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
-        <span className="ml-2 text-[hsl(var(--muted-foreground))]">Загрузка данных...</span>
-      </div>
-    )
-  }
+    (targetType === 'role' || (targetType === 'user' && formData.userId))
 
   return (
     <div className="space-y-6">
@@ -174,8 +184,7 @@ export function NotificationBroadcastPage() {
                       setFormData({ ...formData, role: e.target.value as NotificationRole })
                     }
                   >
-                    <option value="">Выберите роль</option>
-                    {roleOptions.map((opt) => (
+                    {ROLE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
@@ -205,8 +214,7 @@ export function NotificationBroadcastPage() {
                       setFormData({ ...formData, category: e.target.value as NotificationCategory })
                     }
                   >
-                    <option value="">Выберите категорию</option>
-                    {categoryOptions.map((opt) => (
+                    {CATEGORY_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
@@ -222,8 +230,7 @@ export function NotificationBroadcastPage() {
                       setFormData({ ...formData, priority: e.target.value as NotificationPriority })
                     }
                   >
-                    <option value="">Выберите приоритет</option>
-                    {priorityOptions.map((opt) => (
+                    {PRIORITY_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
@@ -239,8 +246,7 @@ export function NotificationBroadcastPage() {
                   value={formData.icon}
                   onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
                 >
-                  <option value="">Выберите иконку</option>
-                  {iconOptions.map((opt) => (
+                  {ICON_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
@@ -305,10 +311,10 @@ export function NotificationBroadcastPage() {
                     setFormData({
                       title: '',
                       message: '',
-                      category: '',
-                      role: '',
-                      priority: '',
-                      icon: '',
+                      category: 'SYSTEM',
+                      role: 'ALL',
+                      priority: 'NORMAL',
+                      icon: 'info',
                       actionUrl: '',
                       expiresAt: '',
                       userId: '',
@@ -365,7 +371,7 @@ export function NotificationBroadcastPage() {
               <div className="text-center">
                 {targetType === 'role' ? (
                   <>
-                    <p className="text-3xl font-bold">{selectedRole?.label || '—'}</p>
+                    <p className="text-3xl font-bold">{selectedRole?.label}</p>
                     <p className="text-sm text-[hsl(var(--muted-foreground))]">
                       Группа получателей
                     </p>
@@ -389,15 +395,15 @@ export function NotificationBroadcastPage() {
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-[hsl(var(--muted-foreground))]">Категория:</span>
-                <span className="font-medium">{selectedCategory?.label || '—'}</span>
+                <span className="font-medium">{selectedCategory?.label}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[hsl(var(--muted-foreground))]">Приоритет:</span>
-                <span className="font-medium">{selectedPriority?.label || '—'}</span>
+                <span className="font-medium">{selectedPriority?.label}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[hsl(var(--muted-foreground))]">Иконка:</span>
-                <span className="font-medium">{selectedIcon?.label || '—'}</span>
+                <span className="font-medium">{selectedIcon?.label}</span>
               </div>
             </CardContent>
           </Card>
