@@ -287,3 +287,167 @@ export function useCleanupRead() {
     },
   })
 }
+
+// ==================== REFERENCE DATA / ENUM HOOKS ====================
+
+/**
+ * Get all notification types
+ */
+export function useNotificationTypes() {
+  return useQuery({
+    queryKey: [...notificationKeys.all, 'types'],
+    queryFn: () => notificationsApi.getTypes(),
+    staleTime: 1000 * 60 * 60, // 1 hour
+    gcTime: 1000 * 60 * 60 * 24, // 24 hours
+  })
+}
+
+/**
+ * Get all notification roles
+ */
+export function useNotificationRoles() {
+  return useQuery({
+    queryKey: [...notificationKeys.all, 'roles'],
+    queryFn: () => notificationsApi.getRoles(),
+    staleTime: 1000 * 60 * 60,
+    gcTime: 1000 * 60 * 60 * 24,
+  })
+}
+
+/**
+ * Get all notification categories
+ */
+export function useNotificationCategories() {
+  return useQuery({
+    queryKey: [...notificationKeys.all, 'categories'],
+    queryFn: () => notificationsApi.getCategories(),
+    staleTime: 1000 * 60 * 60,
+    gcTime: 1000 * 60 * 60 * 24,
+  })
+}
+
+/**
+ * Get all notification priorities
+ */
+export function useNotificationPriorities() {
+  return useQuery({
+    queryKey: [...notificationKeys.all, 'priorities'],
+    queryFn: () => notificationsApi.getPriorities(),
+    staleTime: 1000 * 60 * 60,
+    gcTime: 1000 * 60 * 60 * 24,
+  })
+}
+
+/**
+ * Get all reference data in one call
+ */
+export function useNotificationReferenceData() {
+  return useQuery({
+    queryKey: [...notificationKeys.all, 'reference-data'],
+    queryFn: () => notificationsApi.getReferenceData(),
+    staleTime: 1000 * 60 * 60,
+    gcTime: 1000 * 60 * 60 * 24,
+  })
+}
+
+// ==================== TEMPLATE HOOKS ====================
+
+/**
+ * Get all templates
+ */
+export function useNotificationTemplates() {
+  return useQuery({
+    queryKey: [...notificationKeys.all, 'templates'],
+    queryFn: () => notificationsApi.getTemplates(),
+  })
+}
+
+/**
+ * Get template by ID
+ */
+export function useNotificationTemplate(id: number) {
+  return useQuery({
+    queryKey: [...notificationKeys.all, 'templates', id],
+    queryFn: () => notificationsApi.getTemplateById(id),
+    enabled: !!id,
+  })
+}
+
+/**
+ * Get templates by type
+ */
+export function useTemplatesByType(type: string) {
+  return useQuery({
+    queryKey: [...notificationKeys.all, 'templates', 'by-type', type],
+    queryFn: () => notificationsApi.getTemplatesByType(type),
+    enabled: !!type,
+  })
+}
+
+/**
+ * Get templates by role
+ */
+export function useTemplatesByRole(role: NotificationRole) {
+  return useQuery({
+    queryKey: [...notificationKeys.all, 'templates', 'by-role', role],
+    queryFn: () => notificationsApi.getTemplatesByRole(role),
+    enabled: !!role,
+  })
+}
+
+/**
+ * Create template
+ */
+export function useCreateTemplate() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: notificationsApi.createTemplate,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...notificationKeys.all, 'templates'] })
+    },
+  })
+}
+
+/**
+ * Update template
+ */
+export function useUpdateTemplate() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Parameters<typeof notificationsApi.updateTemplate>[1] }) =>
+      notificationsApi.updateTemplate(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...notificationKeys.all, 'templates'] })
+    },
+  })
+}
+
+/**
+ * Delete template
+ */
+export function useDeleteTemplate() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: number) => notificationsApi.deleteTemplate(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...notificationKeys.all, 'templates'] })
+    },
+  })
+}
+
+/**
+ * Toggle template active status
+ */
+export function useToggleTemplateActive() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: number) => notificationsApi.toggleTemplateActive(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...notificationKeys.all, 'templates'] })
+    },
+  })
+}

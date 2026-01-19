@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { format } from 'date-fns'
 import {
   Bell,
@@ -27,52 +27,15 @@ import {
   useDismissNotification,
   useDeleteNotification,
   useBulkAction,
+  useNotificationReferenceData,
 } from '@/hooks/useNotifications'
 import type { NotificationCategory, NotificationRole } from '@/types'
-
-// Based on notification-api.md documentation
-const CATEGORY_OPTIONS: { value: NotificationCategory | ''; label: string }[] = [
-  { value: '', label: 'All Categories' },
-  { value: 'ORDER', label: 'Order Updates' },
-  { value: 'FINANCE', label: 'Financial' },
-  { value: 'SUPPORT', label: 'Customer Support' },
-  { value: 'SYSTEM', label: 'System' },
-  { value: 'PROMOTION', label: 'Promotions' },
-  { value: 'ACCOUNT', label: 'Account' },
-  { value: 'DELIVERY', label: 'Delivery' },
-  { value: 'RESTAURANT_OPS', label: 'Restaurant Operations' },
-  { value: 'ALERT', label: 'Alerts' },
-]
-
-const ROLE_OPTIONS: { value: NotificationRole | ''; label: string }[] = [
-  { value: '', label: 'All Roles' },
-  { value: 'ALL', label: 'All Users' },
-  { value: 'CUSTOMER', label: 'Customer' },
-  { value: 'COURIER', label: 'Courier' },
-  { value: 'RESTAURANT', label: 'Restaurant' },
-  { value: 'ADMIN', label: 'Admin' },
-  { value: 'SUPPORT', label: 'Support Agent' },
-  { value: 'FINANCE', label: 'Finance' },
-  { value: 'OPERATIONS', label: 'Operations Manager' },
-]
 
 const READ_STATUS_OPTIONS = [
   { value: '', label: 'All' },
   { value: 'false', label: 'Unread' },
   { value: 'true', label: 'Read' },
 ]
-
-const CATEGORY_LABELS: Record<NotificationCategory, string> = {
-  ORDER: 'Order Updates',
-  FINANCE: 'Financial',
-  SUPPORT: 'Customer Support',
-  SYSTEM: 'System',
-  PROMOTION: 'Promotions',
-  ACCOUNT: 'Account',
-  DELIVERY: 'Delivery',
-  RESTAURANT_OPS: 'Restaurant Operations',
-  ALERT: 'Alerts',
-}
 
 const CATEGORY_COLORS: Record<NotificationCategory, string> = {
   ORDER: 'bg-blue-100 text-blue-800',
@@ -94,6 +57,9 @@ export function NotificationsListPage() {
   const [isRead, setIsRead] = useState<string>('')
   const [selectedIds, setSelectedIds] = useState<number[]>([])
 
+  // Fetch reference data from backend
+  const { data: referenceData, isLoading: isLoadingRef } = useNotificationReferenceData()
+
   const { data, isLoading, refetch } = useNotifications({
     page,
     pageSize: 20,
@@ -113,6 +79,18 @@ export function NotificationsListPage() {
   const notifications = data?.data?.content || []
   const totalPages = data?.data?.totalPages || 0
   const totalElements = data?.data?.totalElements || 0
+
+  const categories = referenceData?.categories || []
+  const roles = referenceData?.roles || []
+
+  // Create category label map from fetched data
+  const categoryLabels = useMemo(() => {
+    const labels: Record<string, string> = {}
+    categories.forEach((cat) => {
+      labels[cat.value] = cat.label
+    })
+    return labels
+  }, [categories])
 
   const handleSelectAll = () => {
     if (selectedIds.length === notifications.length) {
@@ -185,8 +163,10 @@ export function NotificationsListPage() {
             <Select
               value={category}
               onChange={(e) => setCategory(e.target.value as NotificationCategory | '')}
+              disabled={isLoadingRef}
             >
-              {CATEGORY_OPTIONS.map((opt) => (
+              <option value="">All Categories</option>
+              {categories.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -196,8 +176,10 @@ export function NotificationsListPage() {
             <Select
               value={role}
               onChange={(e) => setRole(e.target.value as NotificationRole | '')}
+              disabled={isLoadingRef}
             >
-              {ROLE_OPTIONS.map((opt) => (
+              <option value="">All Roles</option>
+              {roles.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -317,7 +299,7 @@ export function NotificationsListPage() {
                             variant="secondary"
                             className={CATEGORY_COLORS[notification.category]}
                           >
-                            {CATEGORY_LABELS[notification.category]}
+                            {categoryLabels[notification.category] || notification.category}
                           </Badge>
                           {!notification.isRead && (
                             <span className="h-2 w-2 rounded-full bg-[hsl(var(--primary))]" />

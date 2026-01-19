@@ -11,6 +11,14 @@ import type {
   CleanupResponse,
   BulkActionResponse,
   MarkReadResponse,
+  NotificationTypeOption,
+  NotificationRoleOption,
+  NotificationCategoryOption,
+  NotificationPriorityOption,
+  NotificationReferenceData,
+  NotificationTemplate,
+  CreateTemplateRequest,
+  UpdateTemplateRequest,
 } from '@/types'
 
 // Paginated response type for notifications
@@ -235,6 +243,136 @@ export const notificationsApi = {
       '/notifications/admin/cleanup/read',
       null,
       { params: { daysOld } }
+    )
+    return response.data
+  },
+
+  // ==================== REFERENCE DATA / ENUMS ====================
+
+  /**
+   * Get all notification types
+   */
+  getTypes: async (): Promise<NotificationTypeOption[]> => {
+    const response = await apiClient.get<NotificationTypeOption[]>('/notifications/types')
+    return response.data
+  },
+
+  /**
+   * Get all notification roles
+   */
+  getRoles: async (): Promise<NotificationRoleOption[]> => {
+    const response = await apiClient.get<NotificationRoleOption[]>('/notifications/roles')
+    return response.data
+  },
+
+  /**
+   * Get all notification categories
+   */
+  getCategories: async (): Promise<NotificationCategoryOption[]> => {
+    const response = await apiClient.get<NotificationCategoryOption[]>('/notifications/categories')
+    return response.data
+  },
+
+  /**
+   * Get all notification priorities
+   */
+  getPriorities: async (): Promise<NotificationPriorityOption[]> => {
+    const response = await apiClient.get<NotificationPriorityOption[]>('/notifications/priorities')
+    return response.data
+  },
+
+  /**
+   * Get all reference data in one call
+   */
+  getReferenceData: async (): Promise<NotificationReferenceData> => {
+    const response = await apiClient.get<NotificationReferenceData>('/notifications/reference-data')
+    return response.data
+  },
+
+  // ==================== TEMPLATES ====================
+
+  /**
+   * Get all templates
+   */
+  getTemplates: async (): Promise<NotificationTemplate[]> => {
+    const response = await apiClient.get<NotificationTemplate[]>('/notifications/templates')
+    return response.data
+  },
+
+  /**
+   * Get template by ID
+   */
+  getTemplateById: async (id: number): Promise<NotificationTemplate> => {
+    const response = await apiClient.get<NotificationTemplate>(`/notifications/templates/${id}`)
+    return response.data
+  },
+
+  /**
+   * Get templates by notification type
+   */
+  getTemplatesByType: async (type: string): Promise<NotificationTemplate[]> => {
+    const response = await apiClient.get<NotificationTemplate[]>(
+      `/notifications/templates/by-type/${type}`
+    )
+    return response.data
+  },
+
+  /**
+   * Get templates by role
+   */
+  getTemplatesByRole: async (role: NotificationRole): Promise<NotificationTemplate[]> => {
+    const response = await apiClient.get<NotificationTemplate[]>(
+      `/notifications/templates/by-role/${role}`
+    )
+    return response.data
+  },
+
+  /**
+   * Get templates by type and role
+   */
+  getTemplatesByTypeAndRole: async (
+    type: string,
+    role: NotificationRole
+  ): Promise<NotificationTemplate[]> => {
+    const response = await apiClient.get<NotificationTemplate[]>(
+      '/notifications/templates/by-type-and-role',
+      { params: { type, role } }
+    )
+    return response.data
+  },
+
+  /**
+   * Create template (Admin)
+   */
+  createTemplate: async (data: CreateTemplateRequest): Promise<NotificationTemplate> => {
+    const response = await apiClient.post<NotificationTemplate>('/notifications/templates', data)
+    return response.data
+  },
+
+  /**
+   * Update template (Admin)
+   */
+  updateTemplate: async (id: number, data: UpdateTemplateRequest): Promise<NotificationTemplate> => {
+    const response = await apiClient.put<NotificationTemplate>(
+      `/notifications/templates/${id}`,
+      data
+    )
+    return response.data
+  },
+
+  /**
+   * Delete template (Admin)
+   */
+  deleteTemplate: async (id: number): Promise<void> => {
+    await apiClient.delete(`/notifications/templates/${id}`)
+  },
+
+  /**
+   * Toggle template active status (Admin)
+   */
+  toggleTemplateActive: async (id: number): Promise<NotificationTemplate> => {
+    const response = await apiClient.patch<NotificationTemplate>(
+      `/notifications/templates/${id}/toggle-active`
     )
     return response.data
   },
