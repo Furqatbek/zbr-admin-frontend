@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   CheckCircle,
   X,
-  Eye,
   User,
   Calendar,
   Loader2,
@@ -24,7 +23,7 @@ import {
   ModalFooter,
 } from '@/components/ui'
 import { formatDateTime } from '@/lib/utils'
-import { useCouriers, useVerifyCourier } from '@/hooks/useCouriers'
+import { usePendingCouriers, useVerifyCourier, useRejectCourier } from '@/hooks/useCouriers'
 import type { Courier, VehicleType } from '@/types'
 
 const vehicleLabels: Record<VehicleType, string> = {
@@ -52,16 +51,13 @@ export function CourierVerificationPage() {
   const [selectedCourier, setSelectedCourier] = useState<Courier | null>(null)
   const [actionModal, setActionModal] = useState<{ type: 'approve' | 'reject'; courier: Courier } | null>(null)
 
-  // Fetch all couriers from API (no status filter in backend API)
-  const { data, isLoading, refetch } = useCouriers({
-    size: 100,
-  })
+  // Fetch pending couriers from API
+  const { data, isLoading, refetch } = usePendingCouriers({ size: 50 })
 
   const verifyCourier = useVerifyCourier()
+  const rejectCourier = useRejectCourier()
 
-  // Filter client-side for pending verification
-  const allCouriers = data?.data?.content || []
-  const pendingCouriers = allCouriers.filter((c) => c.status === 'PENDING_APPROVAL' || !c.isVerified)
+  const pendingCouriers = data?.data?.content || []
 
   const handleApprove = async () => {
     if (actionModal?.courier) {
@@ -72,12 +68,12 @@ export function CourierVerificationPage() {
     }
   }
 
-  const handleReject = () => {
+  const handleReject = async () => {
     if (actionModal?.courier) {
-      // Note: reject endpoint not in API docs, just close modal for now
-      console.log('Rejecting courier:', actionModal.courier.id)
+      await rejectCourier.mutateAsync(actionModal.courier.id)
       setActionModal(null)
       setSelectedCourier(null)
+      refetch()
     }
   }
 
@@ -144,7 +140,7 @@ export function CourierVerificationPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{courier.userName || `Курьер #${courier.id}`}</p>
                         <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                          {courier.createdAt ? formatDateTime(courier.createdAt) : '—'}
+                          {formatDateTime(courier.createdAt)}
                         </p>
                       </div>
                     </div>
@@ -203,7 +199,7 @@ export function CourierVerificationPage() {
                         <Calendar className="h-4 w-4" />
                         <span className="text-sm">Дата заявки</span>
                       </div>
-                      <p className="mt-2 font-medium">{selectedCourier.createdAt ? formatDateTime(selectedCourier.createdAt) : '—'}</p>
+                      <p className="mt-2 font-medium">{formatDateTime(selectedCourier.createdAt)}</p>
                     </div>
                   </div>
 
@@ -301,8 +297,16 @@ export function CourierVerificationPage() {
               Одобрить
             </Button>
           ) : (
-            <Button variant="destructive" onClick={handleReject}>
-              <X className="mr-2 h-4 w-4" />
+            <Button
+              variant="destructive"
+              onClick={handleReject}
+              disabled={rejectCourier.isPending}
+            >
+              {rejectCourier.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <X className="mr-2 h-4 w-4" />
+              )}
               Отклонить
             </Button>
           )}

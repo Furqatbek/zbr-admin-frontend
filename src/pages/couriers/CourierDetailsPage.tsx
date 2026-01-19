@@ -7,11 +7,12 @@ import {
   Star,
   CheckCircle,
   Package,
-  Clock,
   Bike,
   Loader2,
   Car,
   Footprints,
+  Ban,
+  Play,
 } from 'lucide-react'
 import {
   Card,
@@ -25,7 +26,7 @@ import {
   ModalFooter,
 } from '@/components/ui'
 import { formatDateTime, formatNumber } from '@/lib/utils'
-import { useCourier, useVerifyCourier } from '@/hooks/useCouriers'
+import { useCourier, useVerifyCourier, useSuspendCourier, useActivateCourier } from '@/hooks/useCouriers'
 import type { CourierStatus, VehicleType } from '@/types'
 
 const statusLabels: Record<CourierStatus, string> = {
@@ -71,10 +72,14 @@ export function CourierDetailsPage() {
   const { id } = useParams()
   const courierId = parseInt(id || '0', 10)
 
-  const { data, isLoading, error } = useCourier(courierId)
+  const { data, isLoading, error, refetch } = useCourier(courierId)
   const verifyCourier = useVerifyCourier()
+  const suspendCourier = useSuspendCourier()
+  const activateCourier = useActivateCourier()
 
   const [verifyModal, setVerifyModal] = useState(false)
+  const [suspendModal, setSuspendModal] = useState(false)
+  const [activateModal, setActivateModal] = useState(false)
 
   const courier = data?.data
 
@@ -82,6 +87,23 @@ export function CourierDetailsPage() {
     if (courier) {
       await verifyCourier.mutateAsync(courier.id)
       setVerifyModal(false)
+      refetch()
+    }
+  }
+
+  const handleSuspend = async () => {
+    if (courier) {
+      await suspendCourier.mutateAsync(courier.id)
+      setSuspendModal(false)
+      refetch()
+    }
+  }
+
+  const handleActivate = async () => {
+    if (courier) {
+      await activateCourier.mutateAsync(courier.id)
+      setActivateModal(false)
+      refetch()
     }
   }
 
@@ -133,12 +155,25 @@ export function CourierDetailsPage() {
           <h1 className="text-2xl font-bold">Профиль курьера</h1>
           <p className="text-[hsl(var(--muted-foreground))]">ID: {id}</p>
         </div>
-        {!courier.isVerified && (
-          <Button variant="success" onClick={() => setVerifyModal(true)}>
-            <CheckCircle className="mr-2 h-4 w-4" />
-            Верифицировать
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {!courier.isVerified && (
+            <Button variant="success" onClick={() => setVerifyModal(true)}>
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Верифицировать
+            </Button>
+          )}
+          {courier.status === 'SUSPENDED' ? (
+            <Button variant="outline" onClick={() => setActivateModal(true)}>
+              <Play className="mr-2 h-4 w-4" />
+              Активировать
+            </Button>
+          ) : courier.status !== 'PENDING_APPROVAL' && (
+            <Button variant="destructive" onClick={() => setSuspendModal(true)}>
+              <Ban className="mr-2 h-4 w-4" />
+              Заблокировать
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -370,6 +405,66 @@ export function CourierDetailsPage() {
               <CheckCircle className="mr-2 h-4 w-4" />
             )}
             Верифицировать
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Suspend modal */}
+      <Modal
+        isOpen={suspendModal}
+        onClose={() => setSuspendModal(false)}
+        title="Блокировка курьера"
+        description={`Заблокировать курьера ${courier.userName || `#${courier.id}`}?`}
+        size="sm"
+      >
+        <p className="text-sm">
+          После блокировки курьер не сможет принимать заказы и работать на платформе.
+        </p>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setSuspendModal(false)}>
+            Отмена
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleSuspend}
+            disabled={suspendCourier.isPending}
+          >
+            {suspendCourier.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Ban className="mr-2 h-4 w-4" />
+            )}
+            Заблокировать
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Activate modal */}
+      <Modal
+        isOpen={activateModal}
+        onClose={() => setActivateModal(false)}
+        title="Активация курьера"
+        description={`Активировать курьера ${courier.userName || `#${courier.id}`}?`}
+        size="sm"
+      >
+        <p className="text-sm">
+          После активации курьер сможет снова принимать заказы на доставку.
+        </p>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setActivateModal(false)}>
+            Отмена
+          </Button>
+          <Button
+            variant="success"
+            onClick={handleActivate}
+            disabled={activateCourier.isPending}
+          >
+            {activateCourier.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Play className="mr-2 h-4 w-4" />
+            )}
+            Активировать
           </Button>
         </ModalFooter>
       </Modal>

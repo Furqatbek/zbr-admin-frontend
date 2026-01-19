@@ -25,8 +25,8 @@ import {
   Badge,
   Input,
 } from '@/components/ui'
-import { useCouriers } from '@/hooks/useCouriers'
-import type { Courier, CourierStatus } from '@/types'
+import { useOnlineCouriers, useCourierStatistics } from '@/hooks/useCouriers'
+import type { CourierStatus } from '@/types'
 
 const statusLabels: Record<CourierStatus, string> = {
   AVAILABLE: 'Свободен',
@@ -52,29 +52,32 @@ export function CouriersMapPage() {
   const [selectedCourier, setSelectedCourier] = useState<number | null>(null)
   const [zoom, setZoom] = useState(12)
 
-  // Fetch all couriers from API (no filters supported by backend)
-  const { data, isLoading, refetch } = useCouriers({
+  // Fetch online couriers from API (couriers with location)
+  const { data, isLoading, refetch } = useOnlineCouriers({
     size: 200,
   })
 
-  const allCouriers = data?.data?.content || []
+  // Fetch statistics for the stats cards
+  const { data: statisticsData } = useCourierStatistics()
 
-  // Filter couriers that have location data and apply client-side filters
-  const filteredCouriers = allCouriers.filter((courier) => {
-    const hasLocation = courier.currentLatitude && courier.currentLongitude
+  const onlineCouriers = data?.data?.content || []
+  const statistics = statisticsData?.data
+
+  // Apply client-side filters for status and search
+  const filteredCouriers = onlineCouriers.filter((courier) => {
     const matchesStatus = !statusFilter || courier.status === statusFilter
     const matchesSearch =
       !searchQuery ||
       (courier.userName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       courier.id.toString().includes(searchQuery)
-    return hasLocation && matchesStatus && matchesSearch
+    return matchesStatus && matchesSearch
   })
 
   const stats = {
-    total: allCouriers.length,
-    available: allCouriers.filter((c) => c.status === 'AVAILABLE').length,
-    busy: allCouriers.filter((c) => c.status === 'BUSY').length,
-    offline: allCouriers.filter((c) => c.status === 'OFFLINE').length,
+    total: statistics?.totalCouriers || onlineCouriers.length,
+    available: statistics?.available || onlineCouriers.filter((c) => c.status === 'AVAILABLE').length,
+    busy: statistics?.busy || onlineCouriers.filter((c) => c.status === 'BUSY').length,
+    offline: statistics?.offline || 0,
   }
 
   const selectedCourierData = selectedCourier

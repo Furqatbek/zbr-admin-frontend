@@ -106,6 +106,26 @@ export interface AvailableCourier {
   distanceKm: number
 }
 
+export interface CourierStatistics {
+  totalCouriers: number
+  pendingApproval: number
+  online: number
+  offline: number
+  suspended: number
+  verified: number
+  available: number
+  busy: number
+  onBreak: number
+}
+
+export interface CourierUpdateRequest {
+  vehicleType?: VehicleType
+  vehicleNumber?: string
+  licenseNumber?: string
+  preferredRadiusKm?: number
+  maxConcurrentOrders?: number
+}
+
 // Restaurant types
 export type RestaurantStatus = 'PENDING' | 'APPROVED' | 'SUSPENDED' | 'REJECTED'
 

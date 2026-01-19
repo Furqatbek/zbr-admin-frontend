@@ -11,6 +11,8 @@ import {
   Star,
   Bike,
   Loader2,
+  Ban,
+  Play,
 } from 'lucide-react'
 import {
   Card,
@@ -35,7 +37,14 @@ import {
   ModalFooter,
 } from '@/components/ui'
 import { formatNumber } from '@/lib/utils'
-import { useCouriers, useVerifyCourier } from '@/hooks/useCouriers'
+import {
+  useCouriers,
+  useCouriersByStatus,
+  useCourierStatistics,
+  useVerifyCourier,
+  useSuspendCourier,
+  useActivateCourier,
+} from '@/hooks/useCouriers'
 import type { Courier, CourierStatus } from '@/types'
 
 const statusLabels: Record<CourierStatus, string> = {
@@ -57,10 +66,9 @@ const statusColors: Record<CourierStatus, 'default' | 'secondary' | 'destructive
 }
 
 export function CouriersPage() {
-  // Filters state (client-side filtering - backend doesn't support filters)
+  // Filters state
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<CourierStatus | ''>('')
-  const [verifiedFilter, setVerifiedFilter] = useState<string>('')
 
   // Pagination state
   const [page, setPage] = useState(0)
@@ -71,45 +79,68 @@ export function CouriersPage() {
     isOpen: false,
     courier: null,
   })
-
-  // Fetch all couriers from API (backend only supports page/size, no filters)
-  const { data, isLoading, refetch } = useCouriers({
-    size: 200, // Fetch more to allow client-side filtering
+  const [suspendModal, setSuspendModal] = useState<{ isOpen: boolean; courier: Courier | null }>({
+    isOpen: false,
+    courier: null,
   })
+  const [activateModal, setActivateModal] = useState<{ isOpen: boolean; courier: Courier | null }>({
+    isOpen: false,
+    courier: null,
+  })
+
+  // Fetch courier statistics
+  const { data: statsData, isLoading: isLoadingStats } = useCourierStatistics()
+  const stats = statsData?.data
+
+  // Fetch couriers - use by-status endpoint if filter is set, otherwise get all
+  const { data: allData, isLoading: isLoadingAll, refetch: refetchAll } = useCouriers({
+    page,
+    size: pageSize,
+  })
+
+  const { data: filteredData, isLoading: isLoadingFiltered, refetch: refetchFiltered } = useCouriersByStatus(
+    statusFilter as CourierStatus,
+    { page, size: pageSize }
+  )
+
+  const isLoading = statusFilter ? isLoadingFiltered : isLoadingAll
+  const data = statusFilter ? filteredData : allData
+  const refetch = statusFilter ? refetchFiltered : refetchAll
 
   const verifyCourier = useVerifyCourier()
+  const suspendCourier = useSuspendCourier()
+  const activateCourier = useActivateCourier()
 
   const allCouriers = data?.data?.content || []
+  const totalItems = data?.data?.totalElements || 0
+  const totalPages = data?.data?.totalPages || 0
 
-  // Client-side filtering
-  const filteredCouriers = allCouriers.filter((courier) => {
-    const matchesStatus = !statusFilter || courier.status === statusFilter
-    const matchesVerified =
-      verifiedFilter === '' ||
-      (verifiedFilter === 'true' && courier.isVerified) ||
-      (verifiedFilter === 'false' && !courier.isVerified)
-    const matchesSearch =
-      !search ||
-      (courier.userName || '').toLowerCase().includes(search.toLowerCase()) ||
-      courier.id.toString().includes(search)
-    return matchesStatus && matchesVerified && matchesSearch
-  })
-
-  // Client-side pagination
-  const totalItems = filteredCouriers.length
-  const totalPages = Math.ceil(totalItems / pageSize)
-  const couriers = filteredCouriers.slice(page * pageSize, (page + 1) * pageSize)
-
-  // Calculate stats from all couriers
-  const availableCount = allCouriers.filter((c) => c.status === 'AVAILABLE').length
-  const busyCount = allCouriers.filter((c) => c.status === 'BUSY').length
-  const offlineCount = allCouriers.filter((c) => c.status === 'OFFLINE').length
-  const pendingCount = allCouriers.filter((c) => c.status === 'PENDING_APPROVAL').length
+  // Client-side search filtering (backend doesn't support search)
+  const couriers = search
+    ? allCouriers.filter((courier) =>
+        (courier.userName || '').toLowerCase().includes(search.toLowerCase()) ||
+        courier.id.toString().includes(search)
+      )
+    : allCouriers
 
   const handleVerify = async () => {
     if (verifyModal.courier) {
       await verifyCourier.mutateAsync(verifyModal.courier.id)
       setVerifyModal({ isOpen: false, courier: null })
+    }
+  }
+
+  const handleSuspend = async () => {
+    if (suspendModal.courier) {
+      await suspendCourier.mutateAsync(suspendModal.courier.id)
+      setSuspendModal({ isOpen: false, courier: null })
+    }
+  }
+
+  const handleActivate = async () => {
+    if (activateModal.courier) {
+      await activateCourier.mutateAsync(activateModal.courier.id)
+      setActivateModal({ isOpen: false, courier: null })
     }
   }
 
@@ -124,13 +155,13 @@ export function CouriersPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {pendingCount > 0 && (
+          {stats && stats.pendingApproval > 0 && (
             <Link to="/couriers/verification">
               <Button variant="outline">
                 <CheckCircle className="mr-2 h-4 w-4" />
                 Верификация
                 <Badge variant="destructive" className="ml-2">
-                  {pendingCount}
+                  {stats.pendingApproval}
                 </Badge>
               </Button>
             </Link>
@@ -158,7 +189,9 @@ export function CouriersPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Доступны</p>
-                <p className="text-2xl font-bold">{availableCount}</p>
+                <p className="text-2xl font-bold">
+                  {isLoadingStats ? '...' : stats?.available || 0}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -171,7 +204,9 @@ export function CouriersPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Заняты</p>
-                <p className="text-2xl font-bold">{busyCount}</p>
+                <p className="text-2xl font-bold">
+                  {isLoadingStats ? '...' : stats?.busy || 0}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -184,7 +219,9 @@ export function CouriersPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Не в сети</p>
-                <p className="text-2xl font-bold">{offlineCount}</p>
+                <p className="text-2xl font-bold">
+                  {isLoadingStats ? '...' : stats?.offline || 0}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -197,7 +234,9 @@ export function CouriersPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Ожидают проверки</p>
-                <p className="text-2xl font-bold">{pendingCount}</p>
+                <p className="text-2xl font-bold">
+                  {isLoadingStats ? '...' : stats?.pendingApproval || 0}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -213,16 +252,13 @@ export function CouriersPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" />
               <Input
                 placeholder="Поиск по имени, ID..."
                 value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value)
-                  setPage(0)
-                }}
+                onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
               />
             </div>
@@ -241,23 +277,11 @@ export function CouriersPage() {
               <option value="PENDING_APPROVAL">Ожидает проверки</option>
               <option value="SUSPENDED">Заблокирован</option>
             </Select>
-            <Select
-              value={verifiedFilter}
-              onChange={(e) => {
-                setVerifiedFilter(e.target.value)
-                setPage(0)
-              }}
-            >
-              <option value="">Все</option>
-              <option value="true">Верифицированы</option>
-              <option value="false">Не верифицированы</option>
-            </Select>
             <Button
               variant="outline"
               onClick={() => {
                 setSearch('')
                 setStatusFilter('')
-                setVerifiedFilter('')
                 setPage(0)
               }}
             >
@@ -355,10 +379,22 @@ export function CouriersPage() {
                             Просмотр
                           </DropdownItem>
                         </Link>
-                        {!courier.isVerified && (
+                        {!courier.isVerified && courier.status === 'PENDING_APPROVAL' && (
                           <DropdownItem onClick={() => setVerifyModal({ isOpen: true, courier })}>
                             <CheckCircle className="h-4 w-4" />
                             Верифицировать
+                          </DropdownItem>
+                        )}
+                        {courier.status !== 'SUSPENDED' && courier.isVerified && (
+                          <DropdownItem onClick={() => setSuspendModal({ isOpen: true, courier })}>
+                            <Ban className="h-4 w-4" />
+                            Заблокировать
+                          </DropdownItem>
+                        )}
+                        {courier.status === 'SUSPENDED' && (
+                          <DropdownItem onClick={() => setActivateModal({ isOpen: true, courier })}>
+                            <Play className="h-4 w-4" />
+                            Активировать
                           </DropdownItem>
                         )}
                       </Dropdown>
@@ -378,7 +414,7 @@ export function CouriersPage() {
       </Card>
 
       {/* Pagination */}
-      {totalItems > 0 && (
+      {totalItems > 0 && !search && (
         <Pagination
           currentPage={page}
           totalPages={totalPages}
@@ -418,6 +454,66 @@ export function CouriersPage() {
               <CheckCircle className="mr-2 h-4 w-4" />
             )}
             Верифицировать
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Suspend modal */}
+      <Modal
+        isOpen={suspendModal.isOpen}
+        onClose={() => setSuspendModal({ isOpen: false, courier: null })}
+        title="Блокировка курьера"
+        description={`Вы уверены, что хотите заблокировать курьера ${suspendModal.courier?.userName || `#${suspendModal.courier?.id}`}?`}
+        size="sm"
+      >
+        <p className="text-sm">
+          После блокировки курьер не сможет принимать заказы на доставку.
+        </p>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setSuspendModal({ isOpen: false, courier: null })}>
+            Отмена
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleSuspend}
+            disabled={suspendCourier.isPending}
+          >
+            {suspendCourier.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Ban className="mr-2 h-4 w-4" />
+            )}
+            Заблокировать
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Activate modal */}
+      <Modal
+        isOpen={activateModal.isOpen}
+        onClose={() => setActivateModal({ isOpen: false, courier: null })}
+        title="Активация курьера"
+        description={`Вы уверены, что хотите активировать курьера ${activateModal.courier?.userName || `#${activateModal.courier?.id}`}?`}
+        size="sm"
+      >
+        <p className="text-sm">
+          После активации курьер сможет снова принимать заказы на доставку.
+        </p>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setActivateModal({ isOpen: false, courier: null })}>
+            Отмена
+          </Button>
+          <Button
+            variant="success"
+            onClick={handleActivate}
+            disabled={activateCourier.isPending}
+          >
+            {activateCourier.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Play className="mr-2 h-4 w-4" />
+            )}
+            Активировать
           </Button>
         </ModalFooter>
       </Modal>
