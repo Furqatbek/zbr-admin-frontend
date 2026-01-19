@@ -46,6 +46,7 @@ export function NotificationBroadcastPage() {
   const [formData, setFormData] = useState({
     title: '',
     message: '',
+    type: '',
     category: '' as NotificationCategory | '',
     role: '' as NotificationRole | '',
     priority: '' as NotificationPriority | '',
@@ -61,10 +62,12 @@ export function NotificationBroadcastPage() {
   const { data: referenceData, isLoading: isLoadingRef } = useNotificationReferenceData()
   const createNotification = useCreateNotification()
 
+  const types = referenceData?.types || []
   const categories = referenceData?.categories || []
   const roles = referenceData?.roles || []
   const priorities = referenceData?.priorities || []
 
+  const selectedType = types.find((t) => t.value === formData.type)
   const selectedRole = roles.find((r) => r.value === formData.role)
   const selectedCategory = categories.find((c) => c.value === formData.category)
   const selectedPriority = priorities.find((p) => p.value === formData.priority)
@@ -91,6 +94,7 @@ export function NotificationBroadcastPage() {
       setFormData({
         title: '',
         message: '',
+        type: '',
         category: '',
         role: '',
         priority: '',
@@ -196,6 +200,22 @@ export function NotificationBroadcastPage() {
                   />
                 </div>
               )}
+
+              <div className="space-y-2">
+                <Label htmlFor="type">Тип уведомления</Label>
+                <Select
+                  id="type"
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                >
+                  <option value="">Выберите тип</option>
+                  {types.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.displayName}
+                    </option>
+                  ))}
+                </Select>
+              </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
@@ -306,6 +326,7 @@ export function NotificationBroadcastPage() {
                     setFormData({
                       title: '',
                       message: '',
+                      type: '',
                       category: '',
                       role: '',
                       priority: '',
@@ -389,6 +410,10 @@ export function NotificationBroadcastPage() {
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
+                <span className="text-[hsl(var(--muted-foreground))]">Тип:</span>
+                <span className="font-medium">{selectedType?.displayName || '—'}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-[hsl(var(--muted-foreground))]">Категория:</span>
                 <span className="font-medium">{selectedCategory?.displayName || '—'}</span>
               </div>
@@ -420,6 +445,10 @@ export function NotificationBroadcastPage() {
                 <span className="font-medium">
                   {targetType === 'role' ? selectedRole?.displayName : `User #${formData.userId}`}
                 </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[hsl(var(--muted-foreground))]">Тип:</span>
+                <span className="font-medium">{selectedType?.displayName || '—'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[hsl(var(--muted-foreground))]">Категория:</span>
