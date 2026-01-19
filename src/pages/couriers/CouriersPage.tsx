@@ -10,6 +10,7 @@ import {
   MapPin,
   Star,
   Bike,
+  Loader2,
 } from 'lucide-react'
 import {
   Card,
@@ -34,78 +35,16 @@ import {
   ModalFooter,
 } from '@/components/ui'
 import { formatNumber } from '@/lib/utils'
+import { useCouriers, useVerifyCourier } from '@/hooks/useCouriers'
 import type { Courier, CourierStatus } from '@/types'
-
-// Mock data - will be replaced with API calls
-const mockCouriers: Courier[] = [
-  {
-    id: 1,
-    userId: 4,
-    userName: 'Игорь Козлов',
-    status: 'AVAILABLE',
-    verified: true,
-    verifiedAt: '2024-01-10T10:00:00Z',
-    rating: 4.8,
-    totalDeliveries: 256,
-    currentLocation: { lat: 55.7558, lng: 37.6173 },
-  },
-  {
-    id: 2,
-    userId: 8,
-    userName: 'Дмитрий Павлов',
-    status: 'BUSY',
-    verified: true,
-    verifiedAt: '2024-01-05T10:00:00Z',
-    rating: 4.6,
-    totalDeliveries: 189,
-    currentLocation: { lat: 55.7512, lng: 37.6184 },
-  },
-  {
-    id: 3,
-    userId: 12,
-    userName: 'Александр Смирнов',
-    status: 'OFFLINE',
-    verified: true,
-    verifiedAt: '2024-01-08T10:00:00Z',
-    rating: 4.9,
-    totalDeliveries: 312,
-  },
-  {
-    id: 4,
-    userId: 15,
-    userName: 'Николай Федоров',
-    status: 'PENDING_APPROVAL',
-    verified: false,
-    rating: 0,
-    totalDeliveries: 0,
-  },
-  {
-    id: 5,
-    userId: 18,
-    userName: 'Сергей Морозов',
-    status: 'AVAILABLE',
-    verified: true,
-    verifiedAt: '2024-01-12T10:00:00Z',
-    rating: 4.5,
-    totalDeliveries: 145,
-    currentLocation: { lat: 55.7601, lng: 37.6189 },
-  },
-  {
-    id: 6,
-    userId: 20,
-    userName: 'Андрей Волков',
-    status: 'PENDING_APPROVAL',
-    verified: false,
-    rating: 0,
-    totalDeliveries: 0,
-  },
-]
 
 const statusLabels: Record<CourierStatus, string> = {
   PENDING_APPROVAL: 'Ожидает проверки',
   AVAILABLE: 'Доступен',
   BUSY: 'Занят',
   OFFLINE: 'Не в сети',
+  ON_BREAK: 'На перерыве',
+  SUSPENDED: 'Заблокирован',
 }
 
 const statusColors: Record<CourierStatus, 'default' | 'secondary' | 'destructive' | 'success' | 'warning'> = {
@@ -113,12 +52,14 @@ const statusColors: Record<CourierStatus, 'default' | 'secondary' | 'destructive
   AVAILABLE: 'success',
   BUSY: 'default',
   OFFLINE: 'secondary',
+  ON_BREAK: 'secondary',
+  SUSPENDED: 'destructive',
 }
 
 export function CouriersPage() {
   // Filters state
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [statusFilter, setStatusFilter] = useState<CourierStatus | ''>('')
   const [verifiedFilter, setVerifiedFilter] = useState<string>('')
 
   // Pagination state
@@ -131,32 +72,33 @@ export function CouriersPage() {
     courier: null,
   })
 
-  // Filter couriers
-  const filteredCouriers = mockCouriers.filter((courier) => {
-    const matchesSearch =
-      !search ||
-      courier.userName.toLowerCase().includes(search.toLowerCase()) ||
-      courier.id.toString().includes(search)
-
-    const matchesStatus = !statusFilter || courier.status === statusFilter
-    const matchesVerified =
-      verifiedFilter === '' ||
-      (verifiedFilter === 'true' && courier.verified) ||
-      (verifiedFilter === 'false' && !courier.verified)
-
-    return matchesSearch && matchesStatus && matchesVerified
+  // Fetch couriers from API
+  const { data, isLoading, refetch } = useCouriers({
+    page,
+    size: pageSize,
+    status: statusFilter || undefined,
+    isVerified: verifiedFilter === '' ? undefined : verifiedFilter === 'true',
+    search: search || undefined,
   })
 
-  const totalItems = filteredCouriers.length
-  const totalPages = Math.ceil(totalItems / pageSize)
-  const paginatedCouriers = filteredCouriers.slice(page * pageSize, (page + 1) * pageSize)
+  const verifyCourier = useVerifyCourier()
 
-  const handleVerify = () => {
-    console.log('Verifying courier:', verifyModal.courier?.id)
-    setVerifyModal({ isOpen: false, courier: null })
+  const couriers = data?.data?.content || []
+  const totalItems = data?.data?.totalElements || 0
+  const totalPages = data?.data?.totalPages || 0
+
+  // Calculate stats from couriers
+  const availableCount = couriers.filter((c) => c.status === 'AVAILABLE').length
+  const busyCount = couriers.filter((c) => c.status === 'BUSY').length
+  const offlineCount = couriers.filter((c) => c.status === 'OFFLINE').length
+  const pendingCount = couriers.filter((c) => c.status === 'PENDING_APPROVAL').length
+
+  const handleVerify = async () => {
+    if (verifyModal.courier) {
+      await verifyCourier.mutateAsync(verifyModal.courier.id)
+      setVerifyModal({ isOpen: false, courier: null })
+    }
   }
-
-  const pendingCount = mockCouriers.filter((c) => c.status === 'PENDING_APPROVAL').length
 
   return (
     <div className="space-y-6">
@@ -186,8 +128,8 @@ export function CouriersPage() {
               Карта
             </Button>
           </Link>
-          <Button variant="outline" size="sm">
-            <RefreshCw className="mr-2 h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Обновить
           </Button>
         </div>
@@ -203,9 +145,7 @@ export function CouriersPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Доступны</p>
-                <p className="text-2xl font-bold">
-                  {mockCouriers.filter((c) => c.status === 'AVAILABLE').length}
-                </p>
+                <p className="text-2xl font-bold">{availableCount}</p>
               </div>
             </div>
           </CardContent>
@@ -218,9 +158,7 @@ export function CouriersPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Заняты</p>
-                <p className="text-2xl font-bold">
-                  {mockCouriers.filter((c) => c.status === 'BUSY').length}
-                </p>
+                <p className="text-2xl font-bold">{busyCount}</p>
               </div>
             </div>
           </CardContent>
@@ -233,9 +171,7 @@ export function CouriersPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Не в сети</p>
-                <p className="text-2xl font-bold">
-                  {mockCouriers.filter((c) => c.status === 'OFFLINE').length}
-                </p>
+                <p className="text-2xl font-bold">{offlineCount}</p>
               </div>
             </div>
           </CardContent>
@@ -270,18 +206,35 @@ export function CouriersPage() {
               <Input
                 placeholder="Поиск по имени, ID..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  setPage(0)
+                }}
                 className="pl-10"
               />
             </div>
-            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <Select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value as CourierStatus | '')
+                setPage(0)
+              }}
+            >
               <option value="">Все статусы</option>
               <option value="AVAILABLE">Доступен</option>
               <option value="BUSY">Занят</option>
               <option value="OFFLINE">Не в сети</option>
+              <option value="ON_BREAK">На перерыве</option>
               <option value="PENDING_APPROVAL">Ожидает проверки</option>
+              <option value="SUSPENDED">Заблокирован</option>
             </Select>
-            <Select value={verifiedFilter} onChange={(e) => setVerifiedFilter(e.target.value)}>
+            <Select
+              value={verifiedFilter}
+              onChange={(e) => {
+                setVerifiedFilter(e.target.value)
+                setPage(0)
+              }}
+            >
               <option value="">Все</option>
               <option value="true">Верифицированы</option>
               <option value="false">Не верифицированы</option>
@@ -292,6 +245,7 @@ export function CouriersPage() {
                 setSearch('')
                 setStatusFilter('')
                 setVerifiedFilter('')
+                setPage(0)
               }}
             >
               Сбросить
@@ -303,100 +257,106 @@ export function CouriersPage() {
       {/* Couriers table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Курьер</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead>Верификация</TableHead>
-                <TableHead>Рейтинг</TableHead>
-                <TableHead>Доставки</TableHead>
-                <TableHead>Локация</TableHead>
-                <TableHead className="w-[70px]">Действия</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedCouriers.map((courier) => (
-                <TableRow key={courier.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar name={courier.userName} size="sm" />
-                      <div>
-                        <div className="font-medium">{courier.userName}</div>
-                        <div className="text-sm text-[hsl(var(--muted-foreground))]">
-                          ID: {courier.id}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Курьер</TableHead>
+                  <TableHead>Статус</TableHead>
+                  <TableHead>Верификация</TableHead>
+                  <TableHead>Рейтинг</TableHead>
+                  <TableHead>Доставки</TableHead>
+                  <TableHead>Локация</TableHead>
+                  <TableHead className="w-[70px]">Действия</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {couriers.map((courier) => (
+                  <TableRow key={courier.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar name={courier.userName || `Courier ${courier.id}`} size="sm" />
+                        <div>
+                          <div className="font-medium">{courier.userName || `Курьер #${courier.id}`}</div>
+                          <div className="text-sm text-[hsl(var(--muted-foreground))]">
+                            ID: {courier.id}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={statusColors[courier.status]}>
-                      {statusLabels[courier.status]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {courier.verified ? (
-                      <div className="flex items-center gap-1 text-[hsl(var(--success))]">
-                        <CheckCircle className="h-4 w-4" />
-                        <span className="text-sm">Верифицирован</span>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-[hsl(var(--muted-foreground))]">
-                        Не верифицирован
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {courier.rating && courier.rating > 0 ? (
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="font-medium">{courier.rating.toFixed(1)}</span>
-                      </div>
-                    ) : (
-                      <span className="text-[hsl(var(--muted-foreground))]">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-medium">{formatNumber(courier.totalDeliveries || 0)}</span>
-                  </TableCell>
-                  <TableCell>
-                    {courier.currentLocation ? (
-                      <div className="flex items-center gap-1 text-[hsl(var(--success))]">
-                        <MapPin className="h-4 w-4" />
-                        <span className="text-sm">Онлайн</span>
-                      </div>
-                    ) : (
-                      <span className="text-[hsl(var(--muted-foreground))]">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Dropdown
-                      trigger={
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      }
-                    >
-                      <Link to={`/couriers/${courier.id}`}>
-                        <DropdownItem>
-                          <Eye className="h-4 w-4" />
-                          Просмотр
-                        </DropdownItem>
-                      </Link>
-                      {!courier.verified && (
-                        <DropdownItem onClick={() => setVerifyModal({ isOpen: true, courier })}>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={statusColors[courier.status]}>
+                        {statusLabels[courier.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {courier.isVerified ? (
+                        <div className="flex items-center gap-1 text-[hsl(var(--success))]">
                           <CheckCircle className="h-4 w-4" />
-                          Верифицировать
-                        </DropdownItem>
+                          <span className="text-sm">Верифицирован</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-[hsl(var(--muted-foreground))]">
+                          Не верифицирован
+                        </span>
                       )}
-                    </Dropdown>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    </TableCell>
+                    <TableCell>
+                      {courier.rating > 0 ? (
+                        <div className="flex items-center gap-1">
+                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                          <span className="font-medium">{courier.rating.toFixed(1)}</span>
+                        </div>
+                      ) : (
+                        <span className="text-[hsl(var(--muted-foreground))]">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-medium">{formatNumber(courier.totalDeliveries || 0)}</span>
+                    </TableCell>
+                    <TableCell>
+                      {courier.currentLatitude && courier.currentLongitude ? (
+                        <div className="flex items-center gap-1 text-[hsl(var(--success))]">
+                          <MapPin className="h-4 w-4" />
+                          <span className="text-sm">Онлайн</span>
+                        </div>
+                      ) : (
+                        <span className="text-[hsl(var(--muted-foreground))]">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Dropdown
+                        trigger={
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        }
+                      >
+                        <Link to={`/couriers/${courier.id}`}>
+                          <DropdownItem>
+                            <Eye className="h-4 w-4" />
+                            Просмотр
+                          </DropdownItem>
+                        </Link>
+                        {!courier.isVerified && (
+                          <DropdownItem onClick={() => setVerifyModal({ isOpen: true, courier })}>
+                            <CheckCircle className="h-4 w-4" />
+                            Верифицировать
+                          </DropdownItem>
+                        )}
+                      </Dropdown>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
 
-          {paginatedCouriers.length === 0 && (
+          {!isLoading && couriers.length === 0 && (
             <div className="py-12 text-center text-[hsl(var(--muted-foreground))]">
               Курьеры не найдены
             </div>
@@ -424,7 +384,7 @@ export function CouriersPage() {
         isOpen={verifyModal.isOpen}
         onClose={() => setVerifyModal({ isOpen: false, courier: null })}
         title="Верификация курьера"
-        description={`Подтвердите верификацию курьера ${verifyModal.courier?.userName}`}
+        description={`Подтвердите верификацию курьера ${verifyModal.courier?.userName || `#${verifyModal.courier?.id}`}`}
         size="sm"
       >
         <p className="text-sm">
@@ -434,8 +394,16 @@ export function CouriersPage() {
           <Button variant="outline" onClick={() => setVerifyModal({ isOpen: false, courier: null })}>
             Отмена
           </Button>
-          <Button variant="success" onClick={handleVerify}>
-            <CheckCircle className="mr-2 h-4 w-4" />
+          <Button
+            variant="success"
+            onClick={handleVerify}
+            disabled={verifyCourier.isPending}
+          >
+            {verifyCourier.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle className="mr-2 h-4 w-4" />
+            )}
             Верифицировать
           </Button>
         </ModalFooter>

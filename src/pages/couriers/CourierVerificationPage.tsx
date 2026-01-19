@@ -7,6 +7,10 @@ import {
   Eye,
   User,
   Calendar,
+  Loader2,
+  Bike,
+  Car,
+  Footprints,
 } from 'lucide-react'
 import {
   Card,
@@ -20,55 +24,68 @@ import {
   ModalFooter,
 } from '@/components/ui'
 import { formatDateTime } from '@/lib/utils'
-import type { Courier } from '@/types'
+import { useCouriers, useVerifyCourier } from '@/hooks/useCouriers'
+import type { Courier, VehicleType } from '@/types'
 
-// Mock pending couriers
-const mockPendingCouriers: (Courier & { appliedAt: string; documents?: string[] })[] = [
-  {
-    id: 4,
-    userId: 15,
-    userName: 'Николай Федоров',
-    status: 'PENDING_APPROVAL',
-    verified: false,
-    rating: 0,
-    totalDeliveries: 0,
-    appliedAt: '2024-01-14T10:00:00Z',
-    documents: ['passport.jpg', 'license.jpg'],
-  },
-  {
-    id: 6,
-    userId: 20,
-    userName: 'Андрей Волков',
-    status: 'PENDING_APPROVAL',
-    verified: false,
-    rating: 0,
-    totalDeliveries: 0,
-    appliedAt: '2024-01-15T09:00:00Z',
-    documents: ['passport.jpg'],
-  },
-]
+const vehicleLabels: Record<VehicleType, string> = {
+  WALKING: 'Пешком',
+  BICYCLE: 'Велосипед',
+  E_BIKE: 'Электровелосипед',
+  MOTORCYCLE: 'Мотоцикл',
+  CAR: 'Автомобиль',
+  VAN: 'Фургон',
+}
+
+const VehicleIcon = ({ type }: { type?: VehicleType }) => {
+  switch (type) {
+    case 'CAR':
+    case 'VAN':
+      return <Car className="h-4 w-4" />
+    case 'WALKING':
+      return <Footprints className="h-4 w-4" />
+    default:
+      return <Bike className="h-4 w-4" />
+  }
+}
 
 export function CourierVerificationPage() {
-  const [pendingCouriers, setPendingCouriers] = useState(mockPendingCouriers)
-  const [selectedCourier, setSelectedCourier] = useState<typeof mockPendingCouriers[0] | null>(null)
-  const [actionModal, setActionModal] = useState<{ type: 'approve' | 'reject'; courier: typeof mockPendingCouriers[0] } | null>(null)
+  const [selectedCourier, setSelectedCourier] = useState<Courier | null>(null)
+  const [actionModal, setActionModal] = useState<{ type: 'approve' | 'reject'; courier: Courier } | null>(null)
 
-  const handleApprove = () => {
+  // Fetch pending couriers from API
+  const { data, isLoading, refetch } = useCouriers({
+    status: 'PENDING_APPROVAL',
+    size: 50,
+  })
+
+  const verifyCourier = useVerifyCourier()
+
+  const pendingCouriers = data?.data?.content || []
+
+  const handleApprove = async () => {
     if (actionModal?.courier) {
-      console.log('Approving courier:', actionModal.courier.id)
-      setPendingCouriers((prev) => prev.filter((c) => c.id !== actionModal.courier.id))
+      await verifyCourier.mutateAsync(actionModal.courier.id)
       setActionModal(null)
       setSelectedCourier(null)
+      refetch()
     }
   }
 
   const handleReject = () => {
     if (actionModal?.courier) {
+      // Note: reject endpoint not in API docs, just close modal for now
       console.log('Rejecting courier:', actionModal.courier.id)
-      setPendingCouriers((prev) => prev.filter((c) => c.id !== actionModal.courier.id))
       setActionModal(null)
       setSelectedCourier(null)
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
+      </div>
+    )
   }
 
   return (
@@ -122,11 +139,11 @@ export function CourierVerificationPage() {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Avatar name={courier.userName} size="sm" />
+                      <Avatar name={courier.userName || `Courier ${courier.id}`} size="sm" />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{courier.userName}</p>
+                        <p className="font-medium truncate">{courier.userName || `Курьер #${courier.id}`}</p>
                         <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                          {formatDateTime(courier.appliedAt)}
+                          {formatDateTime(courier.createdAt)}
                         </p>
                       </div>
                     </div>
@@ -162,9 +179,9 @@ export function CourierVerificationPage() {
                 <CardContent className="space-y-6">
                   {/* Courier info */}
                   <div className="flex items-center gap-4">
-                    <Avatar name={selectedCourier.userName} size="lg" />
+                    <Avatar name={selectedCourier.userName || `Courier ${selectedCourier.id}`} size="lg" />
                     <div>
-                      <h3 className="text-xl font-semibold">{selectedCourier.userName}</h3>
+                      <h3 className="text-xl font-semibold">{selectedCourier.userName || `Курьер #${selectedCourier.id}`}</h3>
                       <p className="text-[hsl(var(--muted-foreground))]">
                         ID курьера: {selectedCourier.id}
                       </p>
@@ -185,31 +202,51 @@ export function CourierVerificationPage() {
                         <Calendar className="h-4 w-4" />
                         <span className="text-sm">Дата заявки</span>
                       </div>
-                      <p className="mt-2 font-medium">{formatDateTime(selectedCourier.appliedAt)}</p>
+                      <p className="mt-2 font-medium">{formatDateTime(selectedCourier.createdAt)}</p>
                     </div>
                   </div>
 
-                  {/* Documents */}
-                  <div>
-                    <h4 className="mb-3 font-semibold">Загруженные документы</h4>
-                    {selectedCourier.documents && selectedCourier.documents.length > 0 ? (
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {selectedCourier.documents.map((doc, index) => (
-                          <div
-                            key={index}
-                            className="flex items-center justify-between rounded-lg border border-[hsl(var(--border))] p-3"
-                          >
-                            <span className="text-sm">{doc}</span>
-                            <Button variant="ghost" size="sm">
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                  {/* Vehicle info */}
+                  {selectedCourier.vehicleType && (
+                    <div>
+                      <h4 className="mb-3 font-semibold">Транспорт</h4>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] p-3">
+                          <VehicleIcon type={selectedCourier.vehicleType} />
+                          <div>
+                            <p className="text-xs text-[hsl(var(--muted-foreground))]">Тип</p>
+                            <p className="font-medium">{vehicleLabels[selectedCourier.vehicleType]}</p>
                           </div>
-                        ))}
+                        </div>
+                        {selectedCourier.vehicleNumber && (
+                          <div className="flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] p-3">
+                            <Car className="h-4 w-4" />
+                            <div>
+                              <p className="text-xs text-[hsl(var(--muted-foreground))]">Номер ТС</p>
+                              <p className="font-medium">{selectedCourier.vehicleNumber}</p>
+                            </div>
+                          </div>
+                        )}
+                        {selectedCourier.licenseNumber && (
+                          <div className="flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] p-3">
+                            <User className="h-4 w-4" />
+                            <div>
+                              <p className="text-xs text-[hsl(var(--muted-foreground))]">Права</p>
+                              <p className="font-medium">{selectedCourier.licenseNumber}</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <p className="text-[hsl(var(--muted-foreground))]">Документы не загружены</p>
-                    )}
-                  </div>
+                    </div>
+                  )}
+
+                  {/* Preferred radius */}
+                  {selectedCourier.preferredRadiusKm && (
+                    <div className="rounded-lg border border-[hsl(var(--border))] p-4">
+                      <p className="text-sm text-[hsl(var(--muted-foreground))]">Предпочтительный радиус работы</p>
+                      <p className="mt-1 font-medium">{selectedCourier.preferredRadiusKm} км</p>
+                    </div>
+                  )}
 
                   {/* User profile link */}
                   <Link to={`/users/${selectedCourier.userId}`}>
@@ -235,8 +272,8 @@ export function CourierVerificationPage() {
         title={actionModal?.type === 'approve' ? 'Подтверждение' : 'Отклонение'}
         description={
           actionModal?.type === 'approve'
-            ? `Вы уверены, что хотите одобрить заявку ${actionModal?.courier.userName}?`
-            : `Вы уверены, что хотите отклонить заявку ${actionModal?.courier.userName}?`
+            ? `Вы уверены, что хотите одобрить заявку ${actionModal?.courier.userName || `#${actionModal?.courier.id}`}?`
+            : `Вы уверены, что хотите отклонить заявку ${actionModal?.courier.userName || `#${actionModal?.courier.id}`}?`
         }
         size="sm"
       >
@@ -250,8 +287,16 @@ export function CourierVerificationPage() {
             Отмена
           </Button>
           {actionModal?.type === 'approve' ? (
-            <Button variant="success" onClick={handleApprove}>
-              <CheckCircle className="mr-2 h-4 w-4" />
+            <Button
+              variant="success"
+              onClick={handleApprove}
+              disabled={verifyCourier.isPending}
+            >
+              {verifyCourier.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle className="mr-2 h-4 w-4" />
+              )}
               Одобрить
             </Button>
           ) : (

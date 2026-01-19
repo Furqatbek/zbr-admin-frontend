@@ -9,6 +9,9 @@ import {
   Package,
   Clock,
   Bike,
+  Loader2,
+  Car,
+  Footprints,
 } from 'lucide-react'
 import {
   Card,
@@ -22,35 +25,16 @@ import {
   ModalFooter,
 } from '@/components/ui'
 import { formatDateTime, formatNumber } from '@/lib/utils'
-import type { Courier, CourierStatus } from '@/types'
-
-// Mock courier data
-const mockCourier: Courier = {
-  id: 1,
-  userId: 4,
-  userName: 'Игорь Козлов',
-  status: 'AVAILABLE',
-  verified: true,
-  verifiedAt: '2024-01-10T10:00:00Z',
-  rating: 4.8,
-  totalDeliveries: 256,
-  currentLocation: { lat: 55.7558, lng: 37.6173 },
-}
-
-// Mock delivery stats
-const mockStats = {
-  todayDeliveries: 8,
-  weekDeliveries: 42,
-  monthDeliveries: 156,
-  averageDeliveryTime: 28, // minutes
-  completionRate: 98.5, // percent
-}
+import { useCourier, useVerifyCourier } from '@/hooks/useCouriers'
+import type { CourierStatus, VehicleType } from '@/types'
 
 const statusLabels: Record<CourierStatus, string> = {
   PENDING_APPROVAL: 'Ожидает проверки',
   AVAILABLE: 'Доступен',
   BUSY: 'Занят',
   OFFLINE: 'Не в сети',
+  ON_BREAK: 'На перерыве',
+  SUSPENDED: 'Заблокирован',
 }
 
 const statusColors: Record<CourierStatus, 'default' | 'secondary' | 'destructive' | 'success' | 'warning'> = {
@@ -58,18 +42,82 @@ const statusColors: Record<CourierStatus, 'default' | 'secondary' | 'destructive
   AVAILABLE: 'success',
   BUSY: 'default',
   OFFLINE: 'secondary',
+  ON_BREAK: 'secondary',
+  SUSPENDED: 'destructive',
+}
+
+const vehicleLabels: Record<VehicleType, string> = {
+  WALKING: 'Пешком',
+  BICYCLE: 'Велосипед',
+  E_BIKE: 'Электровелосипед',
+  MOTORCYCLE: 'Мотоцикл',
+  CAR: 'Автомобиль',
+  VAN: 'Фургон',
+}
+
+const VehicleIcon = ({ type }: { type?: VehicleType }) => {
+  switch (type) {
+    case 'CAR':
+    case 'VAN':
+      return <Car className="h-5 w-5" />
+    case 'WALKING':
+      return <Footprints className="h-5 w-5" />
+    default:
+      return <Bike className="h-5 w-5" />
+  }
 }
 
 export function CourierDetailsPage() {
   const { id } = useParams()
-  const courier = mockCourier
-  const stats = mockStats
+  const courierId = parseInt(id || '0', 10)
+
+  const { data, isLoading, error } = useCourier(courierId)
+  const verifyCourier = useVerifyCourier()
 
   const [verifyModal, setVerifyModal] = useState(false)
 
-  const handleVerify = () => {
-    console.log('Verifying courier:', id)
-    setVerifyModal(false)
+  const courier = data?.data
+
+  const handleVerify = async () => {
+    if (courier) {
+      await verifyCourier.mutateAsync(courier.id)
+      setVerifyModal(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
+      </div>
+    )
+  }
+
+  if (error || !courier) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Link to="/couriers">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold">Курьер не найден</h1>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-[hsl(var(--muted-foreground))]">
+              Курьер с ID {id} не найден
+            </p>
+            <Link to="/couriers">
+              <Button className="mt-4">Вернуться к списку</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -85,7 +133,7 @@ export function CourierDetailsPage() {
           <h1 className="text-2xl font-bold">Профиль курьера</h1>
           <p className="text-[hsl(var(--muted-foreground))]">ID: {id}</p>
         </div>
-        {!courier.verified && (
+        {!courier.isVerified && (
           <Button variant="success" onClick={() => setVerifyModal(true)}>
             <CheckCircle className="mr-2 h-4 w-4" />
             Верифицировать
@@ -102,14 +150,14 @@ export function CourierDetailsPage() {
           <CardContent className="space-y-6">
             {/* Courier avatar and name */}
             <div className="flex items-center gap-4">
-              <Avatar name={courier.userName} size="lg" />
+              <Avatar name={courier.userName || `Courier ${courier.id}`} size="lg" />
               <div>
-                <h2 className="text-xl font-semibold">{courier.userName}</h2>
+                <h2 className="text-xl font-semibold">{courier.userName || `Курьер #${courier.id}`}</h2>
                 <div className="mt-1 flex items-center gap-2">
                   <Badge variant={statusColors[courier.status]}>
                     {statusLabels[courier.status]}
                   </Badge>
-                  {courier.verified && (
+                  {courier.isVerified && (
                     <Badge variant="success" className="flex items-center gap-1">
                       <CheckCircle className="h-3 w-3" />
                       Верифицирован
@@ -127,7 +175,7 @@ export function CourierDetailsPage() {
                   <span className="text-sm">Рейтинг</span>
                 </div>
                 <p className="mt-2 text-2xl font-bold">
-                  {courier.rating && courier.rating > 0 ? courier.rating.toFixed(1) : '—'}
+                  {courier.rating > 0 ? courier.rating.toFixed(1) : '—'}
                 </p>
               </div>
               <div className="rounded-lg border border-[hsl(var(--border))] p-4">
@@ -141,47 +189,57 @@ export function CourierDetailsPage() {
               </div>
               <div className="rounded-lg border border-[hsl(var(--border))] p-4">
                 <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
-                  <Clock className="h-4 w-4" />
-                  <span className="text-sm">Ср. время доставки</span>
+                  <Package className="h-4 w-4" />
+                  <span className="text-sm">Текущие заказы</span>
                 </div>
-                <p className="mt-2 text-2xl font-bold">{stats.averageDeliveryTime} мин</p>
+                <p className="mt-2 text-2xl font-bold">
+                  {courier.currentOrderCount || 0} / {courier.maxConcurrentOrders || 3}
+                </p>
               </div>
               <div className="rounded-lg border border-[hsl(var(--border))] p-4">
                 <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
-                  <CheckCircle className="h-4 w-4" />
-                  <span className="text-sm">Выполнение</span>
+                  <MapPin className="h-4 w-4" />
+                  <span className="text-sm">Радиус работы</span>
                 </div>
-                <p className="mt-2 text-2xl font-bold">{stats.completionRate}%</p>
+                <p className="mt-2 text-2xl font-bold">
+                  {courier.preferredRadiusKm || '—'} км
+                </p>
               </div>
             </div>
 
-            {/* Delivery stats */}
-            <div>
-              <h3 className="mb-4 font-semibold">Статистика доставок</h3>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="flex items-center gap-3 rounded-lg bg-[hsl(var(--muted))] p-4">
-                  <Bike className="h-8 w-8 text-[hsl(var(--primary))]" />
-                  <div>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Сегодня</p>
-                    <p className="text-xl font-bold">{stats.todayDeliveries}</p>
+            {/* Vehicle info */}
+            {courier.vehicleType && (
+              <div>
+                <h3 className="mb-4 font-semibold">Транспорт</h3>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="flex items-center gap-3 rounded-lg bg-[hsl(var(--muted))] p-4">
+                    <VehicleIcon type={courier.vehicleType} />
+                    <div>
+                      <p className="text-sm text-[hsl(var(--muted-foreground))]">Тип</p>
+                      <p className="font-medium">{vehicleLabels[courier.vehicleType]}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3 rounded-lg bg-[hsl(var(--muted))] p-4">
-                  <Bike className="h-8 w-8 text-[hsl(var(--primary))]" />
-                  <div>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">За неделю</p>
-                    <p className="text-xl font-bold">{stats.weekDeliveries}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 rounded-lg bg-[hsl(var(--muted))] p-4">
-                  <Bike className="h-8 w-8 text-[hsl(var(--primary))]" />
-                  <div>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">За месяц</p>
-                    <p className="text-xl font-bold">{stats.monthDeliveries}</p>
-                  </div>
+                  {courier.vehicleNumber && (
+                    <div className="flex items-center gap-3 rounded-lg bg-[hsl(var(--muted))] p-4">
+                      <Car className="h-5 w-5" />
+                      <div>
+                        <p className="text-sm text-[hsl(var(--muted-foreground))]">Номер</p>
+                        <p className="font-medium">{courier.vehicleNumber}</p>
+                      </div>
+                    </div>
+                  )}
+                  {courier.licenseNumber && (
+                    <div className="flex items-center gap-3 rounded-lg bg-[hsl(var(--muted))] p-4">
+                      <User className="h-5 w-5" />
+                      <div>
+                        <p className="text-sm text-[hsl(var(--muted-foreground))]">Права</p>
+                        <p className="font-medium">{courier.licenseNumber}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
@@ -200,6 +258,10 @@ export function CourierDetailsPage() {
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">User ID</p>
                 <p className="font-medium">{courier.userId}</p>
               </div>
+              <div>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">Дата регистрации</p>
+                <p className="font-medium">{formatDateTime(courier.createdAt)}</p>
+              </div>
               <Link to={`/users/${courier.userId}`}>
                 <Button variant="outline" size="sm" className="w-full">
                   Перейти к профилю
@@ -217,7 +279,7 @@ export function CourierDetailsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {courier.verified ? (
+              {courier.isVerified ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-[hsl(var(--success))]">
                     <CheckCircle className="h-5 w-5" />
@@ -250,7 +312,7 @@ export function CourierDetailsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {courier.currentLocation ? (
+              {courier.currentLatitude && courier.currentLongitude ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-[hsl(var(--success))]">
                     <div className="h-2 w-2 rounded-full bg-[hsl(var(--success))] animate-pulse" />
@@ -259,9 +321,15 @@ export function CourierDetailsPage() {
                   <div className="rounded-lg bg-[hsl(var(--muted))] p-3">
                     <p className="text-xs text-[hsl(var(--muted-foreground))]">Координаты</p>
                     <p className="font-mono text-sm">
-                      {courier.currentLocation.lat.toFixed(4)}, {courier.currentLocation.lng.toFixed(4)}
+                      {courier.currentLatitude.toFixed(4)}, {courier.currentLongitude.toFixed(4)}
                     </p>
                   </div>
+                  {courier.lastLocationUpdate && (
+                    <div>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">Последнее обновление</p>
+                      <p className="text-sm">{formatDateTime(courier.lastLocationUpdate)}</p>
+                    </div>
+                  )}
                   <Link to="/couriers/map">
                     <Button variant="outline" size="sm" className="w-full">
                       Показать на карте
@@ -281,7 +349,7 @@ export function CourierDetailsPage() {
         isOpen={verifyModal}
         onClose={() => setVerifyModal(false)}
         title="Верификация курьера"
-        description={`Подтвердите верификацию курьера ${courier.userName}`}
+        description={`Подтвердите верификацию курьера ${courier.userName || `#${courier.id}`}`}
         size="sm"
       >
         <p className="text-sm">
@@ -291,8 +359,16 @@ export function CourierDetailsPage() {
           <Button variant="outline" onClick={() => setVerifyModal(false)}>
             Отмена
           </Button>
-          <Button variant="success" onClick={handleVerify}>
-            <CheckCircle className="mr-2 h-4 w-4" />
+          <Button
+            variant="success"
+            onClick={handleVerify}
+            disabled={verifyCourier.isPending}
+          >
+            {verifyCourier.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle className="mr-2 h-4 w-4" />
+            )}
             Верифицировать
           </Button>
         </ModalFooter>

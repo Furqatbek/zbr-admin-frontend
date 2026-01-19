@@ -57,21 +57,53 @@ export interface AuthTokens {
 }
 
 // Courier types
-export type CourierStatus = 'PENDING_APPROVAL' | 'AVAILABLE' | 'BUSY' | 'OFFLINE'
+export type CourierStatus = 'PENDING_APPROVAL' | 'AVAILABLE' | 'BUSY' | 'OFFLINE' | 'ON_BREAK' | 'SUSPENDED'
+
+export type VehicleType = 'WALKING' | 'BICYCLE' | 'E_BIKE' | 'MOTORCYCLE' | 'CAR' | 'VAN'
 
 export interface Courier {
   id: number
   userId: number
-  userName: string
+  userName?: string
+  vehicleType?: VehicleType
+  vehicleNumber?: string
+  licenseNumber?: string
   status: CourierStatus
-  verified: boolean
+  isVerified: boolean
   verifiedAt?: string
-  rating?: number
-  totalDeliveries?: number
+  rating: number
+  totalDeliveries: number
+  currentLatitude?: number
+  currentLongitude?: number
+  currentOrderCount?: number
+  maxConcurrentOrders?: number
+  preferredRadiusKm?: number
+  lastLocationUpdate?: string
+  createdAt: string
+  // Legacy fields for backward compatibility
+  verified?: boolean
   currentLocation?: {
     lat: number
     lng: number
   }
+}
+
+export interface CourierRegistrationRequest {
+  vehicleType: VehicleType
+  vehicleNumber?: string
+  licenseNumber?: string
+  preferredRadiusKm?: number
+}
+
+export interface AvailableCourier {
+  id: number
+  userId: number
+  vehicleType: VehicleType
+  status: CourierStatus
+  rating: number
+  currentLatitude: number
+  currentLongitude: number
+  distanceKm: number
 }
 
 // Restaurant types

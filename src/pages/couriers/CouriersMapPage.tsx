@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   MapPin,
   Navigation,
@@ -12,6 +13,7 @@ import {
   Layers,
   Phone,
   User,
+  Loader2,
 } from 'lucide-react'
 import {
   Card,
@@ -23,77 +25,26 @@ import {
   Badge,
   Input,
 } from '@/components/ui'
+import { useCouriers } from '@/hooks/useCouriers'
+import type { Courier, CourierStatus } from '@/types'
 
-// Mock courier data with locations
-const mockCouriers = [
-  {
-    id: 1,
-    name: 'Александр Петров',
-    phone: '+7 (999) 123-45-67',
-    status: 'DELIVERING' as const,
-    lat: 55.7558,
-    lng: 37.6173,
-    currentOrder: { id: 1045, restaurant: 'Пицца Хат', destination: 'ул. Ленина, 25' },
-    speed: 25,
-    battery: 85,
-  },
-  {
-    id: 2,
-    name: 'Мария Иванова',
-    phone: '+7 (999) 234-56-78',
-    status: 'AVAILABLE' as const,
-    lat: 55.7612,
-    lng: 37.6095,
-    currentOrder: null,
-    speed: 0,
-    battery: 92,
-  },
-  {
-    id: 3,
-    name: 'Дмитрий Сидоров',
-    phone: '+7 (999) 345-67-89',
-    status: 'DELIVERING' as const,
-    lat: 55.7489,
-    lng: 37.6251,
-    currentOrder: { id: 1048, restaurant: 'Суши Мастер', destination: 'пр. Мира, 10' },
-    speed: 18,
-    battery: 45,
-  },
-  {
-    id: 4,
-    name: 'Елена Козлова',
-    phone: '+7 (999) 456-78-90',
-    status: 'OFFLINE' as const,
-    lat: 55.7534,
-    lng: 37.6012,
-    currentOrder: null,
-    speed: 0,
-    battery: 23,
-  },
-  {
-    id: 5,
-    name: 'Иван Новиков',
-    phone: '+7 (999) 567-89-01',
-    status: 'AVAILABLE' as const,
-    lat: 55.7678,
-    lng: 37.6189,
-    currentOrder: null,
-    speed: 0,
-    battery: 78,
-  },
-]
-
-const statusLabels = {
+const statusLabels: Record<CourierStatus, string> = {
   AVAILABLE: 'Свободен',
-  DELIVERING: 'На доставке',
+  BUSY: 'На доставке',
   OFFLINE: 'Офлайн',
+  PENDING_APPROVAL: 'Ожидает проверки',
+  ON_BREAK: 'На перерыве',
+  SUSPENDED: 'Заблокирован',
 }
 
-const statusColors = {
+const statusColors: Record<CourierStatus, 'success' | 'warning' | 'secondary' | 'destructive' | 'default'> = {
   AVAILABLE: 'success',
-  DELIVERING: 'warning',
+  BUSY: 'warning',
   OFFLINE: 'secondary',
-} as const
+  PENDING_APPROVAL: 'warning',
+  ON_BREAK: 'secondary',
+  SUSPENDED: 'destructive',
+}
 
 export function CouriersMapPage() {
   const [statusFilter, setStatusFilter] = useState('')
@@ -101,24 +52,37 @@ export function CouriersMapPage() {
   const [selectedCourier, setSelectedCourier] = useState<number | null>(null)
   const [zoom, setZoom] = useState(12)
 
-  const filteredCouriers = mockCouriers.filter((courier) => {
-    const matchesStatus = !statusFilter || courier.status === statusFilter
+  // Fetch couriers from API - get those with location data
+  const { data, isLoading, refetch } = useCouriers({
+    size: 100,
+    status: statusFilter as CourierStatus || undefined,
+  })
+
+  const allCouriers = data?.data?.content || []
+
+  // Filter couriers that have location data
+  const couriersWithLocation = allCouriers.filter(
+    (c) => c.currentLatitude && c.currentLongitude
+  )
+
+  // Apply search filter
+  const filteredCouriers = couriersWithLocation.filter((courier) => {
     const matchesSearch =
       !searchQuery ||
-      courier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      courier.phone.includes(searchQuery)
-    return matchesStatus && matchesSearch
+      (courier.userName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      courier.id.toString().includes(searchQuery)
+    return matchesSearch
   })
 
   const stats = {
-    total: mockCouriers.length,
-    available: mockCouriers.filter((c) => c.status === 'AVAILABLE').length,
-    delivering: mockCouriers.filter((c) => c.status === 'DELIVERING').length,
-    offline: mockCouriers.filter((c) => c.status === 'OFFLINE').length,
+    total: allCouriers.length,
+    available: allCouriers.filter((c) => c.status === 'AVAILABLE').length,
+    busy: allCouriers.filter((c) => c.status === 'BUSY').length,
+    offline: allCouriers.filter((c) => c.status === 'OFFLINE').length,
   }
 
   const selectedCourierData = selectedCourier
-    ? mockCouriers.find((c) => c.id === selectedCourier)
+    ? filteredCouriers.find((c) => c.id === selectedCourier)
     : null
 
   return (
@@ -131,8 +95,8 @@ export function CouriersMapPage() {
             Отслеживание местоположения курьеров в реальном времени
           </p>
         </div>
-        <Button variant="outline">
-          <RefreshCw className="mr-2 h-4 w-4" />
+        <Button variant="outline" onClick={() => refetch()}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           Обновить
         </Button>
       </div>
@@ -173,7 +137,7 @@ export function CouriersMapPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">На доставке</p>
-                <p className="text-xl font-bold">{stats.delivering}</p>
+                <p className="text-xl font-bold">{stats.busy}</p>
               </div>
             </div>
           </CardContent>
@@ -216,7 +180,7 @@ export function CouriersMapPage() {
               >
                 <option value="">Все статусы</option>
                 <option value="AVAILABLE">Свободны</option>
-                <option value="DELIVERING">На доставке</option>
+                <option value="BUSY">На доставке</option>
                 <option value="OFFLINE">Офлайн</option>
               </Select>
             </CardContent>
@@ -225,43 +189,57 @@ export function CouriersMapPage() {
           {/* Courier List */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Курьеры ({filteredCouriers.length})</CardTitle>
+              <CardTitle className="text-base">
+                Курьеры на карте ({filteredCouriers.length})
+              </CardTitle>
             </CardHeader>
             <CardContent className="max-h-[400px] space-y-2 overflow-y-auto p-2">
-              {filteredCouriers.map((courier) => (
-                <button
-                  key={courier.id}
-                  onClick={() => setSelectedCourier(courier.id)}
-                  className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                    selectedCourier === courier.id
-                      ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
-                      : 'border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`h-2 w-2 rounded-full ${
-                          courier.status === 'AVAILABLE'
-                            ? 'bg-[hsl(var(--success))]'
-                            : courier.status === 'DELIVERING'
-                            ? 'bg-[hsl(var(--warning))]'
-                            : 'bg-[hsl(var(--muted-foreground))]'
-                        }`}
-                      />
-                      <span className="font-medium">{courier.name}</span>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--muted-foreground))]" />
+                </div>
+              ) : filteredCouriers.length === 0 ? (
+                <p className="py-4 text-center text-sm text-[hsl(var(--muted-foreground))]">
+                  Нет курьеров с активной геолокацией
+                </p>
+              ) : (
+                filteredCouriers.map((courier) => (
+                  <button
+                    key={courier.id}
+                    onClick={() => setSelectedCourier(courier.id)}
+                    className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                      selectedCourier === courier.id
+                        ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
+                        : 'border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`h-2 w-2 rounded-full ${
+                            courier.status === 'AVAILABLE'
+                              ? 'bg-[hsl(var(--success))]'
+                              : courier.status === 'BUSY'
+                              ? 'bg-[hsl(var(--warning))]'
+                              : 'bg-[hsl(var(--muted-foreground))]'
+                          }`}
+                        />
+                        <span className="font-medium">
+                          {courier.userName || `Курьер #${courier.id}`}
+                        </span>
+                      </div>
+                      <Badge variant={statusColors[courier.status]} className="text-xs">
+                        {statusLabels[courier.status]}
+                      </Badge>
                     </div>
-                    <Badge variant={statusColors[courier.status]} className="text-xs">
-                      {statusLabels[courier.status]}
-                    </Badge>
-                  </div>
-                  {courier.currentOrder && (
-                    <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))] truncate">
-                      Заказ #{courier.currentOrder.id} → {courier.currentOrder.destination}
-                    </p>
-                  )}
-                </button>
-              ))}
+                    {courier.currentOrderCount && courier.currentOrderCount > 0 && (
+                      <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                        Заказов: {courier.currentOrderCount}
+                      </p>
+                    )}
+                  </button>
+                ))
+              )}
             </CardContent>
           </Card>
         </div>
@@ -279,11 +257,11 @@ export function CouriersMapPage() {
                     Здесь будет интерактивная карта с Yandex Maps или Leaflet
                   </p>
                   <p className="mt-2 text-xs text-[hsl(var(--muted-foreground))]">
-                    Координаты центра: 55.7558, 37.6173 (Москва)
+                    Координаты центра: 41.2995, 69.2401 (Ташкент)
                   </p>
                 </div>
 
-                {/* Mock courier markers */}
+                {/* Courier markers */}
                 <div className="absolute inset-0 pointer-events-none">
                   {filteredCouriers.map((courier, idx) => (
                     <div
@@ -292,8 +270,8 @@ export function CouriersMapPage() {
                         selectedCourier === courier.id ? 'z-10' : ''
                       }`}
                       style={{
-                        left: `${20 + idx * 15}%`,
-                        top: `${30 + (idx % 3) * 20}%`,
+                        left: `${20 + idx * 12}%`,
+                        top: `${30 + (idx % 4) * 15}%`,
                       }}
                       onClick={() => setSelectedCourier(courier.id)}
                     >
@@ -301,7 +279,7 @@ export function CouriersMapPage() {
                         className={`flex h-8 w-8 items-center justify-center rounded-full border-2 shadow-lg ${
                           courier.status === 'AVAILABLE'
                             ? 'border-[hsl(var(--success))] bg-[hsl(var(--success))]/20'
-                            : courier.status === 'DELIVERING'
+                            : courier.status === 'BUSY'
                             ? 'border-[hsl(var(--warning))] bg-[hsl(var(--warning))]/20'
                             : 'border-[hsl(var(--muted-foreground))] bg-[hsl(var(--muted))]'
                         } ${selectedCourier === courier.id ? 'ring-2 ring-[hsl(var(--primary))]' : ''}`}
@@ -350,7 +328,9 @@ export function CouriersMapPage() {
                         <User className="h-5 w-5 text-[hsl(var(--primary))]" />
                       </div>
                       <div>
-                        <p className="font-medium">{selectedCourierData.name}</p>
+                        <p className="font-medium">
+                          {selectedCourierData.userName || `Курьер #${selectedCourierData.id}`}
+                        </p>
                         <Badge variant={statusColors[selectedCourierData.status]}>
                           {statusLabels[selectedCourierData.status]}
                         </Badge>
@@ -366,48 +346,43 @@ export function CouriersMapPage() {
 
                   <div className="mt-4 space-y-2 text-sm">
                     <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                      <span>{selectedCourierData.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
                       <MapPin className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
                       <span>
-                        {selectedCourierData.lat.toFixed(4)}, {selectedCourierData.lng.toFixed(4)}
+                        {selectedCourierData.currentLatitude?.toFixed(4)},{' '}
+                        {selectedCourierData.currentLongitude?.toFixed(4)}
                       </span>
                     </div>
-                    {selectedCourierData.speed > 0 && (
+                    {selectedCourierData.rating > 0 && (
                       <div className="flex items-center gap-2">
-                        <Navigation className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                        <span>{selectedCourierData.speed} км/ч</span>
+                        <span className="text-[hsl(var(--muted-foreground))]">Рейтинг:</span>
+                        <span className="font-medium">{selectedCourierData.rating.toFixed(1)}</span>
+                      </div>
+                    )}
+                    {selectedCourierData.totalDeliveries > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[hsl(var(--muted-foreground))]">Доставок:</span>
+                        <span className="font-medium">{selectedCourierData.totalDeliveries}</span>
                       </div>
                     )}
                   </div>
 
-                  {selectedCourierData.currentOrder && (
+                  {selectedCourierData.currentOrderCount && selectedCourierData.currentOrderCount > 0 && (
                     <div className="mt-4 rounded-lg bg-[hsl(var(--muted))]/50 p-3">
                       <p className="text-xs font-medium text-[hsl(var(--muted-foreground))]">
-                        Текущий заказ
+                        Текущие заказы
                       </p>
                       <p className="font-medium">
-                        #{selectedCourierData.currentOrder.id}
-                      </p>
-                      <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                        {selectedCourierData.currentOrder.restaurant}
-                      </p>
-                      <p className="text-sm">
-                        → {selectedCourierData.currentOrder.destination}
+                        {selectedCourierData.currentOrderCount} / {selectedCourierData.maxConcurrentOrders || 3}
                       </p>
                     </div>
                   )}
 
                   <div className="mt-4 flex gap-2">
-                    <Button size="sm" className="flex-1">
-                      <Phone className="mr-2 h-4 w-4" />
-                      Позвонить
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex-1">
-                      Профиль
-                    </Button>
+                    <Link to={`/couriers/${selectedCourierData.id}`} className="flex-1">
+                      <Button size="sm" className="w-full">
+                        Профиль
+                      </Button>
+                    </Link>
                   </div>
                 </div>
               )}
