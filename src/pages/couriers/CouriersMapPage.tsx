@@ -8,12 +8,10 @@ import {
   Clock,
   Filter,
   RefreshCw,
-  ZoomIn,
-  ZoomOut,
-  Layers,
-  Phone,
   User,
   Loader2,
+  Locate,
+  AlertCircle,
 } from 'lucide-react'
 import {
   Card,
@@ -24,7 +22,10 @@ import {
   Select,
   Badge,
   Input,
+  Map,
+  useGeolocation,
 } from '@/components/ui'
+import type { MapMarker } from '@/components/ui/Map'
 import { useOnlineCouriers, useCourierStatistics } from '@/hooks/useCouriers'
 import type { CourierStatus } from '@/types'
 
@@ -51,6 +52,10 @@ export function CouriersMapPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCourier, setSelectedCourier] = useState<number | null>(null)
   const [zoom, setZoom] = useState(12)
+  const [showUserLocation, setShowUserLocation] = useState(false)
+
+  // Geolocation hook
+  const { location: userLocation, error: geoError, loading: geoLoading, permissionState, requestLocation } = useGeolocation()
 
   // Fetch online couriers from API (couriers with location)
   const { data, isLoading, refetch } = useOnlineCouriers({
@@ -84,6 +89,50 @@ export function CouriersMapPage() {
     ? filteredCouriers.find((c) => c.id === selectedCourier)
     : null
 
+  // Convert couriers to map markers
+  const markers: MapMarker[] = filteredCouriers
+    .filter((c) => c.currentLatitude && c.currentLongitude)
+    .map((courier) => ({
+      id: courier.id,
+      lat: courier.currentLatitude!,
+      lng: courier.currentLongitude!,
+      status: courier.status === 'AVAILABLE' ? 'available' : courier.status === 'BUSY' ? 'busy' : 'offline',
+      popup: (
+        <div className="min-w-[200px]">
+          <div className="font-medium">{courier.userName || `Курьер #${courier.id}`}</div>
+          <div className="mt-1">
+            <Badge variant={statusColors[courier.status]} className="text-xs">
+              {statusLabels[courier.status]}
+            </Badge>
+          </div>
+          {courier.currentOrderCount && courier.currentOrderCount > 0 && (
+            <div className="mt-2 text-sm text-gray-600">
+              Заказов: {courier.currentOrderCount}
+            </div>
+          )}
+          <Link to={`/couriers/${courier.id}`}>
+            <Button size="sm" className="mt-2 w-full">
+              Подробнее
+            </Button>
+          </Link>
+        </div>
+      ),
+    }))
+
+  // Map center - use user location if available, otherwise Tashkent
+  const mapCenter: [number, number] = userLocation
+    ? [userLocation.lat, userLocation.lng]
+    : [41.2995, 69.2401]
+
+  const handleLocateMe = () => {
+    if (permissionState === 'denied') {
+      alert('Доступ к геолокации запрещен. Разрешите доступ в настройках браузера.')
+      return
+    }
+    requestLocation()
+    setShowUserLocation(true)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -94,11 +143,29 @@ export function CouriersMapPage() {
             Отслеживание местоположения курьеров в реальном времени
           </p>
         </div>
-        <Button variant="outline" onClick={() => refetch()}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          Обновить
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleLocateMe} disabled={geoLoading}>
+            {geoLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Locate className="mr-2 h-4 w-4" />
+            )}
+            Мое местоположение
+          </Button>
+          <Button variant="outline" onClick={() => refetch()}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Обновить
+          </Button>
+        </div>
       </div>
+
+      {/* Geolocation error */}
+      {geoError && (
+        <div className="flex items-center gap-2 rounded-lg border border-[hsl(var(--destructive))] bg-[hsl(var(--destructive))]/10 p-3 text-sm text-[hsl(var(--destructive))]">
+          <AlertCircle className="h-4 w-4" />
+          {geoError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -189,7 +256,7 @@ export function CouriersMapPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                Курьеры на карте ({filteredCouriers.length})
+                Курьеры на карте ({markers.length})
               </CardTitle>
             </CardHeader>
             <CardContent className="max-h-[400px] space-y-2 overflow-y-auto p-2">
@@ -197,47 +264,49 @@ export function CouriersMapPage() {
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--muted-foreground))]" />
                 </div>
-              ) : filteredCouriers.length === 0 ? (
+              ) : markers.length === 0 ? (
                 <p className="py-4 text-center text-sm text-[hsl(var(--muted-foreground))]">
                   Нет курьеров с активной геолокацией
                 </p>
               ) : (
-                filteredCouriers.map((courier) => (
-                  <button
-                    key={courier.id}
-                    onClick={() => setSelectedCourier(courier.id)}
-                    className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                      selectedCourier === courier.id
-                        ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
-                        : 'border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`h-2 w-2 rounded-full ${
-                            courier.status === 'AVAILABLE'
-                              ? 'bg-[hsl(var(--success))]'
-                              : courier.status === 'BUSY'
-                              ? 'bg-[hsl(var(--warning))]'
-                              : 'bg-[hsl(var(--muted-foreground))]'
-                          }`}
-                        />
-                        <span className="font-medium">
-                          {courier.userName || `Курьер #${courier.id}`}
-                        </span>
+                filteredCouriers
+                  .filter((c) => c.currentLatitude && c.currentLongitude)
+                  .map((courier) => (
+                    <button
+                      key={courier.id}
+                      onClick={() => setSelectedCourier(courier.id)}
+                      className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                        selectedCourier === courier.id
+                          ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
+                          : 'border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`h-2 w-2 rounded-full ${
+                              courier.status === 'AVAILABLE'
+                                ? 'bg-[hsl(var(--success))]'
+                                : courier.status === 'BUSY'
+                                ? 'bg-[hsl(var(--warning))]'
+                                : 'bg-[hsl(var(--muted-foreground))]'
+                            }`}
+                          />
+                          <span className="font-medium">
+                            {courier.userName || `Курьер #${courier.id}`}
+                          </span>
+                        </div>
+                        <Badge variant={statusColors[courier.status]} className="text-xs">
+                          {statusLabels[courier.status]}
+                        </Badge>
                       </div>
-                      <Badge variant={statusColors[courier.status]} className="text-xs">
-                        {statusLabels[courier.status]}
-                      </Badge>
-                    </div>
-                    {courier.currentOrderCount && courier.currentOrderCount > 0 && (
-                      <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-                        Заказов: {courier.currentOrderCount}
-                      </p>
-                    )}
-                  </button>
-                ))
+                      {courier.currentOrderCount && courier.currentOrderCount > 0 && (
+                        <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                          Заказов: {courier.currentOrderCount}
+                        </p>
+                      )}
+                    </button>
+                  ))
               )}
             </CardContent>
           </Card>
@@ -246,81 +315,25 @@ export function CouriersMapPage() {
         {/* Map Area */}
         <div className="lg:col-span-3">
           <Card className="h-full">
-            <CardContent className="relative h-[600px] p-0">
-              {/* Map Placeholder */}
-              <div className="flex h-full items-center justify-center bg-[hsl(var(--muted))]/30 rounded-lg">
-                <div className="text-center">
-                  <MapPin className="mx-auto h-16 w-16 text-[hsl(var(--muted-foreground))]" />
-                  <p className="mt-4 text-lg font-medium">Карта</p>
-                  <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                    Здесь будет интерактивная карта с Yandex Maps или Leaflet
-                  </p>
-                  <p className="mt-2 text-xs text-[hsl(var(--muted-foreground))]">
-                    Координаты центра: 41.2995, 69.2401 (Ташкент)
-                  </p>
-                </div>
-
-                {/* Courier markers */}
-                <div className="absolute inset-0 pointer-events-none">
-                  {filteredCouriers.map((courier, idx) => (
-                    <div
-                      key={courier.id}
-                      className={`absolute pointer-events-auto cursor-pointer ${
-                        selectedCourier === courier.id ? 'z-10' : ''
-                      }`}
-                      style={{
-                        left: `${20 + idx * 12}%`,
-                        top: `${30 + (idx % 4) * 15}%`,
-                      }}
-                      onClick={() => setSelectedCourier(courier.id)}
-                    >
-                      <div
-                        className={`flex h-8 w-8 items-center justify-center rounded-full border-2 shadow-lg ${
-                          courier.status === 'AVAILABLE'
-                            ? 'border-[hsl(var(--success))] bg-[hsl(var(--success))]/20'
-                            : courier.status === 'BUSY'
-                            ? 'border-[hsl(var(--warning))] bg-[hsl(var(--warning))]/20'
-                            : 'border-[hsl(var(--muted-foreground))] bg-[hsl(var(--muted))]'
-                        } ${selectedCourier === courier.id ? 'ring-2 ring-[hsl(var(--primary))]' : ''}`}
-                      >
-                        <Bike className="h-4 w-4" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Map Controls */}
-              <div className="absolute right-4 top-4 flex flex-col gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="bg-white"
-                  onClick={() => setZoom((z) => Math.min(z + 1, 18))}
-                >
-                  <ZoomIn className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="bg-white"
-                  onClick={() => setZoom((z) => Math.max(z - 1, 5))}
-                >
-                  <ZoomOut className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" className="bg-white">
-                  <Layers className="h-4 w-4" />
-                </Button>
-              </div>
+            <CardContent className="relative h-[600px] p-0 overflow-hidden rounded-lg">
+              <Map
+                center={mapCenter}
+                zoom={zoom}
+                markers={markers}
+                selectedMarkerId={selectedCourier}
+                onMarkerClick={(id) => setSelectedCourier(id as number)}
+                showUserLocation={showUserLocation}
+                onZoomChange={setZoom}
+              />
 
               {/* Zoom indicator */}
-              <div className="absolute bottom-4 left-4 rounded bg-white/90 px-2 py-1 text-xs shadow">
+              <div className="absolute bottom-4 left-4 z-[1000] rounded bg-white/90 px-2 py-1 text-xs shadow">
                 Масштаб: {zoom}x
               </div>
 
               {/* Selected Courier Panel */}
               {selectedCourierData && (
-                <div className="absolute bottom-4 right-4 w-72 rounded-lg border border-[hsl(var(--border))] bg-white p-4 shadow-lg">
+                <div className="absolute bottom-4 right-4 z-[1000] w-72 rounded-lg border border-[hsl(var(--border))] bg-white p-4 shadow-lg">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[hsl(var(--primary))]/10">
