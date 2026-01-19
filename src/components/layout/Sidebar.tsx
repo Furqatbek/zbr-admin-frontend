@@ -172,8 +172,9 @@ export function Sidebar() {
             icon={<Bell className="h-5 w-5" />}
             label="Уведомления"
             children={[
+              { to: '/notifications', label: 'Все уведомления' },
               { to: '/notifications/broadcast', label: 'Рассылка' },
-              { to: '/notifications/cleanup', label: 'Очистка' },
+              ...(isAdmin ? [{ to: '/notifications/cleanup', label: 'Очистка' }] : []),
             ]}
           />
 
