@@ -127,23 +127,158 @@ export interface CourierUpdateRequest {
 }
 
 // Restaurant types
-export type RestaurantStatus = 'PENDING' | 'APPROVED' | 'SUSPENDED' | 'REJECTED'
+export type RestaurantStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'CLOSED' | 'REJECTED'
 
 export interface Restaurant {
   id: number
-  name: string
-  description?: string
-  address: string
-  phone: string
-  email?: string
-  status: RestaurantStatus
-  isOpen: boolean
-  rating?: number
-  totalOrders?: number
   ownerId: number
   ownerName?: string
+  name: string
+  slug: string
+  description?: string
+  logoUrl?: string
+  coverImageUrl?: string
+  phone: string
+  email?: string
+  fullAddress: string
+  addressLine1?: string
+  addressLine2?: string
+  city?: string
+  state?: string
+  postalCode?: string
+  country?: string
+  latitude?: number
+  longitude?: number
+  status: RestaurantStatus
+  featured: boolean
+  acceptsDelivery: boolean
+  acceptsTakeaway: boolean
+  acceptsDineIn: boolean
+  minimumOrder?: number
+  deliveryFee?: number
+  deliveryRadiusKm?: number
+  averagePrepTimeMinutes?: number
+  opensAt?: string
+  closesAt?: string
+  isOpen: boolean
+  isCurrentlyOpen: boolean
+  averageRating?: number
+  totalRatings?: number
+  totalOrders?: number
   createdAt: string
-  updatedAt: string
+  updatedAt?: string
+}
+
+export interface CreateRestaurantRequest {
+  name: string
+  description?: string
+  phone: string
+  email?: string
+  addressLine1: string
+  addressLine2?: string
+  city: string
+  state?: string
+  postalCode?: string
+  country?: string
+  latitude?: number
+  longitude?: number
+  acceptsDelivery?: boolean
+  acceptsTakeaway?: boolean
+  acceptsDineIn?: boolean
+  minimumOrder?: number
+  deliveryFee?: number
+  deliveryRadiusKm?: number
+  averagePrepTimeMinutes?: number
+  opensAt?: string
+  closesAt?: string
+}
+
+export interface UpdateRestaurantRequest extends Partial<CreateRestaurantRequest> {}
+
+// Menu types
+export interface MenuCategory {
+  id: number
+  restaurantId: number
+  name: string
+  description?: string
+  imageUrl?: string
+  sortOrder: number
+  active: boolean
+  items?: MenuItem[]
+}
+
+export interface CreateMenuCategoryRequest {
+  name: string
+  description?: string
+  imageUrl?: string
+  sortOrder?: number
+}
+
+export interface MenuItem {
+  id: number
+  categoryId: number
+  categoryName?: string
+  name: string
+  description?: string
+  price: number
+  priceWithMargin?: number
+  originalPrice?: number
+  effectivePrice?: number
+  onSale?: boolean
+  discountPercentage?: number
+  imageUrl?: string
+  inStock: boolean
+  featured: boolean
+  prepTimeMinutes?: number
+  calories?: number
+  vegetarian?: boolean
+  vegan?: boolean
+  glutenFree?: boolean
+  spicy?: boolean
+  allergens?: string
+  sortOrder?: number
+  variants?: ItemVariant[]
+  options?: ItemOption[]
+}
+
+export interface ItemVariant {
+  id: number
+  name: string
+  priceDelta: number
+  totalPrice?: number
+  inStock: boolean
+  sortOrder?: number
+}
+
+export interface ItemOption {
+  id: number
+  groupName?: string
+  name: string
+  priceDelta: number
+  isDefault: boolean
+  maxSelections?: number
+  required: boolean
+  inStock: boolean
+}
+
+export interface CreateMenuItemRequest {
+  categoryId: number
+  name: string
+  description?: string
+  price: number
+  originalPrice?: number
+  imageUrl?: string
+  prepTimeMinutes?: number
+  calories?: number
+  vegetarian?: boolean
+  vegan?: boolean
+  glutenFree?: boolean
+  spicy?: boolean
+  allergens?: string
+  featured?: boolean
+  sortOrder?: number
+  variants?: Omit<ItemVariant, 'id' | 'totalPrice' | 'inStock'>[]
+  options?: Omit<ItemOption, 'id' | 'inStock'>[]
 }
 
 // Order types

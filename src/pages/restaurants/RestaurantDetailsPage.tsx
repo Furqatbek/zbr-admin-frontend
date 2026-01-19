@@ -11,6 +11,11 @@ import {
   Calendar,
   CheckCircle,
   Clock,
+  Loader2,
+  Truck,
+  ShoppingBag,
+  Utensils,
+  DollarSign,
 } from 'lucide-react'
 import {
   Card,
@@ -23,61 +28,75 @@ import {
   ModalFooter,
   Select,
 } from '@/components/ui'
-import { formatDateTime, formatNumber } from '@/lib/utils'
-import type { Restaurant, RestaurantStatus } from '@/types'
-
-// Mock restaurant data
-const mockRestaurant: Restaurant = {
-  id: 1,
-  name: 'Пицца Хат',
-  description: 'Итальянская пицца и паста. Доставка и самовывоз.',
-  address: 'ул. Пушкина, д. 15',
-  phone: '+7 495 123 45 67',
-  email: 'pizza@example.com',
-  status: 'APPROVED',
-  isOpen: true,
-  rating: 4.5,
-  totalOrders: 1250,
-  ownerId: 3,
-  ownerName: 'Дмитрий Сидоров',
-  createdAt: '2024-01-01T10:00:00Z',
-  updatedAt: '2024-01-15T10:00:00Z',
-}
-
-// Mock orders stats
-const mockStats = {
-  todayOrders: 25,
-  weekOrders: 156,
-  monthOrders: 580,
-  avgPrepTime: 22, // minutes
-  completionRate: 97.5,
-}
+import { formatDateTime, formatNumber, formatCurrency } from '@/lib/utils'
+import { useRestaurant, useUpdateRestaurantStatus, useToggleRestaurantOpen } from '@/hooks/useRestaurants'
+import type { RestaurantStatus } from '@/types'
 
 const statusLabels: Record<RestaurantStatus, string> = {
   PENDING: 'На модерации',
-  APPROVED: 'Одобрен',
+  ACTIVE: 'Активен',
   SUSPENDED: 'Приостановлен',
+  CLOSED: 'Закрыт',
   REJECTED: 'Отклонён',
 }
 
 const statusColors: Record<RestaurantStatus, 'default' | 'secondary' | 'destructive' | 'success' | 'warning'> = {
   PENDING: 'warning',
-  APPROVED: 'success',
+  ACTIVE: 'success',
   SUSPENDED: 'destructive',
+  CLOSED: 'secondary',
   REJECTED: 'secondary',
 }
 
 export function RestaurantDetailsPage() {
   const { id } = useParams()
-  const restaurant = mockRestaurant
-  const stats = mockStats
+  const restaurantId = parseInt(id || '0', 10)
+
+  const { data, isLoading, error, refetch } = useRestaurant(restaurantId)
+  const updateStatus = useUpdateRestaurantStatus()
+  const toggleOpen = useToggleRestaurantOpen()
+
+  const restaurant = data?.data
 
   const [statusModal, setStatusModal] = useState(false)
-  const [newStatus, setNewStatus] = useState<RestaurantStatus>(restaurant.status)
+  const [newStatus, setNewStatus] = useState<RestaurantStatus>('ACTIVE')
 
-  const handleStatusChange = () => {
-    console.log('Changing status:', id, newStatus)
-    setStatusModal(false)
+  const handleStatusChange = async () => {
+    if (restaurant) {
+      await updateStatus.mutateAsync({ id: restaurant.id, status: newStatus })
+      setStatusModal(false)
+      refetch()
+    }
+  }
+
+  const handleToggleOpen = async () => {
+    if (restaurant) {
+      await toggleOpen.mutateAsync({ id: restaurant.id, isOpen: !restaurant.isOpen })
+      refetch()
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
+      </div>
+    )
+  }
+
+  if (error || !restaurant) {
+    return (
+      <div className="py-12 text-center">
+        <Card className="mx-auto max-w-md">
+          <CardContent className="pt-6">
+            <p className="text-[hsl(var(--destructive))]">Ресторан не найден</p>
+            <Link to="/restaurants">
+              <Button className="mt-4">Вернуться к списку</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -100,12 +119,33 @@ export function RestaurantDetailsPage() {
             ) : (
               <Badge variant="secondary">Закрыт</Badge>
             )}
+            {restaurant.featured && (
+              <Badge variant="warning">Рекомендуемый</Badge>
+            )}
           </div>
           <p className="text-[hsl(var(--muted-foreground))]">ID: {id}</p>
         </div>
-        <Button variant="outline" onClick={() => setStatusModal(true)}>
-          Изменить статус
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleToggleOpen}
+            disabled={toggleOpen.isPending}
+          >
+            {toggleOpen.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : restaurant.isOpen ? (
+              'Закрыть ресторан'
+            ) : (
+              'Открыть ресторан'
+            )}
+          </Button>
+          <Button variant="outline" onClick={() => {
+            setNewStatus(restaurant.status)
+            setStatusModal(true)
+          }}>
+            Изменить статус
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -131,7 +171,7 @@ export function RestaurantDetailsPage() {
                 </div>
                 <div>
                   <p className="text-sm text-[hsl(var(--muted-foreground))]">Адрес</p>
-                  <p className="font-medium">{restaurant.address}</p>
+                  <p className="font-medium">{restaurant.fullAddress}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-lg border border-[hsl(var(--border))] p-4">
@@ -166,8 +206,13 @@ export function RestaurantDetailsPage() {
                     <span className="text-sm">Рейтинг</span>
                   </div>
                   <p className="mt-2 text-2xl font-bold">
-                    {restaurant.rating ? restaurant.rating.toFixed(1) : '—'}
+                    {restaurant.averageRating ? restaurant.averageRating.toFixed(1) : '—'}
                   </p>
+                  {restaurant.totalRatings && (
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                      {restaurant.totalRatings} оценок
+                    </p>
+                  )}
                 </div>
                 <div className="rounded-lg border border-[hsl(var(--border))] p-4">
                   <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
@@ -183,45 +228,78 @@ export function RestaurantDetailsPage() {
                     <Clock className="h-4 w-4" />
                     <span className="text-sm">Ср. приготовление</span>
                   </div>
-                  <p className="mt-2 text-2xl font-bold">{stats.avgPrepTime} мин</p>
+                  <p className="mt-2 text-2xl font-bold">
+                    {restaurant.averagePrepTimeMinutes || '—'} мин
+                  </p>
                 </div>
                 <div className="rounded-lg border border-[hsl(var(--border))] p-4">
                   <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
-                    <CheckCircle className="h-4 w-4" />
-                    <span className="text-sm">Выполнение</span>
+                    <DollarSign className="h-4 w-4" />
+                    <span className="text-sm">Мин. заказ</span>
                   </div>
-                  <p className="mt-2 text-2xl font-bold">{stats.completionRate}%</p>
+                  <p className="mt-2 text-2xl font-bold">
+                    {restaurant.minimumOrder ? formatCurrency(restaurant.minimumOrder) : '—'}
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Orders stats */}
+            {/* Service options */}
             <div>
-              <h3 className="mb-4 font-semibold">Заказы</h3>
+              <h3 className="mb-4 font-semibold">Опции обслуживания</h3>
               <div className="grid gap-4 sm:grid-cols-3">
-                <div className="flex items-center gap-3 rounded-lg bg-[hsl(var(--muted))] p-4">
-                  <Package className="h-8 w-8 text-[hsl(var(--primary))]" />
+                <div className={`flex items-center gap-3 rounded-lg p-4 ${restaurant.acceptsDelivery ? 'bg-[hsl(var(--success))]/10' : 'bg-[hsl(var(--muted))]'}`}>
+                  <Truck className={`h-6 w-6 ${restaurant.acceptsDelivery ? 'text-[hsl(var(--success))]' : 'text-[hsl(var(--muted-foreground))]'}`} />
                   <div>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Сегодня</p>
-                    <p className="text-xl font-bold">{stats.todayOrders}</p>
+                    <p className="font-medium">Доставка</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                      {restaurant.acceptsDelivery ? `До ${restaurant.deliveryRadiusKm || '—'} км` : 'Недоступна'}
+                    </p>
+                    {restaurant.deliveryFee !== undefined && restaurant.acceptsDelivery && (
+                      <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                        {formatCurrency(restaurant.deliveryFee)}
+                      </p>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3 rounded-lg bg-[hsl(var(--muted))] p-4">
-                  <Package className="h-8 w-8 text-[hsl(var(--primary))]" />
+                <div className={`flex items-center gap-3 rounded-lg p-4 ${restaurant.acceptsTakeaway ? 'bg-[hsl(var(--success))]/10' : 'bg-[hsl(var(--muted))]'}`}>
+                  <ShoppingBag className={`h-6 w-6 ${restaurant.acceptsTakeaway ? 'text-[hsl(var(--success))]' : 'text-[hsl(var(--muted-foreground))]'}`} />
                   <div>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">За неделю</p>
-                    <p className="text-xl font-bold">{stats.weekOrders}</p>
+                    <p className="font-medium">Самовывоз</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                      {restaurant.acceptsTakeaway ? 'Доступен' : 'Недоступен'}
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 rounded-lg bg-[hsl(var(--muted))] p-4">
-                  <Package className="h-8 w-8 text-[hsl(var(--primary))]" />
+                <div className={`flex items-center gap-3 rounded-lg p-4 ${restaurant.acceptsDineIn ? 'bg-[hsl(var(--success))]/10' : 'bg-[hsl(var(--muted))]'}`}>
+                  <Utensils className={`h-6 w-6 ${restaurant.acceptsDineIn ? 'text-[hsl(var(--success))]' : 'text-[hsl(var(--muted-foreground))]'}`} />
                   <div>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">За месяц</p>
-                    <p className="text-xl font-bold">{stats.monthOrders}</p>
+                    <p className="font-medium">В зале</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                      {restaurant.acceptsDineIn ? 'Доступно' : 'Недоступно'}
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* Working hours */}
+            {(restaurant.opensAt || restaurant.closesAt) && (
+              <div>
+                <h3 className="mb-4 font-semibold">Часы работы</h3>
+                <div className="flex items-center gap-3 rounded-lg border border-[hsl(var(--border))] p-4">
+                  <Clock className="h-5 w-5 text-[hsl(var(--primary))]" />
+                  <span className="font-medium">
+                    {restaurant.opensAt || '—'} — {restaurant.closesAt || '—'}
+                  </span>
+                  {restaurant.isCurrentlyOpen !== undefined && (
+                    <Badge variant={restaurant.isCurrentlyOpen ? 'success' : 'secondary'}>
+                      {restaurant.isCurrentlyOpen ? 'Сейчас работает' : 'Сейчас закрыт'}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -293,10 +371,12 @@ export function RestaurantDetailsPage() {
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Создан</p>
                 <p className="font-medium">{formatDateTime(restaurant.createdAt)}</p>
               </div>
-              <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">Обновлён</p>
-                <p className="font-medium">{formatDateTime(restaurant.updatedAt)}</p>
-              </div>
+              {restaurant.updatedAt && (
+                <div>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">Обновлён</p>
+                  <p className="font-medium">{formatDateTime(restaurant.updatedAt)}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -313,8 +393,9 @@ export function RestaurantDetailsPage() {
           <label className="mb-2 block text-sm font-medium">Новый статус</label>
           <Select value={newStatus} onChange={(e) => setNewStatus(e.target.value as RestaurantStatus)}>
             <option value="PENDING">На модерации</option>
-            <option value="APPROVED">Одобрен</option>
+            <option value="ACTIVE">Активен</option>
             <option value="SUSPENDED">Приостановлен</option>
+            <option value="CLOSED">Закрыт</option>
             <option value="REJECTED">Отклонён</option>
           </Select>
         </div>
@@ -322,7 +403,12 @@ export function RestaurantDetailsPage() {
           <Button variant="outline" onClick={() => setStatusModal(false)}>
             Отмена
           </Button>
-          <Button onClick={handleStatusChange}>Сохранить</Button>
+          <Button onClick={handleStatusChange} disabled={updateStatus.isPending}>
+            {updateStatus.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : null}
+            Сохранить
+          </Button>
         </ModalFooter>
       </Modal>
     </div>
