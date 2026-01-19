@@ -1,76 +1,241 @@
 import { api as apiClient } from './axios'
+import type {
+  ApiResponse,
+  Notification,
+  CreateNotificationRequest,
+  NotificationSearchRequest,
+  NotificationCounts,
+  NotificationRole,
+  NotificationCategory,
+  BulkActionRequest,
+  CleanupResponse,
+  BulkActionResponse,
+  MarkReadResponse,
+} from '@/types'
 
-export interface NotificationTemplate {
-  id: number
-  name: string
-  title: string
-  body: string
-  type: 'PUSH' | 'SMS' | 'EMAIL'
-  createdAt: string
-}
-
-export interface BroadcastRequest {
-  templateId?: number
-  title: string
-  body: string
-  type: 'PUSH' | 'SMS' | 'EMAIL'
-  targetAudience: 'ALL' | 'CUSTOMERS' | 'COURIERS' | 'RESTAURANTS' | 'CUSTOM'
-  userIds?: number[]
-  scheduledAt?: string
-}
-
-export interface BroadcastHistory {
-  id: number
-  title: string
-  body: string
-  type: 'PUSH' | 'SMS' | 'EMAIL'
-  targetAudience: string
-  recipientCount: number
-  sentAt: string
-  status: 'PENDING' | 'SENDING' | 'SENT' | 'FAILED'
-}
-
-export interface NotificationStats {
-  totalSent: number
-  totalPending: number
-  totalFailed: number
-  lastCleanup: string
-  oldNotificationsCount: number
+// Paginated response type for notifications
+interface NotificationPage {
+  content: Notification[]
+  page: number
+  pageSize: number
+  totalElements: number
+  totalPages: number
 }
 
 export const notificationsApi = {
-  getTemplates: async () => {
-    const response = await apiClient.get<NotificationTemplate[]>('/notifications/templates')
+  // ==================== CREATE ====================
+
+  /**
+   * Create a new notification
+   */
+  create: async (data: CreateNotificationRequest): Promise<ApiResponse<Notification>> => {
+    const response = await apiClient.post<ApiResponse<Notification>>('/notifications', data)
     return response.data
   },
 
-  createTemplate: async (template: Omit<NotificationTemplate, 'id' | 'createdAt'>) => {
-    const response = await apiClient.post<NotificationTemplate>('/notifications/templates', template)
+  // ==================== READ ====================
+
+  /**
+   * Get notification by ID
+   */
+  getById: async (id: number): Promise<ApiResponse<Notification>> => {
+    const response = await apiClient.get<ApiResponse<Notification>>(`/notifications/${id}`)
     return response.data
   },
 
-  broadcast: async (request: BroadcastRequest) => {
-    const response = await apiClient.post('/notifications/broadcast', request)
+  /**
+   * Get notifications with filters
+   */
+  getAll: async (params?: {
+    userId?: number
+    role?: NotificationRole
+    isRead?: boolean
+    category?: NotificationCategory
+    orderId?: number
+    createdFrom?: string
+    createdTo?: string
+    searchTerm?: string
+    includeDismissed?: boolean
+    page?: number
+    pageSize?: number
+    sortBy?: string
+    sortDirection?: 'ASC' | 'DESC'
+  }): Promise<ApiResponse<NotificationPage>> => {
+    const response = await apiClient.get<ApiResponse<NotificationPage>>('/notifications', { params })
     return response.data
   },
 
-  getBroadcastHistory: async (page = 0, size = 20) => {
-    const response = await apiClient.get<{ content: BroadcastHistory[]; totalElements: number }>(
-      '/notifications/broadcast/history',
-      { params: { page, size } }
+  /**
+   * Search notifications with advanced filters (POST)
+   */
+  search: async (request: NotificationSearchRequest): Promise<ApiResponse<NotificationPage>> => {
+    const response = await apiClient.post<ApiResponse<NotificationPage>>('/notifications/search', request)
+    return response.data
+  },
+
+  /**
+   * Get current user's notifications
+   */
+  getMyNotifications: async (params?: {
+    role?: NotificationRole
+    isRead?: boolean
+    category?: NotificationCategory
+    page?: number
+    pageSize?: number
+  }): Promise<ApiResponse<NotificationPage>> => {
+    const response = await apiClient.get<ApiResponse<NotificationPage>>('/notifications/me', { params })
+    return response.data
+  },
+
+  /**
+   * Get unread notifications for a user
+   */
+  getUnread: async (
+    userId: number,
+    params?: {
+      role?: NotificationRole
+      page?: number
+      pageSize?: number
+    }
+  ): Promise<ApiResponse<NotificationPage>> => {
+    const response = await apiClient.get<ApiResponse<NotificationPage>>(
+      `/notifications/user/${userId}/unread`,
+      { params }
     )
     return response.data
   },
 
-  getStats: async () => {
-    const response = await apiClient.get<NotificationStats>('/notifications/stats')
+  /**
+   * Get notification counts for a user
+   */
+  getCounts: async (userId: number): Promise<ApiResponse<NotificationCounts>> => {
+    const response = await apiClient.get<ApiResponse<NotificationCounts>>(
+      `/notifications/user/${userId}/counts`
+    )
     return response.data
   },
 
-  cleanup: async (olderThanDays: number) => {
-    const response = await apiClient.delete('/notifications/cleanup', {
-      params: { olderThanDays },
-    })
+  /**
+   * Get unread count only
+   */
+  getUnreadCount: async (
+    userId: number,
+    role?: NotificationRole
+  ): Promise<ApiResponse<{ unreadCount: number }>> => {
+    const response = await apiClient.get<ApiResponse<{ unreadCount: number }>>(
+      `/notifications/user/${userId}/unread-count`,
+      { params: role ? { role } : undefined }
+    )
+    return response.data
+  },
+
+  // ==================== UPDATE ====================
+
+  /**
+   * Mark notification as read
+   */
+  markAsRead: async (id: number): Promise<ApiResponse<Notification>> => {
+    const response = await apiClient.patch<ApiResponse<Notification>>(`/notifications/${id}/read`)
+    return response.data
+  },
+
+  /**
+   * Mark all notifications as read for a user
+   */
+  markAllAsRead: async (
+    userId: number,
+    role?: NotificationRole
+  ): Promise<ApiResponse<MarkReadResponse>> => {
+    const response = await apiClient.patch<ApiResponse<MarkReadResponse>>(
+      '/notifications/read-all',
+      null,
+      { params: { userId, ...(role && { role }) } }
+    )
+    return response.data
+  },
+
+  /**
+   * Mark batch of notifications as read
+   */
+  markBatchAsRead: async (ids: number[]): Promise<ApiResponse<MarkReadResponse>> => {
+    const response = await apiClient.patch<ApiResponse<MarkReadResponse>>(
+      '/notifications/read-batch',
+      ids
+    )
+    return response.data
+  },
+
+  /**
+   * Dismiss notification
+   */
+  dismiss: async (id: number): Promise<ApiResponse<Notification>> => {
+    const response = await apiClient.patch<ApiResponse<Notification>>(`/notifications/${id}/dismiss`)
+    return response.data
+  },
+
+  /**
+   * Bulk action on notifications
+   */
+  bulkAction: async (request: BulkActionRequest): Promise<ApiResponse<BulkActionResponse>> => {
+    const response = await apiClient.post<ApiResponse<BulkActionResponse>>(
+      '/notifications/bulk-action',
+      request
+    )
+    return response.data
+  },
+
+  // ==================== DELETE ====================
+
+  /**
+   * Delete notification
+   */
+  delete: async (id: number): Promise<void> => {
+    await apiClient.delete(`/notifications/${id}`)
+  },
+
+  /**
+   * Delete all notifications for a user
+   */
+  deleteAllForUser: async (userId: number): Promise<ApiResponse<{ deletedCount: number }>> => {
+    const response = await apiClient.delete<ApiResponse<{ deletedCount: number }>>(
+      `/notifications/user/${userId}`
+    )
+    return response.data
+  },
+
+  // ==================== ADMIN ====================
+
+  /**
+   * Cleanup expired notifications
+   */
+  cleanupExpired: async (): Promise<ApiResponse<CleanupResponse>> => {
+    const response = await apiClient.post<ApiResponse<CleanupResponse>>(
+      '/notifications/admin/cleanup/expired'
+    )
+    return response.data
+  },
+
+  /**
+   * Cleanup dismissed notifications
+   */
+  cleanupDismissed: async (daysOld = 7): Promise<ApiResponse<CleanupResponse>> => {
+    const response = await apiClient.post<ApiResponse<CleanupResponse>>(
+      '/notifications/admin/cleanup/dismissed',
+      null,
+      { params: { daysOld } }
+    )
+    return response.data
+  },
+
+  /**
+   * Cleanup old read notifications
+   */
+  cleanupRead: async (daysOld = 90): Promise<ApiResponse<CleanupResponse>> => {
+    const response = await apiClient.post<ApiResponse<CleanupResponse>>(
+      '/notifications/admin/cleanup/read',
+      null,
+      { params: { daysOld } }
+    )
     return response.data
   },
 }

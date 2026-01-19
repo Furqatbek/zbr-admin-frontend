@@ -166,8 +166,118 @@ export interface PerformanceData {
 }
 
 // Notification types
-export type NotificationPriority = 'LOW' | 'MEDIUM' | 'HIGH'
+export type NotificationCategory =
+  | 'ORDER'
+  | 'FINANCE'
+  | 'SUPPORT'
+  | 'SYSTEM'
+  | 'PROMOTION'
+  | 'ACCOUNT'
+  | 'DELIVERY'
+  | 'RESTAURANT_OPS'
+  | 'ALERT'
 
+export type NotificationRole =
+  | 'CUSTOMER'
+  | 'COURIER'
+  | 'RESTAURANT'
+  | 'ADMIN'
+  | 'SUPPORT'
+  | 'FINANCE'
+  | 'OPERATIONS'
+  | 'ALL'
+
+export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
+
+export type BulkAction = 'MARK_READ' | 'DISMISS' | 'DELETE'
+
+export type RelatedEntityType =
+  | 'ORDER'
+  | 'RESTAURANT'
+  | 'COURIER'
+  | 'CUSTOMER'
+  | 'SUPPORT_TICKET'
+  | 'PAYMENT'
+  | 'PAYOUT'
+
+export interface Notification {
+  id: number
+  userId?: number
+  role?: NotificationRole
+  category: NotificationCategory
+  title: string
+  message: string
+  icon?: string
+  actionUrl?: string
+  relatedEntityType?: RelatedEntityType
+  relatedEntityId?: number
+  orderId?: number
+  priority?: NotificationPriority
+  isRead: boolean
+  isDismissed: boolean
+  readAt?: string
+  createdAt: string
+  expiresAt?: string
+}
+
+export interface CreateNotificationRequest {
+  userId?: number
+  role?: NotificationRole
+  category: NotificationCategory
+  title: string
+  message: string
+  icon?: string
+  actionUrl?: string
+  relatedEntityType?: RelatedEntityType
+  relatedEntityId?: number
+  orderId?: number
+  priority?: NotificationPriority
+  expiresAt?: string
+}
+
+export interface NotificationSearchRequest {
+  userId?: number
+  role?: NotificationRole
+  isRead?: boolean
+  category?: NotificationCategory
+  orderId?: number
+  createdFrom?: string
+  createdTo?: string
+  searchTerm?: string
+  includeDismissed?: boolean
+  page?: number
+  pageSize?: number
+  sortBy?: string
+  sortDirection?: 'ASC' | 'DESC'
+}
+
+export interface NotificationCounts {
+  total: number
+  unread: number
+  byCategory: Record<NotificationCategory, number>
+}
+
+export interface BulkActionRequest {
+  notificationIds: number[]
+  action: BulkAction
+}
+
+export interface CleanupResponse {
+  status: string
+  deletedCount: number
+}
+
+export interface BulkActionResponse {
+  status: string
+  affectedCount: number
+}
+
+export interface MarkReadResponse {
+  status: string
+  markedCount: number
+}
+
+// Legacy - keeping for backward compatibility
 export interface BroadcastNotification {
   title: string
   message: string

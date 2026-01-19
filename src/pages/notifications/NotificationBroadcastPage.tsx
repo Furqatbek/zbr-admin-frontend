@@ -2,11 +2,18 @@ import { useState } from 'react'
 import {
   Send,
   Users,
-  Smartphone,
-  Mail,
-  MessageSquare,
+  Bell,
   Loader2,
-  History,
+  ShoppingBag,
+  Truck,
+  CreditCard,
+  AlertTriangle,
+  CheckCircle,
+  Info,
+  Headphones,
+  Tag,
+  User,
+  Settings,
 } from 'lucide-react'
 import {
   Card,
@@ -19,138 +26,120 @@ import {
   Select,
   Textarea,
   Label,
-  Badge,
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
   Modal,
   ModalFooter,
 } from '@/components/ui'
-import { formatDateTime, formatNumber } from '@/lib/utils'
+import { useCreateNotification } from '@/hooks/useNotifications'
+import type { NotificationCategory, NotificationRole, NotificationPriority } from '@/types'
 
-// Mock data
-const mockHistory = [
-  {
-    id: 1,
-    title: 'Новогодняя акция!',
-    body: 'Скидка 20% на все заказы до 31 декабря',
-    type: 'PUSH' as const,
-    targetAudience: 'Все пользователи',
-    recipientCount: 15420,
-    sentAt: '2024-01-14T10:00:00Z',
-    status: 'SENT' as const,
-  },
-  {
-    id: 2,
-    title: 'Обновление приложения',
-    body: 'Доступна новая версия с улучшениями',
-    type: 'PUSH' as const,
-    targetAudience: 'Клиенты',
-    recipientCount: 12350,
-    sentAt: '2024-01-13T14:30:00Z',
-    status: 'SENT' as const,
-  },
-  {
-    id: 3,
-    title: 'Бонус для курьеров',
-    body: 'Дополнительные 500₽ за 10 доставок',
-    type: 'SMS' as const,
-    targetAudience: 'Курьеры',
-    recipientCount: 234,
-    sentAt: '2024-01-12T09:00:00Z',
-    status: 'SENT' as const,
-  },
-  {
-    id: 4,
-    title: 'Тестовая рассылка',
-    body: 'Проверка системы уведомлений',
-    type: 'EMAIL' as const,
-    targetAudience: 'Тестовая группа',
-    recipientCount: 5,
-    sentAt: '2024-01-15T08:00:00Z',
-    status: 'PENDING' as const,
-  },
+const CATEGORY_OPTIONS: { value: NotificationCategory; label: string; icon: typeof Bell }[] = [
+  { value: 'ORDER', label: 'Заказы', icon: ShoppingBag },
+  { value: 'FINANCE', label: 'Финансы', icon: CreditCard },
+  { value: 'SUPPORT', label: 'Поддержка', icon: Headphones },
+  { value: 'SYSTEM', label: 'Система', icon: Settings },
+  { value: 'PROMOTION', label: 'Акции', icon: Tag },
+  { value: 'ACCOUNT', label: 'Аккаунт', icon: User },
+  { value: 'DELIVERY', label: 'Доставка', icon: Truck },
+  { value: 'RESTAURANT_OPS', label: 'Операции ресторанов', icon: Bell },
+  { value: 'ALERT', label: 'Алерты', icon: AlertTriangle },
 ]
 
-const typeLabels = {
-  PUSH: 'Push',
-  SMS: 'SMS',
-  EMAIL: 'Email',
-}
+const ROLE_OPTIONS: { value: NotificationRole; label: string; count: number }[] = [
+  { value: 'ALL', label: 'Все пользователи', count: 15654 },
+  { value: 'CUSTOMER', label: 'Клиенты', count: 12350 },
+  { value: 'COURIER', label: 'Курьеры', count: 234 },
+  { value: 'RESTAURANT', label: 'Рестораны', count: 87 },
+  { value: 'ADMIN', label: 'Администраторы', count: 5 },
+  { value: 'SUPPORT', label: 'Поддержка', count: 12 },
+  { value: 'FINANCE', label: 'Финансы', count: 3 },
+  { value: 'OPERATIONS', label: 'Операции', count: 8 },
+]
 
-const typeIcons = {
-  PUSH: Smartphone,
-  SMS: MessageSquare,
-  EMAIL: Mail,
-}
+const PRIORITY_OPTIONS: { value: NotificationPriority; label: string }[] = [
+  { value: 'LOW', label: 'Низкий' },
+  { value: 'NORMAL', label: 'Обычный' },
+  { value: 'HIGH', label: 'Высокий' },
+  { value: 'URGENT', label: 'Срочный' },
+]
 
-const statusLabels = {
-  PENDING: 'Ожидает',
-  SENDING: 'Отправка',
-  SENT: 'Отправлено',
-  FAILED: 'Ошибка',
-}
-
-const statusColors = {
-  PENDING: 'warning',
-  SENDING: 'default',
-  SENT: 'success',
-  FAILED: 'destructive',
-} as const
+const ICON_OPTIONS = [
+  { value: 'shopping-bag', label: 'Корзина', icon: ShoppingBag },
+  { value: 'truck', label: 'Доставка', icon: Truck },
+  { value: 'credit-card', label: 'Платёж', icon: CreditCard },
+  { value: 'alert-triangle', label: 'Предупреждение', icon: AlertTriangle },
+  { value: 'check-circle', label: 'Успех', icon: CheckCircle },
+  { value: 'info', label: 'Информация', icon: Info },
+  { value: 'headphones', label: 'Поддержка', icon: Headphones },
+  { value: 'tag', label: 'Акция', icon: Tag },
+  { value: 'user', label: 'Пользователь', icon: User },
+  { value: 'settings', label: 'Настройки', icon: Settings },
+]
 
 export function NotificationBroadcastPage() {
   const [formData, setFormData] = useState({
     title: '',
-    body: '',
-    type: 'PUSH' as 'PUSH' | 'SMS' | 'EMAIL',
-    targetAudience: 'ALL' as 'ALL' | 'CUSTOMERS' | 'COURIERS' | 'RESTAURANTS',
-    scheduledAt: '',
+    message: '',
+    category: 'SYSTEM' as NotificationCategory,
+    role: 'ALL' as NotificationRole,
+    priority: 'NORMAL' as NotificationPriority,
+    icon: 'info',
+    actionUrl: '',
+    expiresAt: '',
+    userId: '',
   })
+  const [targetType, setTargetType] = useState<'role' | 'user'>('role')
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
-  const [isSending, setIsSending] = useState(false)
 
-  const audienceLabels = {
-    ALL: 'Все пользователи',
-    CUSTOMERS: 'Клиенты',
-    COURIERS: 'Курьеры',
-    RESTAURANTS: 'Рестораны',
-  }
+  const createNotification = useCreateNotification()
 
-  const estimatedRecipients = {
-    ALL: 15654,
-    CUSTOMERS: 12350,
-    COURIERS: 234,
-    RESTAURANTS: 87,
-  }
+  const selectedRole = ROLE_OPTIONS.find((r) => r.value === formData.role)
+  const selectedCategory = CATEGORY_OPTIONS.find((c) => c.value === formData.category)
+  const selectedIcon = ICON_OPTIONS.find((i) => i.value === formData.icon)
 
-  const handleSend = () => {
-    setIsSending(true)
-    // Simulate API call
-    setTimeout(() => {
-      setIsSending(false)
+  const handleSend = async () => {
+    try {
+      await createNotification.mutateAsync({
+        title: formData.title,
+        message: formData.message,
+        category: formData.category,
+        ...(targetType === 'role'
+          ? { role: formData.role }
+          : { userId: parseInt(formData.userId, 10) }),
+        priority: formData.priority,
+        icon: formData.icon,
+        actionUrl: formData.actionUrl || undefined,
+        expiresAt: formData.expiresAt || undefined,
+      })
+
       setIsConfirmOpen(false)
       setFormData({
         title: '',
-        body: '',
-        type: 'PUSH',
-        targetAudience: 'ALL',
-        scheduledAt: '',
+        message: '',
+        category: 'SYSTEM',
+        role: 'ALL',
+        priority: 'NORMAL',
+        icon: 'info',
+        actionUrl: '',
+        expiresAt: '',
+        userId: '',
       })
-    }, 2000)
+    } catch (error) {
+      console.error('Failed to send notification:', error)
+    }
   }
 
-  const isFormValid = formData.title.trim() && formData.body.trim()
+  const isFormValid =
+    formData.title.trim() &&
+    formData.message.trim() &&
+    (targetType === 'role' || (targetType === 'user' && formData.userId))
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">Рассылка уведомлений</h1>
+        <h1 className="text-2xl font-bold">Создать уведомление</h1>
         <p className="text-[hsl(var(--muted-foreground))]">
-          Отправка массовых уведомлений пользователям
+          Отправка уведомлений пользователям или группам
         </p>
       </div>
 
@@ -166,39 +155,108 @@ export function NotificationBroadcastPage() {
               <CardDescription>Заполните форму для отправки уведомления</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Target Type */}
+              <div className="space-y-2">
+                <Label>Тип получателя</Label>
+                <div className="flex gap-2">
+                  <Button
+                    variant={targetType === 'role' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTargetType('role')}
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    По роли
+                  </Button>
+                  <Button
+                    variant={targetType === 'user' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTargetType('user')}
+                  >
+                    <User className="mr-2 h-4 w-4" />
+                    Конкретный пользователь
+                  </Button>
+                </div>
+              </div>
+
+              {/* Target Selection */}
+              {targetType === 'role' ? (
+                <div className="space-y-2">
+                  <Label htmlFor="role">Целевая роль</Label>
+                  <Select
+                    id="role"
+                    value={formData.role}
+                    onChange={(e) =>
+                      setFormData({ ...formData, role: e.target.value as NotificationRole })
+                    }
+                  >
+                    {ROLE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label} (~{opt.count})
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="userId">ID пользователя</Label>
+                  <Input
+                    id="userId"
+                    type="number"
+                    placeholder="Введите ID пользователя"
+                    value={formData.userId}
+                    onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
+                  />
+                </div>
+              )}
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="type">Тип уведомления</Label>
+                  <Label htmlFor="category">Категория</Label>
                   <Select
-                    id="type"
-                    value={formData.type}
+                    id="category"
+                    value={formData.category}
                     onChange={(e) =>
-                      setFormData({ ...formData, type: e.target.value as 'PUSH' | 'SMS' | 'EMAIL' })
+                      setFormData({ ...formData, category: e.target.value as NotificationCategory })
                     }
                   >
-                    <option value="PUSH">Push-уведомление</option>
-                    <option value="SMS">SMS</option>
-                    <option value="EMAIL">Email</option>
+                    {CATEGORY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="audience">Целевая аудитория</Label>
+                  <Label htmlFor="priority">Приоритет</Label>
                   <Select
-                    id="audience"
-                    value={formData.targetAudience}
+                    id="priority"
+                    value={formData.priority}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        targetAudience: e.target.value as 'ALL' | 'CUSTOMERS' | 'COURIERS' | 'RESTAURANTS',
-                      })
+                      setFormData({ ...formData, priority: e.target.value as NotificationPriority })
                     }
                   >
-                    <option value="ALL">Все пользователи</option>
-                    <option value="CUSTOMERS">Клиенты</option>
-                    <option value="COURIERS">Курьеры</option>
-                    <option value="RESTAURANTS">Рестораны</option>
+                    {PRIORITY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </Select>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="icon">Иконка</Label>
+                <Select
+                  id="icon"
+                  value={formData.icon}
+                  onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                >
+                  {ICON_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -216,28 +274,39 @@ export function NotificationBroadcastPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="body">Текст сообщения</Label>
+                <Label htmlFor="message">Текст сообщения</Label>
                 <Textarea
-                  id="body"
+                  id="message"
                   placeholder="Введите текст уведомления"
-                  value={formData.body}
-                  onChange={(e) => setFormData({ ...formData, body: e.target.value })}
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                   rows={4}
                   maxLength={500}
                 />
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                  {formData.body.length}/500 символов
+                  {formData.message.length}/500 символов
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="schedule">Запланировать (опционально)</Label>
-                <Input
-                  id="schedule"
-                  type="datetime-local"
-                  value={formData.scheduledAt}
-                  onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
-                />
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="actionUrl">URL действия (опционально)</Label>
+                  <Input
+                    id="actionUrl"
+                    placeholder="/orders/123"
+                    value={formData.actionUrl}
+                    onChange={(e) => setFormData({ ...formData, actionUrl: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="expiresAt">Срок действия (опционально)</Label>
+                  <Input
+                    id="expiresAt"
+                    type="datetime-local"
+                    value={formData.expiresAt}
+                    onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })}
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-4">
@@ -246,10 +315,14 @@ export function NotificationBroadcastPage() {
                   onClick={() =>
                     setFormData({
                       title: '',
-                      body: '',
-                      type: 'PUSH',
-                      targetAudience: 'ALL',
-                      scheduledAt: '',
+                      message: '',
+                      category: 'SYSTEM',
+                      role: 'ALL',
+                      priority: 'NORMAL',
+                      icon: 'info',
+                      actionUrl: '',
+                      expiresAt: '',
+                      userId: '',
                     })
                   }
                 >
@@ -257,7 +330,7 @@ export function NotificationBroadcastPage() {
                 </Button>
                 <Button disabled={!isFormValid} onClick={() => setIsConfirmOpen(true)}>
                   <Send className="mr-2 h-4 w-4" />
-                  {formData.scheduledAt ? 'Запланировать' : 'Отправить'}
+                  Отправить
                 </Button>
               </div>
             </CardContent>
@@ -272,14 +345,22 @@ export function NotificationBroadcastPage() {
             </CardHeader>
             <CardContent>
               <div className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 p-4">
-                {(() => {
-                  const Icon = typeIcons[formData.type]
-                  return <Icon className="mb-2 h-5 w-5 text-[hsl(var(--muted-foreground))]" />
-                })()}
-                <p className="font-medium">{formData.title || 'Заголовок уведомления'}</p>
-                <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                  {formData.body || 'Текст сообщения будет отображён здесь'}
-                </p>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[hsl(var(--primary))]/10">
+                    {selectedIcon && <selectedIcon.icon className="h-5 w-5 text-[hsl(var(--primary))]" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium">{formData.title || 'Заголовок уведомления'}</p>
+                    <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
+                      {formData.message || 'Текст сообщения будет отображён здесь'}
+                    </p>
+                    {formData.actionUrl && (
+                      <p className="mt-2 text-xs text-[hsl(var(--primary))]">
+                        Ссылка: {formData.actionUrl}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -293,70 +374,48 @@ export function NotificationBroadcastPage() {
             </CardHeader>
             <CardContent>
               <div className="text-center">
-                <p className="text-3xl font-bold">
-                  {formatNumber(estimatedRecipients[formData.targetAudience])}
-                </p>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                  {audienceLabels[formData.targetAudience]}
-                </p>
+                {targetType === 'role' ? (
+                  <>
+                    <p className="text-3xl font-bold">~{selectedRole?.count || 0}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                      {selectedRole?.label}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-3xl font-bold">{formData.userId ? '1' : '0'}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                      {formData.userId ? `Пользователь #${formData.userId}` : 'Укажите ID'}
+                    </p>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Информация</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-[hsl(var(--muted-foreground))]">Категория:</span>
+                <span className="font-medium">{selectedCategory?.label}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[hsl(var(--muted-foreground))]">Приоритет:</span>
+                <span className="font-medium">
+                  {PRIORITY_OPTIONS.find((p) => p.value === formData.priority)?.label}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[hsl(var(--muted-foreground))]">Иконка:</span>
+                <span className="font-medium">{selectedIcon?.label}</span>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-
-      {/* History */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
-            История рассылок
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Тип</TableHead>
-                <TableHead>Заголовок</TableHead>
-                <TableHead>Аудитория</TableHead>
-                <TableHead>Получатели</TableHead>
-                <TableHead>Дата</TableHead>
-                <TableHead>Статус</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockHistory.map((item) => {
-                const Icon = typeIcons[item.type]
-                return (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Icon className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                        {typeLabels[item.type]}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{item.title}</p>
-                        <p className="text-sm text-[hsl(var(--muted-foreground))] truncate max-w-xs">
-                          {item.body}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>{item.targetAudience}</TableCell>
-                    <TableCell>{formatNumber(item.recipientCount)}</TableCell>
-                    <TableCell>{formatDateTime(item.sentAt)}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusColors[item.status]}>{statusLabels[item.status]}</Badge>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
 
       {/* Confirmation Modal */}
       <Modal
@@ -369,23 +428,25 @@ export function NotificationBroadcastPage() {
           <div className="rounded-lg border border-[hsl(var(--border))] p-4">
             <div className="grid gap-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-[hsl(var(--muted-foreground))]">Тип:</span>
-                <span className="font-medium">{typeLabels[formData.type]}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[hsl(var(--muted-foreground))]">Аудитория:</span>
-                <span className="font-medium">{audienceLabels[formData.targetAudience]}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[hsl(var(--muted-foreground))]">Получатели:</span>
+                <span className="text-[hsl(var(--muted-foreground))]">Получатель:</span>
                 <span className="font-medium">
-                  {formatNumber(estimatedRecipients[formData.targetAudience])}
+                  {targetType === 'role' ? selectedRole?.label : `User #${formData.userId}`}
                 </span>
               </div>
-              {formData.scheduledAt && (
+              <div className="flex justify-between">
+                <span className="text-[hsl(var(--muted-foreground))]">Категория:</span>
+                <span className="font-medium">{selectedCategory?.label}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[hsl(var(--muted-foreground))]">Приоритет:</span>
+                <span className="font-medium">
+                  {PRIORITY_OPTIONS.find((p) => p.value === formData.priority)?.label}
+                </span>
+              </div>
+              {formData.expiresAt && (
                 <div className="flex justify-between">
-                  <span className="text-[hsl(var(--muted-foreground))]">Запланировано:</span>
-                  <span className="font-medium">{formData.scheduledAt}</span>
+                  <span className="text-[hsl(var(--muted-foreground))]">Срок действия:</span>
+                  <span className="font-medium">{formData.expiresAt}</span>
                 </div>
               )}
             </div>
@@ -393,16 +454,20 @@ export function NotificationBroadcastPage() {
 
           <div className="rounded-lg bg-[hsl(var(--muted))]/30 p-4">
             <p className="font-medium">{formData.title}</p>
-            <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{formData.body}</p>
+            <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{formData.message}</p>
           </div>
         </div>
 
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsConfirmOpen(false)} disabled={isSending}>
+          <Button
+            variant="outline"
+            onClick={() => setIsConfirmOpen(false)}
+            disabled={createNotification.isPending}
+          >
             Отмена
           </Button>
-          <Button onClick={handleSend} disabled={isSending}>
-            {isSending ? (
+          <Button onClick={handleSend} disabled={createNotification.isPending}>
+            {createNotification.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Отправка...

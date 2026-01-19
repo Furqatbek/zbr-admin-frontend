@@ -36,6 +36,7 @@ const CustomerExperienceAnalyticsPage = lazy(() => import('@/pages/analytics/Cus
 const FraudAnalyticsPage = lazy(() => import('@/pages/analytics/FraudAnalyticsPage').then(m => ({ default: m.FraudAnalyticsPage })))
 const TechnicalMetricsPage = lazy(() => import('@/pages/analytics/TechnicalMetricsPage').then(m => ({ default: m.TechnicalMetricsPage })))
 
+const NotificationsListPage = lazy(() => import('@/pages/notifications/NotificationsListPage').then(m => ({ default: m.NotificationsListPage })))
 const NotificationBroadcastPage = lazy(() => import('@/pages/notifications/NotificationBroadcastPage').then(m => ({ default: m.NotificationBroadcastPage })))
 const NotificationCleanupPage = lazy(() => import('@/pages/notifications/NotificationCleanupPage').then(m => ({ default: m.NotificationCleanupPage })))
 
@@ -159,12 +160,20 @@ export const router = createBrowserRouter([
       },
       // Notifications
       {
+        path: 'notifications',
+        element: <LazyPage><NotificationsListPage /></LazyPage>,
+      },
+      {
         path: 'notifications/broadcast',
         element: <LazyPage><NotificationBroadcastPage /></LazyPage>,
       },
       {
         path: 'notifications/cleanup',
-        element: <LazyPage><NotificationCleanupPage /></LazyPage>,
+        element: (
+          <AuthGuard requiredRoles={['ADMIN']}>
+            <LazyPage><NotificationCleanupPage /></LazyPage>
+          </AuthGuard>
+        ),
       },
       // Settings (Admin only)
       {

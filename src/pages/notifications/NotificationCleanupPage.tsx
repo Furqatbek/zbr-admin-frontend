@@ -4,10 +4,10 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle,
-  Database,
+  Eye,
   Calendar,
   Loader2,
-  History,
+  RefreshCw,
 } from 'lucide-react'
 import {
   Card,
@@ -16,81 +16,76 @@ import {
   CardTitle,
   CardDescription,
   Button,
-  Select,
-  Badge,
+  Input,
   Label,
   Modal,
   ModalFooter,
 } from '@/components/ui'
-import { formatNumber, formatDateTime } from '@/lib/utils'
+import { useCleanupExpired, useCleanupDismissed, useCleanupRead } from '@/hooks/useNotifications'
 
-// Mock data
-const mockStats = {
-  totalNotifications: 1250000,
-  lastCleanup: '2024-01-10T03:00:00Z',
-  oldNotifications: {
-    '7days': 45000,
-    '14days': 120000,
-    '30days': 350000,
-    '60days': 580000,
-    '90days': 780000,
-  },
-  storageUsed: 2.4, // GB
-  storageLimit: 10, // GB
-}
-
-const mockCleanupHistory = [
-  {
-    id: 1,
-    olderThan: 30,
-    deletedCount: 125000,
-    executedAt: '2024-01-10T03:00:00Z',
-    executedBy: 'Система (авто)',
-    status: 'success' as const,
-  },
-  {
-    id: 2,
-    olderThan: 30,
-    deletedCount: 98500,
-    executedAt: '2023-12-10T03:00:00Z',
-    executedBy: 'Система (авто)',
-    status: 'success' as const,
-  },
-  {
-    id: 3,
-    olderThan: 14,
-    deletedCount: 45200,
-    executedAt: '2023-12-01T15:30:00Z',
-    executedBy: 'Админ Иванов',
-    status: 'success' as const,
-  },
-  {
-    id: 4,
-    olderThan: 60,
-    deletedCount: 0,
-    executedAt: '2023-11-15T10:00:00Z',
-    executedBy: 'Админ Петров',
-    status: 'failed' as const,
-    error: 'Таймаут операции',
-  },
-]
+type CleanupType = 'expired' | 'dismissed' | 'read'
 
 export function NotificationCleanupPage() {
-  const [selectedDays, setSelectedDays] = useState('30')
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false)
-  const [isCleaning, setIsCleaning] = useState(false)
+  const [selectedCleanup, setSelectedCleanup] = useState<CleanupType | null>(null)
+  const [dismissedDays, setDismissedDays] = useState(7)
+  const [readDays, setReadDays] = useState(90)
+  const [lastResults, setLastResults] = useState<{ type: string; count: number }[]>([])
 
-  const handleCleanup = () => {
-    setIsCleaning(true)
-    // Simulate API call
-    setTimeout(() => {
-      setIsCleaning(false)
-      setIsConfirmOpen(false)
-    }, 3000)
+  const cleanupExpired = useCleanupExpired()
+  const cleanupDismissed = useCleanupDismissed()
+  const cleanupRead = useCleanupRead()
+
+  const isAnyLoading =
+    cleanupExpired.isPending || cleanupDismissed.isPending || cleanupRead.isPending
+
+  const handleCleanup = async () => {
+    if (!selectedCleanup) return
+
+    try {
+      switch (selectedCleanup) {
+        case 'expired': {
+          const result = await cleanupExpired.mutateAsync()
+          setLastResults((prev) => [
+            { type: 'Просроченные', count: result.data.deletedCount },
+            ...prev.slice(0, 4),
+          ])
+          break
+        }
+        case 'dismissed': {
+          const result = await cleanupDismissed.mutateAsync(dismissedDays)
+          setLastResults((prev) => [
+            { type: `Скрытые (>${dismissedDays} дней)`, count: result.data.deletedCount },
+            ...prev.slice(0, 4),
+          ])
+          break
+        }
+        case 'read': {
+          const result = await cleanupRead.mutateAsync(readDays)
+          setLastResults((prev) => [
+            { type: `Прочитанные (>${readDays} дней)`, count: result.data.deletedCount },
+            ...prev.slice(0, 4),
+          ])
+          break
+        }
+      }
+      setSelectedCleanup(null)
+    } catch (error) {
+      console.error('Cleanup failed:', error)
+    }
   }
 
-  const estimatedDeletion = mockStats.oldNotifications[`${selectedDays}days` as keyof typeof mockStats.oldNotifications] || 0
-  const storagePercentage = (mockStats.storageUsed / mockStats.storageLimit) * 100
+  const getCleanupTitle = () => {
+    switch (selectedCleanup) {
+      case 'expired':
+        return 'Удаление просроченных уведомлений'
+      case 'dismissed':
+        return `Удаление скрытых уведомлений старше ${dismissedDays} дней`
+      case 'read':
+        return `Удаление прочитанных уведомлений старше ${readDays} дней`
+      default:
+        return ''
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -98,238 +93,226 @@ export function NotificationCleanupPage() {
       <div>
         <h1 className="text-2xl font-bold">Очистка уведомлений</h1>
         <p className="text-[hsl(var(--muted-foreground))]">
-          Управление хранилищем уведомлений
+          Управление хранилищем уведомлений (Admin)
         </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--primary))]/10">
-                <Database className="h-6 w-6 text-[hsl(var(--primary))]" />
-              </div>
-              <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">Всего</p>
-                <p className="text-2xl font-bold">{formatNumber(mockStats.totalNotifications)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--warning))]/10">
-                <Clock className="h-6 w-6 text-[hsl(var(--warning))]" />
-              </div>
-              <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">Старше 30 дней</p>
-                <p className="text-2xl font-bold">{formatNumber(mockStats.oldNotifications['30days'])}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--success))]/10">
-                <CheckCircle className="h-6 w-6 text-[hsl(var(--success))]" />
-              </div>
-              <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">Последняя очистка</p>
-                <p className="text-lg font-bold">{formatDateTime(mockStats.lastCleanup)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-[hsl(var(--muted-foreground))]">Хранилище</span>
-                <span className="font-medium">{mockStats.storageUsed} / {mockStats.storageLimit} ГБ</span>
-              </div>
-              <div className="h-2 w-full rounded-full bg-[hsl(var(--muted))]">
-                <div
-                  className={`h-full rounded-full ${
-                    storagePercentage > 80
-                      ? 'bg-[hsl(var(--destructive))]'
-                      : storagePercentage > 60
-                      ? 'bg-[hsl(var(--warning))]'
-                      : 'bg-[hsl(var(--success))]'
-                  }`}
-                  style={{ width: `${storagePercentage}%` }}
-                />
-              </div>
-              <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                {storagePercentage.toFixed(1)}% использовано
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Cleanup Form */}
+      {/* Cleanup Actions */}
+      <div className="grid gap-6 md:grid-cols-3">
+        {/* Expired Cleanup */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Trash2 className="h-5 w-5" />
-              Очистка старых уведомлений
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Clock className="h-5 w-5 text-[hsl(var(--warning))]" />
+              Просроченные
             </CardTitle>
             <CardDescription>
-              Удаление уведомлений старше указанного периода
+              Удаление уведомлений с истёкшим сроком действия (expiresAt)
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label>Удалить уведомления старше</Label>
-              <Select value={selectedDays} onChange={(e) => setSelectedDays(e.target.value)}>
-                <option value="7">7 дней</option>
-                <option value="14">14 дней</option>
-                <option value="30">30 дней</option>
-                <option value="60">60 дней</option>
-                <option value="90">90 дней</option>
-              </Select>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg bg-[hsl(var(--muted))]/30 p-4 text-center">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Будут удалены все уведомления, срок действия которых истёк
+              </p>
             </div>
-
-            <div className="rounded-lg border border-[hsl(var(--warning))]/50 bg-[hsl(var(--warning))]/5 p-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-[hsl(var(--warning))] mt-0.5" />
-                <div>
-                  <p className="font-medium text-[hsl(var(--warning))]">
-                    Внимание
-                  </p>
-                  <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                    Будет удалено примерно <strong>{formatNumber(estimatedDeletion)}</strong> уведомлений.
-                    Это действие необратимо.
-                  </p>
-                </div>
-              </div>
-            </div>
-
             <Button
-              variant="destructive"
               className="w-full"
-              onClick={() => setIsConfirmOpen(true)}
+              variant="outline"
+              onClick={() => setSelectedCleanup('expired')}
+              disabled={isAnyLoading}
             >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Начать очистку
+              {cleanupExpired.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Очистить просроченные
             </Button>
           </CardContent>
         </Card>
 
-        {/* Distribution */}
+        {/* Dismissed Cleanup */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Распределение по возрасту
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Eye className="h-5 w-5 text-[hsl(var(--muted-foreground))]" />
+              Скрытые
             </CardTitle>
+            <CardDescription>
+              Удаление скрытых (dismissed) уведомлений старше указанного периода
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {Object.entries(mockStats.oldNotifications).map(([key, count]) => {
-                const days = key.replace('days', '')
-                const percentage = (count / mockStats.totalNotifications) * 100
-                return (
-                  <div key={key} className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span>Старше {days} дней</span>
-                      <span className="font-medium">{formatNumber(count)}</span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-[hsl(var(--muted))]">
-                      <div
-                        className="h-full rounded-full bg-[hsl(var(--primary))]"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                      {percentage.toFixed(1)}% от общего числа
-                    </p>
-                  </div>
-                )
-              })}
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="dismissedDays">Старше (дней)</Label>
+              <Input
+                id="dismissedDays"
+                type="number"
+                min={1}
+                max={365}
+                value={dismissedDays}
+                onChange={(e) => setDismissedDays(parseInt(e.target.value, 10) || 7)}
+              />
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                По умолчанию: 7 дней
+              </p>
             </div>
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={() => setSelectedCleanup('dismissed')}
+              disabled={isAnyLoading}
+            >
+              {cleanupDismissed.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Очистить скрытые
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Read Cleanup */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <CheckCircle className="h-5 w-5 text-[hsl(var(--success))]" />
+              Прочитанные
+            </CardTitle>
+            <CardDescription>
+              Удаление прочитанных уведомлений старше указанного периода
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="readDays">Старше (дней)</Label>
+              <Input
+                id="readDays"
+                type="number"
+                min={1}
+                max={365}
+                value={readDays}
+                onChange={(e) => setReadDays(parseInt(e.target.value, 10) || 90)}
+              />
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                По умолчанию: 90 дней
+              </p>
+            </div>
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={() => setSelectedCleanup('read')}
+              disabled={isAnyLoading}
+            >
+              {cleanupRead.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Очистить прочитанные
+            </Button>
           </CardContent>
         </Card>
       </div>
 
-      {/* History */}
+      {/* Cleanup Schedule Info */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
-            История очисток
+            <Calendar className="h-5 w-5" />
+            Расписание автоматической очистки
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {mockCleanupHistory.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between rounded-lg border border-[hsl(var(--border))] p-4"
-              >
-                <div className="flex items-center gap-4">
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                      item.status === 'success'
-                        ? 'bg-[hsl(var(--success))]/10'
-                        : 'bg-[hsl(var(--destructive))]/10'
-                    }`}
-                  >
-                    {item.status === 'success' ? (
-                      <CheckCircle className="h-5 w-5 text-[hsl(var(--success))]" />
-                    ) : (
-                      <AlertTriangle className="h-5 w-5 text-[hsl(var(--destructive))]" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-medium">
-                      Удалено уведомлений старше {item.olderThan} дней
-                    </p>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                      {formatDateTime(item.executedAt)} · {item.executedBy}
-                    </p>
-                    {item.error && (
-                      <p className="text-sm text-[hsl(var(--destructive))]">{item.error}</p>
-                    )}
-                  </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-lg border border-[hsl(var(--border))] p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[hsl(var(--warning))]/10">
+                  <Clock className="h-5 w-5 text-[hsl(var(--warning))]" />
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold">{formatNumber(item.deletedCount)}</p>
-                  <Badge variant={item.status === 'success' ? 'success' : 'destructive'}>
-                    {item.status === 'success' ? 'Успешно' : 'Ошибка'}
-                  </Badge>
+                <div>
+                  <p className="font-medium">Скрытые</p>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                    Каждые 7 дней
+                  </p>
                 </div>
               </div>
-            ))}
+            </div>
+            <div className="rounded-lg border border-[hsl(var(--border))] p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[hsl(var(--success))]/10">
+                  <CheckCircle className="h-5 w-5 text-[hsl(var(--success))]" />
+                </div>
+                <div>
+                  <p className="font-medium">Прочитанные</p>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                    Каждые 90 дней
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-lg border border-[hsl(var(--border))] p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[hsl(var(--muted))]/50">
+                  <RefreshCw className="h-5 w-5 text-[hsl(var(--muted-foreground))]" />
+                </div>
+                <div>
+                  <p className="font-medium">Непрочитанные</p>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                    Каждые 180 дней
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* Recent Results */}
+      {lastResults.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Результаты очистки</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {lastResults.map((result, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between rounded-lg border border-[hsl(var(--border))] p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-[hsl(var(--success))]" />
+                    <span>{result.type}</span>
+                  </div>
+                  <span className="font-bold">
+                    {result.count.toLocaleString()} удалено
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Confirmation Modal */}
       <Modal
-        isOpen={isConfirmOpen}
-        onClose={() => setIsConfirmOpen(false)}
+        isOpen={selectedCleanup !== null}
+        onClose={() => setSelectedCleanup(null)}
         title="Подтверждение очистки"
         description="Это действие необратимо"
       >
         <div className="space-y-4">
-          <div className="rounded-lg border border-[hsl(var(--destructive))]/30 bg-[hsl(var(--destructive))]/5 p-4">
+          <div className="rounded-lg border border-[hsl(var(--warning))]/50 bg-[hsl(var(--warning))]/5 p-4">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-[hsl(var(--destructive))] mt-0.5" />
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-[hsl(var(--warning))]" />
               <div>
-                <p className="font-medium">
-                  Вы уверены, что хотите удалить уведомления?
-                </p>
+                <p className="font-medium">{getCleanupTitle()}</p>
                 <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                  Будет удалено примерно <strong>{formatNumber(estimatedDeletion)}</strong> уведомлений
-                  старше <strong>{selectedDays} дней</strong>. Это действие нельзя отменить.
+                  Удалённые уведомления невозможно восстановить. Вы уверены, что хотите
+                  продолжить?
                 </p>
               </div>
             </div>
@@ -337,11 +320,15 @@ export function NotificationCleanupPage() {
         </div>
 
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsConfirmOpen(false)} disabled={isCleaning}>
+          <Button
+            variant="outline"
+            onClick={() => setSelectedCleanup(null)}
+            disabled={isAnyLoading}
+          >
             Отмена
           </Button>
-          <Button variant="destructive" onClick={handleCleanup} disabled={isCleaning}>
-            {isCleaning ? (
+          <Button variant="destructive" onClick={handleCleanup} disabled={isAnyLoading}>
+            {isAnyLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Удаление...
