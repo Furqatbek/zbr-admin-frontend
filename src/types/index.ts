@@ -291,7 +291,7 @@ export interface Notification {
 export interface CreateNotificationRequest {
   userId?: number
   role?: NotificationRole
-  type?: string
+  notificationType?: string
   category: NotificationCategory
   title: string
   message: string

@@ -80,7 +80,7 @@ export function NotificationBroadcastPage() {
       await createNotification.mutateAsync({
         title: formData.title,
         message: formData.message,
-        type: formData.type || undefined,
+        notificationType: formData.type || undefined,
         category: formData.category,
         ...(targetType === 'role' && formData.role
           ? { role: formData.role }
