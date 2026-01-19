@@ -283,40 +283,142 @@ export interface CreateMenuItemRequest {
 
 // Order types
 export type OrderStatus =
+  | 'CREATED'
   | 'PENDING'
   | 'CONFIRMED'
+  | 'ACCEPTED'
   | 'PREPARING'
+  | 'READY'
   | 'READY_FOR_PICKUP'
   | 'PICKED_UP'
+  | 'IN_TRANSIT'
   | 'DELIVERING'
   | 'DELIVERED'
+  | 'COMPLETED'
   | 'CANCELLED'
+  | 'REFUNDED'
+
+export type OrderType = 'DELIVERY' | 'TAKEAWAY' | 'PICKUP' | 'DINE_IN'
+
+export type PaymentStatus =
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'CONFIRMED'
+  | 'FAILED'
+  | 'REFUNDED'
+  | 'CANCELLED'
+
+export interface OrderItemModifier {
+  id: number
+  name: string
+  price: number
+}
 
 export interface OrderItem {
   id: number
+  menuItemId?: number
   name: string
+  itemName?: string
   quantity: number
   price: number
+  unitPrice?: number
+  totalPrice?: number
+  variantName?: string
+  variantPriceDelta?: number
+  modifiers?: OrderItemModifier[]
+  modifiersTotal?: number
+  specialInstructions?: string
 }
 
 export interface Order {
   id: number
+  externalOrderNo?: string
   consumerId: number
   consumerName: string
   restaurantId: number
   restaurantName: string
   courierId?: number
   courierName?: string
+  orderType?: OrderType
   status: OrderStatus
+  paymentStatus?: PaymentStatus
   items: OrderItem[]
   subtotal: number
+  tax?: number
   deliveryFee: number
+  discount?: number
+  tipAmount?: number
   total: number
   deliveryAddress: string
+  deliveryLatitude?: number
+  deliveryLongitude?: number
+  deliveryInstructions?: string
+  tableId?: string
+  customerName?: string
+  customerPhone?: string
   notes?: string
+  cancellationReason?: string
+  estimatedPrepTimeMinutes?: number
+  estimatedDeliveryTime?: string
   createdAt: string
   updatedAt: string
-  estimatedDeliveryTime?: string
+  acceptedAt?: string
+  readyAt?: string
+  deliveredAt?: string
+}
+
+// Order creation types
+export interface CreateOrderItemRequest {
+  menuItemId: number
+  quantity: number
+  variantId?: number
+  optionIds?: number[]
+  specialInstructions?: string
+}
+
+export interface CreateOrderRequest {
+  restaurantId: number
+  orderType: OrderType
+  items: CreateOrderItemRequest[]
+  deliveryAddress?: string
+  deliveryLatitude?: number
+  deliveryLongitude?: number
+  deliveryInstructions?: string
+  tableId?: string
+  customerName?: string
+  customerPhone?: string
+  notes?: string
+  tipAmount?: number
+  discountCode?: string
+}
+
+// Payment types
+export interface Payment {
+  id: number
+  orderId: number
+  provider: string
+  providerPaymentId?: string
+  paymentIntentId?: string
+  clientSecret?: string
+  paymentMethod: string
+  amount: number
+  currency: string
+  status: PaymentStatus
+  refundAmount?: number
+  createdAt: string
+  confirmedAt?: string
+  refundedAt?: string
+}
+
+export interface CreatePaymentRequest {
+  paymentMethod: string
+  returnUrl?: string
+  metadata?: string
+}
+
+export interface CancelOrderRequest {
+  reason: string
+  requestRefund?: boolean
 }
 
 // Dashboard types

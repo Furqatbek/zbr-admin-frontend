@@ -34,29 +34,44 @@ import {
 } from '@/components/ui'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
 import type { Order, OrderStatus } from '@/types'
-import { useOrders, useUpdateOrderStatus } from '@/hooks'
+import { useOrders, useCancelOrder } from '@/hooks'
 
 const statusLabels: Record<OrderStatus, string> = {
+  CREATED: 'Создан',
   PENDING: 'Ожидает',
   CONFIRMED: 'Подтверждён',
+  ACCEPTED: 'Принят',
   PREPARING: 'Готовится',
+  READY: 'Готов',
   READY_FOR_PICKUP: 'Готов к выдаче',
   PICKED_UP: 'Забран',
+  IN_TRANSIT: 'В пути',
   DELIVERING: 'Доставляется',
   DELIVERED: 'Доставлен',
+  COMPLETED: 'Завершён',
   CANCELLED: 'Отменён',
+  REFUNDED: 'Возврат',
 }
 
 const statusColors: Record<OrderStatus, 'default' | 'secondary' | 'destructive' | 'success' | 'warning'> = {
+  CREATED: 'secondary',
   PENDING: 'secondary',
   CONFIRMED: 'default',
+  ACCEPTED: 'default',
   PREPARING: 'warning',
+  READY: 'warning',
   READY_FOR_PICKUP: 'warning',
   PICKED_UP: 'default',
+  IN_TRANSIT: 'default',
   DELIVERING: 'default',
   DELIVERED: 'success',
+  COMPLETED: 'success',
   CANCELLED: 'destructive',
+  REFUNDED: 'destructive',
 }
+
+// Orders that can be cancelled according to API
+const cancellableStatuses: OrderStatus[] = ['CREATED', 'ACCEPTED', 'PREPARING', 'READY']
 
 export function OrdersPage() {
   // Filters state
@@ -85,7 +100,7 @@ export function OrdersPage() {
     dateTo: dateTo || undefined,
   })
 
-  const updateStatusMutation = useUpdateOrderStatus()
+  const cancelOrderMutation = useCancelOrder()
 
   const orders = ordersData?.data?.content ?? []
   const totalItems = ordersData?.data?.totalElements ?? 0
@@ -97,6 +112,7 @@ export function OrdersPage() {
     const searchLower = search.toLowerCase()
     return (
       order.id.toString().includes(search) ||
+      (order.externalOrderNo?.toLowerCase().includes(searchLower)) ||
       order.consumerName.toLowerCase().includes(searchLower) ||
       order.restaurantName.toLowerCase().includes(searchLower) ||
       order.courierName?.toLowerCase().includes(searchLower)
@@ -105,10 +121,10 @@ export function OrdersPage() {
 
   const handleCancel = () => {
     if (cancelModal.order) {
-      updateStatusMutation.mutate(
+      cancelOrderMutation.mutate(
         {
           id: cancelModal.order.id,
-          data: { status: 'CANCELLED', reason: cancelReason },
+          data: { reason: cancelReason, requestRefund: true },
         },
         {
           onSuccess: () => {
@@ -163,14 +179,16 @@ export function OrdersPage() {
               }}
             >
               <option value="">Все статусы</option>
-              <option value="PENDING">Ожидает</option>
-              <option value="CONFIRMED">Подтверждён</option>
+              <option value="CREATED">Создан</option>
+              <option value="ACCEPTED">Принят</option>
               <option value="PREPARING">Готовится</option>
-              <option value="READY_FOR_PICKUP">Готов к выдаче</option>
+              <option value="READY">Готов</option>
               <option value="PICKED_UP">Забран</option>
-              <option value="DELIVERING">Доставляется</option>
+              <option value="IN_TRANSIT">В пути</option>
               <option value="DELIVERED">Доставлен</option>
+              <option value="COMPLETED">Завершён</option>
               <option value="CANCELLED">Отменён</option>
+              <option value="REFUNDED">Возврат</option>
             </Select>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" />
@@ -240,7 +258,9 @@ export function OrdersPage() {
               <TableBody>
                 {filteredOrders.map((order) => (
                   <TableRow key={order.id}>
-                    <TableCell className="font-medium">#{order.id}</TableCell>
+                    <TableCell className="font-medium">
+                      {order.externalOrderNo || `#${order.id}`}
+                    </TableCell>
                     <TableCell>
                       <div>
                         <div className="font-medium">{order.consumerName}</div>
@@ -280,7 +300,7 @@ export function OrdersPage() {
                             Просмотр
                           </DropdownItem>
                         </Link>
-                        {order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && (
+                        {cancellableStatuses.includes(order.status) && (
                           <DropdownItem
                             variant="destructive"
                             onClick={() => setCancelModal({ isOpen: true, order })}
@@ -342,9 +362,9 @@ export function OrdersPage() {
           <Button
             variant="destructive"
             onClick={handleCancel}
-            disabled={updateStatusMutation.isPending}
+            disabled={cancelOrderMutation.isPending}
           >
-            {updateStatusMutation.isPending ? (
+            {cancelOrderMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Отмена...
