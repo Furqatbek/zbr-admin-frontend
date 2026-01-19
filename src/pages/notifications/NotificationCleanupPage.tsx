@@ -38,6 +38,23 @@ export function NotificationCleanupPage() {
   const isAnyLoading =
     cleanupExpired.isPending || cleanupDismissed.isPending || cleanupRead.isPending
 
+  const getDeletedCount = (result: unknown): number => {
+    // Handle both ApiResponse wrapper and direct response formats
+    if (typeof result === 'object' && result !== null) {
+      const res = result as Record<string, unknown>
+      if (typeof res.deletedCount === 'number') {
+        return res.deletedCount
+      }
+      if (res.data && typeof res.data === 'object') {
+        const data = res.data as Record<string, unknown>
+        if (typeof data.deletedCount === 'number') {
+          return data.deletedCount
+        }
+      }
+    }
+    return 0
+  }
+
   const handleCleanup = async () => {
     if (!selectedCleanup) return
 
@@ -46,7 +63,7 @@ export function NotificationCleanupPage() {
         case 'expired': {
           const result = await cleanupExpired.mutateAsync()
           setLastResults((prev) => [
-            { type: 'Просроченные', count: result.data.deletedCount },
+            { type: 'Просроченные', count: getDeletedCount(result) },
             ...prev.slice(0, 4),
           ])
           break
@@ -54,7 +71,7 @@ export function NotificationCleanupPage() {
         case 'dismissed': {
           const result = await cleanupDismissed.mutateAsync(dismissedDays)
           setLastResults((prev) => [
-            { type: `Скрытые (>${dismissedDays} дней)`, count: result.data.deletedCount },
+            { type: `Скрытые (>${dismissedDays} дней)`, count: getDeletedCount(result) },
             ...prev.slice(0, 4),
           ])
           break
@@ -62,7 +79,7 @@ export function NotificationCleanupPage() {
         case 'read': {
           const result = await cleanupRead.mutateAsync(readDays)
           setLastResults((prev) => [
-            { type: `Прочитанные (>${readDays} дней)`, count: result.data.deletedCount },
+            { type: `Прочитанные (>${readDays} дней)`, count: getDeletedCount(result) },
             ...prev.slice(0, 4),
           ])
           break
