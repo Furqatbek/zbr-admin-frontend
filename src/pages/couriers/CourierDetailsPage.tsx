@@ -142,6 +142,9 @@ export function CourierDetailsPage() {
     )
   }
 
+  // Handle both isVerified and verified fields (API returns 'verified')
+  const isVerified = courier.isVerified || courier.verified
+
   return (
     <div className="space-y-6">
       {/* Back button and header */}
@@ -156,7 +159,7 @@ export function CourierDetailsPage() {
           <p className="text-[hsl(var(--muted-foreground))]">ID: {id}</p>
         </div>
         <div className="flex gap-2">
-          {!courier.isVerified && (
+          {!isVerified && (
             <Button variant="success" onClick={() => setVerifyModal(true)}>
               <CheckCircle className="mr-2 h-4 w-4" />
               Верифицировать
@@ -192,7 +195,7 @@ export function CourierDetailsPage() {
                   <Badge variant={statusColors[courier.status]}>
                     {statusLabels[courier.status]}
                   </Badge>
-                  {courier.isVerified && (
+                  {isVerified && (
                     <Badge variant="success" className="flex items-center gap-1">
                       <CheckCircle className="h-3 w-3" />
                       Верифицирован
@@ -314,7 +317,7 @@ export function CourierDetailsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {courier.isVerified ? (
+              {isVerified ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-[hsl(var(--success))]">
                     <CheckCircle className="h-5 w-5" />

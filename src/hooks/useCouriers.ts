@@ -134,8 +134,9 @@ export function useVerifyCourier() {
 
   return useMutation({
     mutationFn: (courierId: number) => couriersApi.verify(courierId),
-    onSuccess: () => {
+    onSuccess: (_, courierId) => {
       queryClient.invalidateQueries({ queryKey: courierKeys.all })
+      queryClient.invalidateQueries({ queryKey: courierKeys.detail(courierId) })
     },
   })
 }
@@ -146,8 +147,9 @@ export function useRejectCourier() {
 
   return useMutation({
     mutationFn: (courierId: number) => couriersApi.reject(courierId),
-    onSuccess: () => {
+    onSuccess: (_, courierId) => {
       queryClient.invalidateQueries({ queryKey: courierKeys.all })
+      queryClient.invalidateQueries({ queryKey: courierKeys.detail(courierId) })
     },
   })
 }
@@ -158,8 +160,9 @@ export function useSuspendCourier() {
 
   return useMutation({
     mutationFn: (courierId: number) => couriersApi.suspend(courierId),
-    onSuccess: () => {
+    onSuccess: (_, courierId) => {
       queryClient.invalidateQueries({ queryKey: courierKeys.all })
+      queryClient.invalidateQueries({ queryKey: courierKeys.detail(courierId) })
     },
   })
 }
@@ -170,8 +173,9 @@ export function useActivateCourier() {
 
   return useMutation({
     mutationFn: (courierId: number) => couriersApi.activate(courierId),
-    onSuccess: () => {
+    onSuccess: (_, courierId) => {
       queryClient.invalidateQueries({ queryKey: courierKeys.all })
+      queryClient.invalidateQueries({ queryKey: courierKeys.detail(courierId) })
     },
   })
 }
