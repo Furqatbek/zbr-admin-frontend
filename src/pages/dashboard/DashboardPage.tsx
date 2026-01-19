@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Package,
   DollarSign,
@@ -9,10 +10,13 @@ import {
   RefreshCw,
   Loader2,
   Activity,
+  ShoppingCart,
+  BarChart3,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from '@/components/ui'
+import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Select } from '@/components/ui'
 import { formatCurrency, formatNumber, formatDateTime } from '@/lib/utils'
 import { useDashboardOverview, useDashboardStuckOrders, useRefreshAllCaches } from '@/hooks/useDashboard'
+import { useOrderAnalytics } from '@/hooks/usePlatform'
 import type { TrendDirection, StuckOrderPriority } from '@/types'
 
 interface StatCardProps {
@@ -98,12 +102,16 @@ function getPriorityBadge(priority: StuckOrderPriority) {
 }
 
 export function DashboardPage() {
+  const [analyticsDays, setAnalyticsDays] = useState(7)
+
   const { data: overviewData, isLoading: overviewLoading, refetch: refetchOverview } = useDashboardOverview()
   const { data: stuckOrdersData, isLoading: stuckOrdersLoading, refetch: refetchStuckOrders } = useDashboardStuckOrders()
+  const { data: orderAnalyticsData, isLoading: analyticsLoading, refetch: refetchAnalytics } = useOrderAnalytics(analyticsDays)
   const refreshCaches = useRefreshAllCaches()
 
   const overview = overviewData?.data
   const stuckOrders = stuckOrdersData?.data?.orders || []
+  const orderAnalytics = orderAnalyticsData?.data
 
   const statusLabels: Record<string, string> = {
     PENDING: 'Ожидает',
@@ -122,6 +130,7 @@ export function DashboardPage() {
     await refreshCaches.mutateAsync()
     refetchOverview()
     refetchStuckOrders()
+    refetchAnalytics()
   }
 
   const systemStatusBadge = () => {
@@ -215,6 +224,73 @@ export function DashboardPage() {
           isLoading={overviewLoading}
         />
       </div>
+
+      {/* Order Analytics (GMV) */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-[hsl(var(--primary))]" />
+            <CardTitle>Аналитика заказов</CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-[hsl(var(--muted-foreground))]">Период:</label>
+            <Select
+              value={analyticsDays.toString()}
+              onChange={(e) => setAnalyticsDays(parseInt(e.target.value))}
+              className="w-[120px]"
+            >
+              <option value="7">7 дней</option>
+              <option value="14">14 дней</option>
+              <option value="30">30 дней</option>
+              <option value="90">90 дней</option>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {analyticsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--muted-foreground))]" />
+            </div>
+          ) : orderAnalytics ? (
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-lg border border-[hsl(var(--border))] p-4">
+                <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
+                  <DollarSign className="h-4 w-4" />
+                  <span className="text-sm">GMV (Общий объём продаж)</span>
+                </div>
+                <p className="mt-2 text-2xl font-bold">{formatCurrency(orderAnalytics.gmv)}</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                  За {orderAnalytics.periodDays} дней
+                </p>
+              </div>
+              <div className="rounded-lg border border-[hsl(var(--border))] p-4">
+                <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
+                  <ShoppingCart className="h-4 w-4" />
+                  <span className="text-sm">Всего заказов</span>
+                </div>
+                <p className="mt-2 text-2xl font-bold">{formatNumber(orderAnalytics.totalOrders)}</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                  Завершённых заказов
+                </p>
+              </div>
+              <div className="rounded-lg border border-[hsl(var(--border))] p-4">
+                <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
+                  <TrendingUp className="h-4 w-4" />
+                  <span className="text-sm">Средний чек</span>
+                </div>
+                <p className="mt-2 text-2xl font-bold">{formatCurrency(orderAnalytics.averageOrderValue)}</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                  Средняя стоимость заказа
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-[hsl(var(--muted-foreground))]">
+              Нет данных для отображения
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Stuck orders */}
       <Card>

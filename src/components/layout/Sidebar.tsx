@@ -181,17 +181,16 @@ export function Sidebar() {
             ]}
           />
 
-          {isAdmin && (
-            <NavItem
-              to="/settings"
-              icon={<Settings className="h-5 w-5" />}
-              label="Настройки"
-              children={[
-                { to: '/settings', label: 'Платформа' },
-                { to: '/settings/export', label: 'Экспорт данных' },
-              ]}
-            />
-          )}
+          <NavItem
+            to="/settings"
+            icon={<Settings className="h-5 w-5" />}
+            label="Настройки"
+            children={[
+              ...(isAdmin ? [{ to: '/settings', label: 'Платформа' }] : []),
+              { to: '/settings/referrals', label: 'Рефералы' },
+              ...(isAdmin ? [{ to: '/settings/export', label: 'Экспорт данных' }] : []),
+            ]}
+          />
         </div>
       </nav>
     </aside>

@@ -1037,3 +1037,39 @@ export interface ImageDeleteResponse {
   success: boolean
   message: string
 }
+
+// Referral types
+export type ReferralStatus = 'PENDING' | 'USED' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED'
+
+export interface Referral {
+  id: number
+  code: string
+  referrerId: number
+  referrerName: string
+  referredId?: number
+  referredName?: string
+  status: ReferralStatus
+  rewardAmount: number
+  currency: string
+  referrerRewarded: boolean
+  referredRewarded: boolean
+  expiresAt?: string
+  completedAt?: string
+  createdAt: string
+}
+
+export interface ReferralStats {
+  userId: number
+  completedReferrals: number
+  totalRewards: number
+  rewardPerReferral: number
+}
+
+// Admin Analytics types
+export interface OrderAnalytics {
+  periodDays: number
+  totalOrders: number
+  gmv: number
+  averageOrderValue: number
+  currency: string
+}
