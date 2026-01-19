@@ -331,7 +331,7 @@ export function CouriersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {courier.isVerified ? (
+                      {(courier.isVerified || courier.verified) ? (
                         <div className="flex items-center gap-1 text-[hsl(var(--success))]">
                           <CheckCircle className="h-4 w-4" />
                           <span className="text-sm">Верифицирован</span>
@@ -379,13 +379,13 @@ export function CouriersPage() {
                             Просмотр
                           </DropdownItem>
                         </Link>
-                        {!courier.isVerified && courier.status === 'PENDING_APPROVAL' && (
+                        {!(courier.isVerified || courier.verified) && courier.status === 'PENDING_APPROVAL' && (
                           <DropdownItem onClick={() => setVerifyModal({ isOpen: true, courier })}>
                             <CheckCircle className="h-4 w-4" />
                             Верифицировать
                           </DropdownItem>
                         )}
-                        {courier.status !== 'SUSPENDED' && courier.isVerified && (
+                        {courier.status !== 'SUSPENDED' && (courier.isVerified || courier.verified) && (
                           <DropdownItem onClick={() => setSuspendModal({ isOpen: true, courier })}>
                             <Ban className="h-4 w-4" />
                             Заблокировать
