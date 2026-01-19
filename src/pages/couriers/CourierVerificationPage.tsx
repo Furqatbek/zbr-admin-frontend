@@ -143,7 +143,7 @@ export function CourierVerificationPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{courier.userName || `Курьер #${courier.id}`}</p>
                         <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                          {formatDateTime(courier.createdAt)}
+                          {courier.createdAt ? formatDateTime(courier.createdAt) : '—'}
                         </p>
                       </div>
                     </div>
@@ -202,7 +202,7 @@ export function CourierVerificationPage() {
                         <Calendar className="h-4 w-4" />
                         <span className="text-sm">Дата заявки</span>
                       </div>
-                      <p className="mt-2 font-medium">{formatDateTime(selectedCourier.createdAt)}</p>
+                      <p className="mt-2 font-medium">{selectedCourier.createdAt ? formatDateTime(selectedCourier.createdAt) : '—'}</p>
                     </div>
                   </div>
 

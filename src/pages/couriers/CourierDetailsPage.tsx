@@ -260,7 +260,7 @@ export function CourierDetailsPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Дата регистрации</p>
-                <p className="font-medium">{formatDateTime(courier.createdAt)}</p>
+                <p className="font-medium">{courier.createdAt ? formatDateTime(courier.createdAt) : '—'}</p>
               </div>
               <Link to={`/users/${courier.userId}`}>
                 <Button variant="outline" size="sm" className="w-full">
