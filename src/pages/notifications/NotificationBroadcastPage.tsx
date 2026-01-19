@@ -44,15 +44,15 @@ const CATEGORY_OPTIONS: { value: NotificationCategory; label: string; icon: type
   { value: 'ALERT', label: 'Алерты', icon: AlertTriangle },
 ]
 
-const ROLE_OPTIONS: { value: NotificationRole; label: string; count: number }[] = [
-  { value: 'ALL', label: 'Все пользователи', count: 15654 },
-  { value: 'CUSTOMER', label: 'Клиенты', count: 12350 },
-  { value: 'COURIER', label: 'Курьеры', count: 234 },
-  { value: 'RESTAURANT', label: 'Рестораны', count: 87 },
-  { value: 'ADMIN', label: 'Администраторы', count: 5 },
-  { value: 'SUPPORT', label: 'Поддержка', count: 12 },
-  { value: 'FINANCE', label: 'Финансы', count: 3 },
-  { value: 'OPERATIONS', label: 'Операции', count: 8 },
+const ROLE_OPTIONS: { value: NotificationRole; label: string }[] = [
+  { value: 'ALL', label: 'Все пользователи' },
+  { value: 'CUSTOMER', label: 'Клиенты' },
+  { value: 'COURIER', label: 'Курьеры' },
+  { value: 'RESTAURANT', label: 'Рестораны' },
+  { value: 'ADMIN', label: 'Администраторы' },
+  { value: 'SUPPORT', label: 'Поддержка' },
+  { value: 'FINANCE', label: 'Финансы' },
+  { value: 'OPERATIONS', label: 'Операции' },
 ]
 
 const PRIORITY_OPTIONS: { value: NotificationPriority; label: string }[] = [
@@ -191,7 +191,7 @@ export function NotificationBroadcastPage() {
                   >
                     {ROLE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
-                        {opt.label} (~{opt.count})
+                        {opt.label}
                       </option>
                     ))}
                   </Select>
@@ -376,14 +376,14 @@ export function NotificationBroadcastPage() {
               <div className="text-center">
                 {targetType === 'role' ? (
                   <>
-                    <p className="text-3xl font-bold">~{selectedRole?.count || 0}</p>
+                    <p className="text-3xl font-bold">{selectedRole?.label}</p>
                     <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                      {selectedRole?.label}
+                      Группа получателей
                     </p>
                   </>
                 ) : (
                   <>
-                    <p className="text-3xl font-bold">{formData.userId ? '1' : '0'}</p>
+                    <p className="text-3xl font-bold">{formData.userId ? '1' : '—'}</p>
                     <p className="text-sm text-[hsl(var(--muted-foreground))]">
                       {formData.userId ? `Пользователь #${formData.userId}` : 'Укажите ID'}
                     </p>
