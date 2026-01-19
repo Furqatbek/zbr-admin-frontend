@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import {
   Package,
-  CheckCircle,
   XCircle,
   Clock,
   Calendar,
-  TrendingUp,
+  RefreshCw,
+  Loader2,
+  AlertCircle,
+  Ban,
 } from 'lucide-react'
 import {
   Card,
@@ -14,85 +16,109 @@ import {
   CardTitle,
   Select,
   Badge,
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
 } from '@/components/ui'
-import { SimpleBarChart, SimpleLineChart } from '@/components/charts'
-import { formatNumber, formatCurrency } from '@/lib/utils'
-
-// Mock data
-const mockOrdersData = {
-  totalOrders: 4250,
-  completedOrders: 3978,
-  cancelledOrders: 272,
-  averageOrderValue: 3700,
-  ordersByStatus: {
-    PENDING: 45,
-    CONFIRMED: 78,
-    PREPARING: 156,
-    READY: 89,
-    DELIVERING: 234,
-    DELIVERED: 3978,
-    CANCELLED: 272,
-  } as Record<string, number>,
-  hourlyDistribution: [
-    { hour: 8, orders: 45 },
-    { hour: 9, orders: 78 },
-    { hour: 10, orders: 120 },
-    { hour: 11, orders: 189 },
-    { hour: 12, orders: 356 },
-    { hour: 13, orders: 412 },
-    { hour: 14, orders: 289 },
-    { hour: 15, orders: 198 },
-    { hour: 16, orders: 167 },
-    { hour: 17, orders: 234 },
-    { hour: 18, orders: 445 },
-    { hour: 19, orders: 523 },
-    { hour: 20, orders: 489 },
-    { hour: 21, orders: 378 },
-    { hour: 22, orders: 245 },
-    { hour: 23, orders: 82 },
-  ],
-  dailyOrders: [
-    { date: '01.01', orders: 285, completed: 267, cancelled: 18 },
-    { date: '02.01', orders: 256, completed: 240, cancelled: 16 },
-    { date: '03.01', orders: 312, completed: 294, cancelled: 18 },
-    { date: '04.01', orders: 345, completed: 321, cancelled: 24 },
-    { date: '05.01', orders: 298, completed: 278, cancelled: 20 },
-    { date: '06.01', orders: 412, completed: 389, cancelled: 23 },
-    { date: '07.01', orders: 389, completed: 365, cancelled: 24 },
-    { date: '08.01', orders: 276, completed: 258, cancelled: 18 },
-    { date: '09.01', orders: 267, completed: 251, cancelled: 16 },
-    { date: '10.01', orders: 298, completed: 280, cancelled: 18 },
-    { date: '11.01', orders: 334, completed: 312, cancelled: 22 },
-    { date: '12.01', orders: 312, completed: 291, cancelled: 21 },
-    { date: '13.01', orders: 398, completed: 374, cancelled: 24 },
-    { date: '14.01', orders: 368, completed: 345, cancelled: 23 },
-  ],
-}
+import { SimpleBarChart } from '@/components/charts'
+import { formatNumber, formatCurrency, formatDateTime } from '@/lib/utils'
+import {
+  useActiveOrders,
+  useCancelledOrders,
+  useRejectedOrders,
+} from '@/hooks/useDashboard'
 
 const statusLabels: Record<string, string> = {
   PENDING: 'Ожидает',
   CONFIRMED: 'Подтверждён',
+  ACCEPTED: 'Принят',
   PREPARING: 'Готовится',
   READY: 'Готов',
+  READY_FOR_PICKUP: 'Готов к выдаче',
+  PICKED_UP: 'Забран',
   DELIVERING: 'Доставляется',
+  IN_TRANSIT: 'В пути',
   DELIVERED: 'Доставлен',
   CANCELLED: 'Отменён',
+  REJECTED: 'Отклонён',
 }
 
 const statusColors: Record<string, string> = {
   PENDING: 'hsl(var(--warning))',
   CONFIRMED: 'hsl(var(--primary))',
+  ACCEPTED: 'hsl(var(--primary))',
   PREPARING: 'hsl(var(--primary))',
   READY: 'hsl(var(--success))',
+  READY_FOR_PICKUP: 'hsl(var(--success))',
+  PICKED_UP: 'hsl(var(--primary))',
   DELIVERING: 'hsl(var(--primary))',
+  IN_TRANSIT: 'hsl(var(--primary))',
   DELIVERED: 'hsl(var(--success))',
   CANCELLED: 'hsl(var(--destructive))',
+  REJECTED: 'hsl(var(--destructive))',
 }
 
 export function OrdersAnalyticsPage() {
   const [period, setPeriod] = useState('month')
-  const data = mockOrdersData
-  const completionRate = ((data.completedOrders / data.totalOrders) * 100).toFixed(1)
+
+  // Calculate date range based on period
+  const getDateRange = () => {
+    const endDate = new Date()
+    const startDate = new Date()
+    switch (period) {
+      case 'week':
+        startDate.setDate(endDate.getDate() - 7)
+        break
+      case 'month':
+        startDate.setMonth(endDate.getMonth() - 1)
+        break
+      case 'quarter':
+        startDate.setMonth(endDate.getMonth() - 3)
+        break
+      case 'year':
+        startDate.setFullYear(endDate.getFullYear() - 1)
+        break
+    }
+    return {
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0],
+    }
+  }
+
+  const dateRange = getDateRange()
+
+  const { data: activeOrdersData, isLoading: activeLoading, refetch: refetchActive } = useActiveOrders()
+  const { data: cancelledOrdersData, isLoading: cancelledLoading, refetch: refetchCancelled } = useCancelledOrders(dateRange)
+  const { data: rejectedOrdersData, isLoading: rejectedLoading, refetch: refetchRejected } = useRejectedOrders(dateRange)
+
+  const isLoading = activeLoading || cancelledLoading || rejectedLoading
+
+  const handleRefresh = () => {
+    refetchActive()
+    refetchCancelled()
+    refetchRejected()
+  }
+
+  const activeOrders = activeOrdersData?.data
+  const cancelledOrders = cancelledOrdersData?.data
+  const rejectedOrders = rejectedOrdersData?.data
+
+  // Calculate totals
+  const totalActiveOrders = activeOrders?.totalActiveOrders ?? 0
+  const totalCancelledOrders = cancelledOrders?.totalCancelledOrders ?? 0
+  const totalRejectedOrders = rejectedOrders?.totalRejectedOrders ?? 0
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -112,6 +138,9 @@ export function OrdersAnalyticsPage() {
             <option value="quarter">Квартал</option>
             <option value="year">Год</option>
           </Select>
+          <Button variant="outline" size="icon" onClick={handleRefresh}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
@@ -121,8 +150,8 @@ export function OrdersAnalyticsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">Всего заказов</p>
-                <p className="text-2xl font-bold">{formatNumber(data.totalOrders)}</p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">Активные заказы</p>
+                <p className="text-2xl font-bold">{formatNumber(totalActiveOrders)}</p>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--primary))]/10">
                 <Package className="h-6 w-6 text-[hsl(var(--primary))]" />
@@ -135,28 +164,13 @@ export function OrdersAnalyticsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">Выполнено</p>
-                <p className="text-2xl font-bold">{formatNumber(data.completedOrders)}</p>
-                <p className="mt-1 text-sm text-[hsl(var(--success))]">
-                  {completionRate}% успешных
-                </p>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--success))]/10">
-                <CheckCircle className="h-6 w-6 text-[hsl(var(--success))]" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Отменено</p>
-                <p className="text-2xl font-bold">{formatNumber(data.cancelledOrders)}</p>
-                <p className="mt-1 text-sm text-[hsl(var(--destructive))]">
-                  {((data.cancelledOrders / data.totalOrders) * 100).toFixed(1)}% отмен
-                </p>
+                <p className="text-2xl font-bold">{formatNumber(totalCancelledOrders)}</p>
+                {cancelledOrders && (
+                  <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                    Возвращено: {formatCurrency(cancelledOrders.totalRefundAmount)}
+                  </p>
+                )}
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--destructive))]/10">
                 <XCircle className="h-6 w-6 text-[hsl(var(--destructive))]" />
@@ -169,101 +183,322 @@ export function OrdersAnalyticsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">Средний чек</p>
-                <p className="text-2xl font-bold">{formatCurrency(data.averageOrderValue)}</p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">Отклонено</p>
+                <p className="text-2xl font-bold">{formatNumber(totalRejectedOrders)}</p>
+                {rejectedOrders && (
+                  <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                    Потери: {formatCurrency(rejectedOrders.totalLostRevenue)}
+                  </p>
+                )}
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--warning))]/10">
-                <TrendingUp className="h-6 w-6 text-[hsl(var(--warning))]" />
+                <Ban className="h-6 w-6 text-[hsl(var(--warning))]" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">Причин отклонений</p>
+                <p className="text-2xl font-bold">
+                  {rejectedOrders?.reasonBreakdown ? Object.keys(rejectedOrders.reasonBreakdown).length : 0}
+                </p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--muted))]/10">
+                <AlertCircle className="h-6 w-6 text-[hsl(var(--muted-foreground))]" />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Orders Trend */}
+      {/* Status Breakdown */}
+      {activeOrders?.statusBreakdown && Object.keys(activeOrders.statusBreakdown).length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Динамика заказов</CardTitle>
+            <CardTitle>Заказы по статусам</CardTitle>
           </CardHeader>
           <CardContent>
-            <SimpleLineChart
-              data={data.dailyOrders.map((d) => ({
-                label: d.date,
-                value: d.orders,
-              }))}
-              height={250}
-              color="hsl(var(--primary))"
-            />
+            <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-6">
+              {Object.entries(activeOrders.statusBreakdown).map(([status, count]) => (
+                <div
+                  key={status}
+                  className="rounded-lg border border-[hsl(var(--border))] p-4 text-center"
+                >
+                  <div
+                    className="mx-auto mb-2 h-2 w-2 rounded-full"
+                    style={{ backgroundColor: statusColors[status] || 'hsl(var(--muted))' }}
+                  />
+                  <p className="text-2xl font-bold">{formatNumber(count)}</p>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                    {statusLabels[status] || status}
+                  </p>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
+      )}
 
-        {/* Hourly Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Распределение по часам</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <SimpleBarChart
-              data={data.hourlyDistribution.map((d) => ({
-                label: `${d.hour}:00`,
-                value: d.orders,
-              }))}
-              height={250}
-              valueFormatter={(v) => formatNumber(v)}
-            />
-          </CardContent>
-        </Card>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Cancellation Distribution */}
+        {cancelledOrders?.hourlyDistribution && Object.keys(cancelledOrders.hourlyDistribution).length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Отмены по часам</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SimpleBarChart
+                data={Object.entries(cancelledOrders.hourlyDistribution)
+                  .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                  .map(([hour, count]) => ({
+                    label: `${hour}:00`,
+                    value: count,
+                    color: 'hsl(var(--destructive))',
+                  }))}
+                height={250}
+                valueFormatter={(v) => formatNumber(v)}
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Cancellation Reasons */}
+        {cancelledOrders?.reasonBreakdown && Object.keys(cancelledOrders.reasonBreakdown).length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Причины отмен</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SimpleBarChart
+                data={Object.entries(cancelledOrders.reasonBreakdown)
+                  .sort(([, a], [, b]) => b - a)
+                  .slice(0, 10)
+                  .map(([reason, count]) => ({
+                    label: reason.length > 15 ? reason.substring(0, 15) + '...' : reason,
+                    value: count,
+                    color: 'hsl(var(--warning))',
+                  }))}
+                height={250}
+                valueFormatter={(v) => formatNumber(v)}
+              />
+            </CardContent>
+          </Card>
+        )}
       </div>
 
-      {/* Orders by Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Заказы по статусам</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-7">
-            {Object.entries(data.ordersByStatus).map(([status, count]) => (
-              <div
-                key={status}
-                className="rounded-lg border border-[hsl(var(--border))] p-4 text-center"
-              >
-                <div
-                  className="mx-auto mb-2 h-2 w-2 rounded-full"
-                  style={{ backgroundColor: statusColors[status] }}
-                />
-                <p className="text-2xl font-bold">{formatNumber(count)}</p>
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                  {statusLabels[status]}
+      {/* Cancellation Sources */}
+      {cancelledOrders && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Источники отмен</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-lg border border-[hsl(var(--border))] p-4 text-center">
+                <p className="text-3xl font-bold">{formatNumber(cancelledOrders.cancelledByCustomer)}</p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">Клиентами</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                  {cancelledOrders.totalCancelledOrders > 0
+                    ? ((cancelledOrders.cancelledByCustomer / cancelledOrders.totalCancelledOrders) * 100).toFixed(1)
+                    : 0}%
                 </p>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              <div className="rounded-lg border border-[hsl(var(--border))] p-4 text-center">
+                <p className="text-3xl font-bold">{formatNumber(cancelledOrders.cancelledByRestaurant)}</p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">Ресторанами</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                  {cancelledOrders.totalCancelledOrders > 0
+                    ? ((cancelledOrders.cancelledByRestaurant / cancelledOrders.totalCancelledOrders) * 100).toFixed(1)
+                    : 0}%
+                </p>
+              </div>
+              <div className="rounded-lg border border-[hsl(var(--border))] p-4 text-center">
+                <p className="text-3xl font-bold">{formatNumber(cancelledOrders.cancelledBySystem)}</p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">Системой</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                  {cancelledOrders.totalCancelledOrders > 0
+                    ? ((cancelledOrders.cancelledBySystem / cancelledOrders.totalCancelledOrders) * 100).toFixed(1)
+                    : 0}%
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Active Orders Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Активные заказы
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3">
-            {['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERING'].map((status) => (
-              <Badge key={status} variant="outline" className="px-4 py-2 text-sm">
-                <span
-                  className="mr-2 inline-block h-2 w-2 rounded-full"
-                  style={{ backgroundColor: statusColors[status] }}
-                />
-                {statusLabels[status]}: {formatNumber(data.ordersByStatus[status])}
-              </Badge>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Rejection Reasons */}
+      {rejectedOrders?.reasonBreakdown && Object.keys(rejectedOrders.reasonBreakdown).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Причины отклонений ресторанами</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              {Object.entries(rejectedOrders.reasonBreakdown).map(([reason, count]) => (
+                <Badge key={reason} variant="outline" className="px-4 py-2 text-sm">
+                  {reason}: {formatNumber(count)}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Active Orders List */}
+      {activeOrders?.orders && activeOrders.orders.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Активные заказы
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Клиент</TableHead>
+                  <TableHead>Ресторан</TableHead>
+                  <TableHead>Сумма</TableHead>
+                  <TableHead>Статус</TableHead>
+                  <TableHead>Создан</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activeOrders.orders.slice(0, 10).map((order) => (
+                  <TableRow key={order.orderId}>
+                    <TableCell className="font-medium">#{order.orderId}</TableCell>
+                    <TableCell>{order.customerName}</TableCell>
+                    <TableCell>{order.restaurantName}</TableCell>
+                    <TableCell>{formatCurrency(order.orderTotal)}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        style={{
+                          borderColor: statusColors[order.orderStatus],
+                          color: statusColors[order.orderStatus],
+                        }}
+                      >
+                        {statusLabels[order.orderStatus] || order.orderStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-[hsl(var(--muted-foreground))]">
+                      {formatDateTime(order.createdAt)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Recently Cancelled Orders */}
+      {cancelledOrders?.orders && cancelledOrders.orders.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-[hsl(var(--destructive))]" />
+              Последние отмены
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Клиент</TableHead>
+                  <TableHead>Ресторан</TableHead>
+                  <TableHead>Причина</TableHead>
+                  <TableHead>Возврат</TableHead>
+                  <TableHead>Отменён</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {cancelledOrders.orders.slice(0, 10).map((order) => (
+                  <TableRow key={order.orderId}>
+                    <TableCell className="font-medium">#{order.orderId}</TableCell>
+                    <TableCell>{order.customerName}</TableCell>
+                    <TableCell>{order.restaurantName}</TableCell>
+                    <TableCell>
+                      <span className="text-sm">{order.cancellationReason}</span>
+                    </TableCell>
+                    <TableCell>
+                      {order.refundAmount > 0 ? (
+                        <Badge variant={order.refundStatus === 'COMPLETED' ? 'success' : 'warning'}>
+                          {formatCurrency(order.refundAmount)}
+                        </Badge>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    <TableCell className="text-[hsl(var(--muted-foreground))]">
+                      {formatDateTime(order.cancelledAt)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Recently Rejected Orders */}
+      {rejectedOrders?.orders && rejectedOrders.orders.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Ban className="h-5 w-5 text-[hsl(var(--warning))]" />
+              Последние отклонения
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Клиент</TableHead>
+                  <TableHead>Ресторан</TableHead>
+                  <TableHead>Причина</TableHead>
+                  <TableHead>Сумма</TableHead>
+                  <TableHead>Отклонён</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rejectedOrders.orders.slice(0, 10).map((order) => (
+                  <TableRow key={order.orderId}>
+                    <TableCell className="font-medium">#{order.orderId}</TableCell>
+                    <TableCell>{order.customerName}</TableCell>
+                    <TableCell>{order.restaurantName}</TableCell>
+                    <TableCell>
+                      <span className="text-sm">{order.rejectionReason}</span>
+                    </TableCell>
+                    <TableCell>{formatCurrency(order.orderTotal)}</TableCell>
+                    <TableCell className="text-[hsl(var(--muted-foreground))]">
+                      {formatDateTime(order.rejectedAt)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Generated timestamps */}
+      <div className="flex flex-col gap-1 text-xs text-[hsl(var(--muted-foreground))] text-center">
+        {activeOrders?.generatedAt && (
+          <p>Активные заказы обновлены: {formatDateTime(activeOrders.generatedAt)}</p>
+        )}
+        {cancelledOrders?.generatedAt && (
+          <p>Отменённые заказы обновлены: {formatDateTime(cancelledOrders.generatedAt)}</p>
+        )}
+      </div>
     </div>
   )
 }
