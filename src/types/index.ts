@@ -1185,3 +1185,290 @@ export interface AnalyticsSummary {
   activationRate: number
   calculatedAt: string
 }
+
+// ============ CX Analytics Types (from cx-analytics.md) ============
+
+// NPS Score Categories
+export type NpsCategory = 'PROMOTER' | 'PASSIVE' | 'DETRACTOR'
+
+// NPS Score Interpretation
+export type NpsInterpretation = 'EXCELLENT' | 'GREAT' | 'GOOD' | 'NEEDS_IMPROVEMENT'
+
+// NPS Metrics
+export interface NpsScoreDistribution {
+  score: number
+  count: number
+  percentage: number
+}
+
+export interface NpsBySegment {
+  segment: string
+  npsScore: number
+  responseCount: number
+}
+
+export interface NpsByChannel {
+  channel: string
+  npsScore: number
+  responseCount: number
+}
+
+export interface NpsTrendItem {
+  date: string
+  npsScore: number
+  responseCount: number
+}
+
+export interface NpsMetrics {
+  npsScore: number
+  totalResponses: number
+  promotersCount: number
+  promotersPercentage: number
+  passivesCount: number
+  passivesPercentage: number
+  detractorsCount: number
+  detractorsPercentage: number
+  scoreDistribution?: NpsScoreDistribution[]
+  npsBySegment?: NpsBySegment[]
+  npsByChannel?: NpsByChannel[]
+  npsTrend?: NpsTrendItem[]
+  interpretation: NpsInterpretation
+  startDate: string
+  endDate: string
+  calculatedAt: string
+}
+
+// Restaurant Rating Metrics
+export interface RatingDistribution {
+  rating: number
+  count: number
+  percentage: number
+}
+
+export interface RatingTrendItem {
+  date: string
+  averageRating: number
+  count: number
+}
+
+export interface TopRatedRestaurant {
+  restaurantId: number
+  restaurantName: string
+  averageRating: number
+  ratingCount: number
+}
+
+export interface RestaurantRatingMetrics {
+  averageRating: number
+  ratingCount: number
+  distribution?: RatingDistribution[]
+  foodQualityAvg: number
+  portionSizeAvg: number
+  valueForMoneyAvg: number
+  topRatedRestaurants?: TopRatedRestaurant[]
+  lowestRatedRestaurants?: TopRatedRestaurant[]
+  ratingTrend?: RatingTrendItem[]
+  startDate: string
+  endDate: string
+  calculatedAt: string
+}
+
+// Courier Rating Metrics
+export interface TopRatedCourier {
+  courierId: number
+  courierName: string
+  averageRating: number
+  ratingCount: number
+}
+
+export interface CourierRatingMetrics {
+  averageRating: number
+  ratingCount: number
+  distribution?: RatingDistribution[]
+  professionalismAvg: number
+  communicationAvg: number
+  timelinessAvg: number
+  avgTipAmount: number
+  tipRate: number
+  topRatedCouriers?: TopRatedCourier[]
+  ratingTrend?: RatingTrendItem[]
+  startDate: string
+  endDate: string
+  calculatedAt: string
+}
+
+// App Store Rating Metrics
+export interface PlatformRatings {
+  averageRating: number
+  ratingCount: number
+  distribution: RatingDistribution[]
+}
+
+export interface RatingByVersion {
+  version: string
+  averageRating: number
+  ratingCount: number
+}
+
+export interface RatingByCountry {
+  country: string
+  averageRating: number
+  ratingCount: number
+}
+
+export interface SentimentSummary {
+  positive: number
+  neutral: number
+  negative: number
+}
+
+export interface AppStoreRatingMetrics {
+  overallAverageRating: number
+  totalReviewCount: number
+  iosPlatform: PlatformRatings
+  androidPlatform: PlatformRatings
+  ratingsByVersion?: RatingByVersion[]
+  ratingsByCountry?: RatingByCountry[]
+  sentimentSummary?: SentimentSummary
+  ratingTrend?: RatingTrendItem[]
+  startDate: string
+  endDate: string
+  calculatedAt: string
+}
+
+// Support Ticket Types
+export type SupportTicketType =
+  | 'LATE_DELIVERY'
+  | 'MISSING_ITEMS'
+  | 'WRONG_ORDER'
+  | 'COLD_FOOD'
+  | 'REFUND_REQUEST'
+  | 'PAYMENT_ISSUE'
+  | 'ACCOUNT_ISSUE'
+  | 'PROMO_CODE_ISSUE'
+  | 'APP_BUG'
+  | 'RESTAURANT_COMPLAINT'
+  | 'COURIER_COMPLAINT'
+  | 'OTHER'
+
+export type SupportTicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED'
+export type SupportTicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+export type SupportTicketChannel = 'APP' | 'EMAIL' | 'PHONE' | 'CHAT' | 'SOCIAL'
+
+// Support Ticket Volume Metrics
+export interface TicketVolumeMetrics {
+  totalTickets: number
+  openTickets: number
+  inProgressTickets: number
+  resolvedTickets: number
+  closedTickets: number
+  ticketsPerDay: number
+  ticketsPerWeek: number
+  ticketsPerMonth: number
+  ticketsByType: Record<string, number>
+  ticketsByStatus: Record<string, number>
+  ticketsByPriority: Record<string, number>
+  ticketsByChannel: Record<string, number>
+}
+
+// Support Ticket Performance Metrics
+export interface TicketPerformanceMetrics {
+  avgResolutionTimeHours: number
+  medianResolutionTimeHours: number
+  p90ResolutionTimeHours: number
+  avgFirstResponseTimeMinutes: number
+  resolutionRate: number
+  reopenRate: number
+  escalationRate: number
+}
+
+// Support Ticket SLA Metrics
+export interface TicketSlaMetrics {
+  slaHours: number
+  ticketsWithinSla: number
+  ticketsBreachedSla: number
+  slaComplianceRate: number
+  currentlyBreached: number
+  atRiskOfBreach: number
+  slaBreachesByType: Record<string, number>
+  slaBreachesByPriority: Record<string, number>
+}
+
+// Support Ticket CSAT Metrics
+export interface TicketCsatMetrics {
+  avgCsatScore: number
+  csatResponseCount: number
+  csatResponseRate: number
+  csatDistribution: Record<string, number>
+  satisfiedRate: number
+  dissatisfiedRate: number
+}
+
+// Support Ticket Agent Performance
+export interface CxAgentPerformance {
+  agentId: number
+  agentName?: string
+  ticketsHandled: number
+  ticketsResolved: number
+  avgResolutionTimeHours: number
+  avgFirstResponseMinutes: number
+  csatScore: number
+  slaBreaches: number
+  resolutionRate: number
+}
+
+// Support Ticket Trend Item
+export interface TicketTrendItem {
+  date: string
+  ticketCount: number
+  resolvedCount: number
+  avgResolutionTimeHours: number
+}
+
+// Support Ticket Metrics (combined)
+export interface SupportTicketMetricsResponse {
+  volumeMetrics: TicketVolumeMetrics
+  performanceMetrics: TicketPerformanceMetrics
+  slaMetrics: TicketSlaMetrics
+  csatMetrics: TicketCsatMetrics
+  agentPerformance?: CxAgentPerformance[]
+  ticketTrend?: TicketTrendItem[]
+  startDate: string
+  endDate: string
+  calculatedAt: string
+}
+
+// CX Status Levels
+export type CxStatus = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' | 'CRITICAL'
+
+// CX Summary
+export interface CxSummary {
+  overallScore: number
+  status: CxStatus
+  npsScore: number
+  npsInterpretation: NpsInterpretation
+  restaurantRatingAvg: number
+  courierRatingAvg: number
+  appStoreRatingAvg: number
+  slaComplianceRate: number
+  csatScore: number
+  openTickets: number
+  startDate: string
+  endDate: string
+  calculatedAt: string
+}
+
+// CX Analytics Query Params
+export interface CxAnalyticsQueryParams {
+  startDate: string
+  endDate: string
+  includeDistribution?: boolean
+  includeTrend?: boolean
+  includeSegments?: boolean
+  includeTopRestaurants?: boolean
+  includeTopCouriers?: boolean
+  includeVersionBreakdown?: boolean
+  includeCountryBreakdown?: boolean
+  includeAgentPerformance?: boolean
+  slaHours?: number
+}
