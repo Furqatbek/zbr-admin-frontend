@@ -18,6 +18,10 @@ export function formatNumber(num: number): string {
   return new Intl.NumberFormat('ru-RU').format(num)
 }
 
+export function formatPercent(value: number, decimals = 1): string {
+  return `${value.toFixed(decimals)}%`
+}
+
 export function formatDate(date: string | Date | null | undefined, options?: Intl.DateTimeFormatOptions): string {
   if (!date) return '—'
 

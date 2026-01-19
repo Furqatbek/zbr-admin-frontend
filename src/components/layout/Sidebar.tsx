@@ -158,6 +158,7 @@ export function Sidebar() {
             icon={<BarChart3 className="h-5 w-5" />}
             label="Аналитика"
             children={[
+              { to: '/analytics/users', label: 'Пользователи' },
               { to: '/analytics/revenue', label: 'Доходы' },
               { to: '/analytics/orders', label: 'Заказы' },
               { to: '/analytics/operations', label: 'Курьеры' },

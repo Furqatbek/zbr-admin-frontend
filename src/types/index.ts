@@ -1073,3 +1073,115 @@ export interface OrderAnalytics {
   averageOrderValue: number
   currency: string
 }
+
+// Analytics Module types (from ANALYTICS.md)
+
+// User Activity Metrics (DAU/WAU/MAU)
+export interface UserActivityMetrics {
+  dailyActiveUsers: number
+  weeklyActiveUsers: number
+  monthlyActiveUsers: number
+  dauMauRatio: number
+  dauWauRatio: number
+  wauMauRatio: number
+  referenceDate: string
+  newUsersToday: number
+  newUsersThisWeek: number
+  newUsersThisMonth: number
+  calculatedAt: string
+}
+
+// Order Volume Metrics
+export interface OrderVolumeMetrics {
+  ordersToday: number
+  ordersThisWeek: number
+  ordersThisMonth: number
+  firstOrdersToday: number
+  repeatOrdersToday: number
+  successRate: number
+  cancellationRate: number
+  ordersPerHour: Record<string, number>
+  referenceDate: string
+  calculatedAt: string
+}
+
+// Conversion Funnel Step
+export interface FunnelStep {
+  stepNumber: number
+  stepName: string
+  count: number
+  conversionFromPrevious: number
+  dropOffFromPrevious: number
+}
+
+// Conversion Metrics
+export interface ConversionMetrics {
+  restaurantViews: number
+  addToCartEvents: number
+  checkoutStartEvents: number
+  paymentCompletedEvents: number
+  overallConversionRate: number
+  viewToCartRate: number
+  cartToCheckoutRate: number
+  checkoutToPaymentRate: number
+  funnelSteps: FunnelStep[]
+  periodDays: number
+  referenceDate: string
+  calculatedAt: string
+}
+
+// Average Order Value Metrics
+export interface AOVMetrics {
+  averageOrderValue: number
+  medianOrderValue: number
+  averageItemsPerOrder: number
+  totalCompletedOrders: number
+  totalRevenue: number
+  currency: string
+  referenceDate: string
+  calculatedAt: string
+}
+
+// User Activation Metrics
+export interface ActivationMetrics {
+  firstDeliveryCount: number
+  avgActivationTimeHours: number
+  medianActivationTimeHours: number
+  referralUsageRate: number
+  newUsersActivated: number
+  totalNewUsers: number
+  activationRate: number
+  referenceDate: string
+  calculatedAt: string
+}
+
+// Churn Metrics
+export interface ChurnMetrics {
+  userChurnRate: number
+  userChurnCount: number
+  activeUsersCount: number
+  restaurantChurnRate: number
+  restaurantChurnCount: number
+  activeRestaurantsCount: number
+  courierChurnRate: number
+  courierChurnCount: number
+  activeCouriersCount: number
+  userChurnPeriodDays: number
+  restaurantChurnPeriodDays: number
+  courierChurnPeriodDays: number
+  referenceDate: string
+  calculatedAt: string
+}
+
+// Analytics Summary (quick overview)
+export interface AnalyticsSummary {
+  dau: number
+  wau: number
+  mau: number
+  ordersToday: number
+  aov: number
+  conversionRate: number
+  userChurnRate: number
+  activationRate: number
+  calculatedAt: string
+}

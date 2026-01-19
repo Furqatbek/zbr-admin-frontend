@@ -38,6 +38,7 @@ const FraudAnalyticsPage = lazy(() => import('@/pages/analytics/FraudAnalyticsPa
 const TechnicalMetricsPage = lazy(() => import('@/pages/analytics/TechnicalMetricsPage').then(m => ({ default: m.TechnicalMetricsPage })))
 const RestaurantMetricsPage = lazy(() => import('@/pages/analytics/RestaurantMetricsPage').then(m => ({ default: m.RestaurantMetricsPage })))
 const SupportMetricsPage = lazy(() => import('@/pages/analytics/SupportMetricsPage').then(m => ({ default: m.SupportMetricsPage })))
+const UserAnalyticsPage = lazy(() => import('@/pages/analytics/UserAnalyticsPage').then(m => ({ default: m.UserAnalyticsPage })))
 
 const NotificationsListPage = lazy(() => import('@/pages/notifications/NotificationsListPage').then(m => ({ default: m.NotificationsListPage })))
 const NotificationBroadcastPage = lazy(() => import('@/pages/notifications/NotificationBroadcastPage').then(m => ({ default: m.NotificationBroadcastPage })))
@@ -134,6 +135,10 @@ export const router = createBrowserRouter([
         element: <LazyPage><ProblematicOrdersPage /></LazyPage>,
       },
       // Analytics
+      {
+        path: 'analytics/users',
+        element: <LazyPage><UserAnalyticsPage /></LazyPage>,
+      },
       {
         path: 'analytics/revenue',
         element: <LazyPage><RevenueAnalyticsPage /></LazyPage>,

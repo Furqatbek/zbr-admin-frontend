@@ -1,6 +1,16 @@
 import { api } from './axios'
+import type {
+  ApiResponse,
+  UserActivityMetrics,
+  OrderVolumeMetrics,
+  ConversionMetrics,
+  AOVMetrics,
+  ActivationMetrics,
+  ChurnMetrics,
+  AnalyticsSummary,
+} from '@/types'
 
-// Types
+// Legacy Types (for backward compatibility)
 export interface RevenueMetrics {
   totalRevenue: number
   platformFees: number
@@ -180,6 +190,100 @@ export const analyticsApi = {
 
   getTechnicalMetrics: async (params: AnalyticsQueryParams = {}): Promise<TechnicalMetrics> => {
     const response = await api.get('/admin/analytics/technical', { params })
+    return response.data
+  },
+
+  // ============ New Analytics API (from ANALYTICS.md) ============
+  // Base URL: /api/v1/analytics
+  // Required roles: ADMIN, PLATFORM
+
+  /**
+   * Get user activity metrics including DAU, WAU, MAU and their ratios
+   * Cached for 5 minutes
+   */
+  getActivityMetrics: async (): Promise<ApiResponse<UserActivityMetrics>> => {
+    const response = await api.get<ApiResponse<UserActivityMetrics>>('/analytics/activity')
+    return response.data
+  },
+
+  /**
+   * Get order volume metrics including orders per day/hour,
+   * first orders, repeat orders, and success/cancellation rates
+   * Cached for 1 minute
+   */
+  getOrderVolumeMetrics: async (): Promise<ApiResponse<OrderVolumeMetrics>> => {
+    const response = await api.get<ApiResponse<OrderVolumeMetrics>>('/analytics/orders')
+    return response.data
+  },
+
+  /**
+   * Get conversion funnel metrics for a specified period
+   * Includes view-to-cart, cart-to-checkout, and checkout-to-payment rates
+   * Cached for 30 seconds
+   * @param days Number of days for the analysis period (default: 7)
+   */
+  getConversionMetrics: async (days: number = 7): Promise<ApiResponse<ConversionMetrics>> => {
+    const response = await api.get<ApiResponse<ConversionMetrics>>('/analytics/conversion', {
+      params: { days },
+    })
+    return response.data
+  },
+
+  /**
+   * Get AOV metrics including average, median order values and items per order
+   * Cached for 1 minute
+   */
+  getAOVMetrics: async (): Promise<ApiResponse<AOVMetrics>> => {
+    const response = await api.get<ApiResponse<AOVMetrics>>('/analytics/aov')
+    return response.data
+  },
+
+  /**
+   * Get user activation metrics including first delivery count,
+   * activation time, and referral usage rate
+   * Cached for 5 minutes
+   */
+  getActivationMetrics: async (): Promise<ApiResponse<ActivationMetrics>> => {
+    const response = await api.get<ApiResponse<ActivationMetrics>>('/analytics/activation')
+    return response.data
+  },
+
+  /**
+   * Get churn metrics for users, restaurants, and couriers
+   * Cached for 10 minutes
+   */
+  getChurnMetrics: async (): Promise<ApiResponse<ChurnMetrics>> => {
+    const response = await api.get<ApiResponse<ChurnMetrics>>('/analytics/churn')
+    return response.data
+  },
+
+  /**
+   * Get quick summary of all key metrics
+   * Useful for dashboard overview
+   */
+  getSummary: async (): Promise<ApiResponse<AnalyticsSummary>> => {
+    const response = await api.get<ApiResponse<AnalyticsSummary>>('/analytics/summary')
+    return response.data
+  },
+
+  /**
+   * Force refresh all analytics caches
+   * Requires ADMIN role
+   */
+  refreshCache: async (): Promise<ApiResponse<{ message: string }>> => {
+    const response = await api.post<ApiResponse<{ message: string }>>('/analytics/cache/refresh')
+    return response.data
+  },
+
+  /**
+   * Force refresh a specific analytics cache
+   * Requires ADMIN role
+   * @param cacheName Cache name to refresh (e.g., 'dau_wau_mau', 'conversion', 'aov', etc.)
+   */
+  refreshSpecificCache: async (cacheName: string): Promise<ApiResponse<{ message: string }>> => {
+    const response = await api.post<ApiResponse<{ message: string }>>(
+      `/analytics/cache/refresh/${cacheName}`
+    )
     return response.data
   },
 }
