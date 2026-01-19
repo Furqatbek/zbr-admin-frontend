@@ -9,17 +9,6 @@ import {
   Eye,
   MoreHorizontal,
   RefreshCw,
-  ShoppingBag,
-  Truck,
-  CreditCard,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Info,
-  Headphones,
-  Tag,
-  User,
-  Settings,
 } from 'lucide-react'
 import {
   Button,
@@ -38,53 +27,16 @@ import {
   useDismissNotification,
   useDeleteNotification,
   useBulkAction,
+  useNotificationCategories,
+  useNotificationRoles,
 } from '@/hooks/useNotifications'
 import type { NotificationCategory, NotificationRole, Notification } from '@/types'
-
-const CATEGORY_OPTIONS: { value: NotificationCategory | ''; label: string }[] = [
-  { value: '', label: 'Все категории' },
-  { value: 'ORDER', label: 'Заказы' },
-  { value: 'FINANCE', label: 'Финансы' },
-  { value: 'SUPPORT', label: 'Поддержка' },
-  { value: 'SYSTEM', label: 'Система' },
-  { value: 'PROMOTION', label: 'Акции' },
-  { value: 'ACCOUNT', label: 'Аккаунт' },
-  { value: 'DELIVERY', label: 'Доставка' },
-  { value: 'RESTAURANT_OPS', label: 'Рестораны' },
-  { value: 'ALERT', label: 'Алерты' },
-]
-
-const ROLE_OPTIONS: { value: NotificationRole | ''; label: string }[] = [
-  { value: '', label: 'Все роли' },
-  { value: 'CUSTOMER', label: 'Клиенты' },
-  { value: 'COURIER', label: 'Курьеры' },
-  { value: 'RESTAURANT', label: 'Рестораны' },
-  { value: 'ADMIN', label: 'Админы' },
-  { value: 'SUPPORT', label: 'Поддержка' },
-  { value: 'FINANCE', label: 'Финансы' },
-  { value: 'OPERATIONS', label: 'Операции' },
-  { value: 'ALL', label: 'Все' },
-]
 
 const READ_STATUS_OPTIONS = [
   { value: '', label: 'Все' },
   { value: 'false', label: 'Непрочитанные' },
   { value: 'true', label: 'Прочитанные' },
 ]
-
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  'shopping-bag': ShoppingBag,
-  truck: Truck,
-  'credit-card': CreditCard,
-  'alert-triangle': AlertTriangle,
-  'check-circle': CheckCircle,
-  'x-circle': XCircle,
-  info: Info,
-  headphones: Headphones,
-  tag: Tag,
-  user: User,
-  settings: Settings,
-}
 
 const CATEGORY_COLORS: Record<NotificationCategory, string> = {
   ORDER: 'bg-blue-100 text-blue-800',
@@ -98,18 +50,6 @@ const CATEGORY_COLORS: Record<NotificationCategory, string> = {
   ALERT: 'bg-red-100 text-red-800',
 }
 
-const CATEGORY_LABELS: Record<NotificationCategory, string> = {
-  ORDER: 'Заказ',
-  FINANCE: 'Финансы',
-  SUPPORT: 'Поддержка',
-  SYSTEM: 'Система',
-  PROMOTION: 'Акция',
-  ACCOUNT: 'Аккаунт',
-  DELIVERY: 'Доставка',
-  RESTAURANT_OPS: 'Ресторан',
-  ALERT: 'Алерт',
-}
-
 export function NotificationsListPage() {
   const [page, setPage] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
@@ -117,6 +57,10 @@ export function NotificationsListPage() {
   const [role, setRole] = useState<NotificationRole | ''>('')
   const [isRead, setIsRead] = useState<string>('')
   const [selectedIds, setSelectedIds] = useState<number[]>([])
+
+  // Fetch enums from backend
+  const { data: categoryOptions, isLoading: categoriesLoading } = useNotificationCategories()
+  const { data: roleOptions, isLoading: rolesLoading } = useNotificationRoles()
 
   const { data, isLoading, refetch } = useNotifications({
     page,
@@ -137,6 +81,15 @@ export function NotificationsListPage() {
   const notifications = data?.data?.content || []
   const totalPages = data?.data?.totalPages || 0
   const totalElements = data?.data?.totalElements || 0
+
+  const categories = categoryOptions || []
+  const roles = roleOptions || []
+
+  // Create category label map from fetched data
+  const categoryLabels: Record<string, string> = {}
+  categories.forEach((cat) => {
+    categoryLabels[cat.value] = cat.label
+  })
 
   const handleSelectAll = () => {
     if (selectedIds.length === notifications.length) {
@@ -170,10 +123,11 @@ export function NotificationsListPage() {
     setSelectedIds([])
   }
 
-  const getIcon = (notification: Notification) => {
-    const IconComponent = notification.icon ? ICON_MAP[notification.icon] : Bell
-    return IconComponent || Bell
+  const getCategoryLabel = (notification: Notification) => {
+    return categoryLabels[notification.category] || notification.category
   }
+
+  const isEnumsLoading = categoriesLoading || rolesLoading
 
   return (
     <div className="space-y-6">
@@ -214,8 +168,10 @@ export function NotificationsListPage() {
             <Select
               value={category}
               onChange={(e) => setCategory(e.target.value as NotificationCategory | '')}
+              disabled={isEnumsLoading}
             >
-              {CATEGORY_OPTIONS.map((opt) => (
+              <option value="">Все категории</option>
+              {categories.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -225,8 +181,10 @@ export function NotificationsListPage() {
             <Select
               value={role}
               onChange={(e) => setRole(e.target.value as NotificationRole | '')}
+              disabled={isEnumsLoading}
             >
-              {ROLE_OPTIONS.map((opt) => (
+              <option value="">Все роли</option>
+              {roles.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -311,108 +269,105 @@ export function NotificationsListPage() {
 
               {/* Notification Items */}
               <div className="divide-y divide-[hsl(var(--border))]">
-                {notifications.map((notification) => {
-                  const Icon = getIcon(notification)
-                  return (
+                {notifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    className={`flex items-start gap-4 p-4 transition-colors hover:bg-[hsl(var(--muted))] ${
+                      !notification.isRead ? 'bg-[hsl(var(--accent))]' : ''
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(notification.id)}
+                      onChange={() => handleSelect(notification.id)}
+                      className="mt-1 h-4 w-4 rounded border-[hsl(var(--border))]"
+                    />
+
                     <div
-                      key={notification.id}
-                      className={`flex items-start gap-4 p-4 transition-colors hover:bg-[hsl(var(--muted))] ${
-                        !notification.isRead ? 'bg-[hsl(var(--accent))]' : ''
+                      className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${
+                        CATEGORY_COLORS[notification.category] || 'bg-gray-100'
                       }`}
                     >
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(notification.id)}
-                        onChange={() => handleSelect(notification.id)}
-                        className="mt-1 h-4 w-4 rounded border-[hsl(var(--border))]"
-                      />
+                      <Bell className="h-5 w-5" />
+                    </div>
 
-                      <div
-                        className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${
-                          CATEGORY_COLORS[notification.category] || 'bg-gray-100'
-                        }`}
-                      >
-                        <Icon className="h-5 w-5" />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h4 className="font-medium">{notification.title}</h4>
-                            <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                              {notification.message}
-                            </p>
-                          </div>
-                          <div className="flex flex-shrink-0 items-center gap-2">
-                            <Badge
-                              variant="secondary"
-                              className={CATEGORY_COLORS[notification.category]}
-                            >
-                              {CATEGORY_LABELS[notification.category]}
-                            </Badge>
-                            {!notification.isRead && (
-                              <span className="h-2 w-2 rounded-full bg-[hsl(var(--primary))]" />
-                            )}
-                          </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="font-medium">{notification.title}</h4>
+                          <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
+                            {notification.message}
+                          </p>
                         </div>
-
-                        <div className="mt-2 flex items-center gap-4 text-xs text-[hsl(var(--muted-foreground))]">
-                          <span>
-                            {format(new Date(notification.createdAt), 'dd.MM.yyyy HH:mm')}
-                          </span>
-                          {notification.role && <span>Роль: {notification.role}</span>}
-                          {notification.userId && <span>User ID: {notification.userId}</span>}
-                          {notification.priority && notification.priority !== 'NORMAL' && (
-                            <Badge
-                              variant={
-                                notification.priority === 'URGENT'
-                                  ? 'destructive'
-                                  : notification.priority === 'HIGH'
-                                  ? 'warning'
-                                  : 'secondary'
-                              }
-                            >
-                              {notification.priority}
-                            </Badge>
+                        <div className="flex flex-shrink-0 items-center gap-2">
+                          <Badge
+                            variant="secondary"
+                            className={CATEGORY_COLORS[notification.category]}
+                          >
+                            {getCategoryLabel(notification)}
+                          </Badge>
+                          {!notification.isRead && (
+                            <span className="h-2 w-2 rounded-full bg-[hsl(var(--primary))]" />
                           )}
                         </div>
                       </div>
 
-                      <Dropdown
-                        trigger={
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        }
-                        align="right"
-                      >
-                        {!notification.isRead && (
-                          <button
-                            className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-[hsl(var(--muted))]"
-                            onClick={() => markAsRead.mutate(notification.id)}
+                      <div className="mt-2 flex items-center gap-4 text-xs text-[hsl(var(--muted-foreground))]">
+                        <span>
+                          {format(new Date(notification.createdAt), 'dd.MM.yyyy HH:mm')}
+                        </span>
+                        {notification.role && <span>Роль: {notification.role}</span>}
+                        {notification.userId && <span>User ID: {notification.userId}</span>}
+                        {notification.priority && notification.priority !== 'NORMAL' && (
+                          <Badge
+                            variant={
+                              notification.priority === 'URGENT'
+                                ? 'destructive'
+                                : notification.priority === 'HIGH'
+                                ? 'warning'
+                                : 'secondary'
+                            }
                           >
-                            <CheckCheck className="h-4 w-4" />
-                            Отметить прочитанным
-                          </button>
+                            {notification.priority}
+                          </Badge>
                         )}
+                      </div>
+                    </div>
+
+                    <Dropdown
+                      trigger={
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      }
+                      align="right"
+                    >
+                      {!notification.isRead && (
                         <button
                           className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-[hsl(var(--muted))]"
-                          onClick={() => dismiss.mutate(notification.id)}
+                          onClick={() => markAsRead.mutate(notification.id)}
                         >
-                          <Eye className="h-4 w-4" />
-                          Скрыть
+                          <CheckCheck className="h-4 w-4" />
+                          Отметить прочитанным
                         </button>
-                        <button
-                          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[hsl(var(--destructive))] hover:bg-[hsl(var(--muted))]"
-                          onClick={() => deleteNotification.mutate(notification.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Удалить
-                        </button>
-                      </Dropdown>
-                    </div>
-                  )
-                })}
+                      )}
+                      <button
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-[hsl(var(--muted))]"
+                        onClick={() => dismiss.mutate(notification.id)}
+                      >
+                        <Eye className="h-4 w-4" />
+                        Скрыть
+                      </button>
+                      <button
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[hsl(var(--destructive))] hover:bg-[hsl(var(--muted))]"
+                        onClick={() => deleteNotification.mutate(notification.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Удалить
+                      </button>
+                    </Dropdown>
+                  </div>
+                ))}
               </div>
             </>
           )}

@@ -189,6 +189,38 @@ export type NotificationRole =
 
 export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
 
+// Notification enum option types (fetched from backend)
+export interface NotificationCategoryOption {
+  value: NotificationCategory
+  label: string
+  description?: string
+  icon?: string
+}
+
+export interface NotificationRoleOption {
+  value: NotificationRole
+  label: string
+  description?: string
+}
+
+export interface NotificationPriorityOption {
+  value: NotificationPriority
+  label: string
+}
+
+export interface NotificationIconOption {
+  value: string
+  label: string
+  icon?: string
+}
+
+export interface NotificationEnums {
+  categories: NotificationCategoryOption[]
+  roles: NotificationRoleOption[]
+  priorities: NotificationPriorityOption[]
+  icons: NotificationIconOption[]
+}
+
 export type BulkAction = 'MARK_READ' | 'DISMISS' | 'DELETE'
 
 export type RelatedEntityType =

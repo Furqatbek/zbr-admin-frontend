@@ -4,16 +4,8 @@ import {
   Users,
   Bell,
   Loader2,
-  ShoppingBag,
-  Truck,
-  CreditCard,
-  AlertTriangle,
-  CheckCircle,
-  Info,
-  Headphones,
-  Tag,
   User,
-  Settings,
+  RefreshCw,
 } from 'lucide-react'
 import {
   Card,
@@ -29,60 +21,23 @@ import {
   Modal,
   ModalFooter,
 } from '@/components/ui'
-import { useCreateNotification } from '@/hooks/useNotifications'
+import {
+  useCreateNotification,
+  useNotificationCategories,
+  useNotificationRoles,
+  useNotificationPriorities,
+  useNotificationIcons,
+} from '@/hooks/useNotifications'
 import type { NotificationCategory, NotificationRole, NotificationPriority } from '@/types'
-
-const CATEGORY_OPTIONS: { value: NotificationCategory; label: string; icon: typeof Bell }[] = [
-  { value: 'ORDER', label: 'Заказы', icon: ShoppingBag },
-  { value: 'FINANCE', label: 'Финансы', icon: CreditCard },
-  { value: 'SUPPORT', label: 'Поддержка', icon: Headphones },
-  { value: 'SYSTEM', label: 'Система', icon: Settings },
-  { value: 'PROMOTION', label: 'Акции', icon: Tag },
-  { value: 'ACCOUNT', label: 'Аккаунт', icon: User },
-  { value: 'DELIVERY', label: 'Доставка', icon: Truck },
-  { value: 'RESTAURANT_OPS', label: 'Операции ресторанов', icon: Bell },
-  { value: 'ALERT', label: 'Алерты', icon: AlertTriangle },
-]
-
-const ROLE_OPTIONS: { value: NotificationRole; label: string }[] = [
-  { value: 'ALL', label: 'Все пользователи' },
-  { value: 'CUSTOMER', label: 'Клиенты' },
-  { value: 'COURIER', label: 'Курьеры' },
-  { value: 'RESTAURANT', label: 'Рестораны' },
-  { value: 'ADMIN', label: 'Администраторы' },
-  { value: 'SUPPORT', label: 'Поддержка' },
-  { value: 'FINANCE', label: 'Финансы' },
-  { value: 'OPERATIONS', label: 'Операции' },
-]
-
-const PRIORITY_OPTIONS: { value: NotificationPriority; label: string }[] = [
-  { value: 'LOW', label: 'Низкий' },
-  { value: 'NORMAL', label: 'Обычный' },
-  { value: 'HIGH', label: 'Высокий' },
-  { value: 'URGENT', label: 'Срочный' },
-]
-
-const ICON_OPTIONS = [
-  { value: 'shopping-bag', label: 'Корзина', icon: ShoppingBag },
-  { value: 'truck', label: 'Доставка', icon: Truck },
-  { value: 'credit-card', label: 'Платёж', icon: CreditCard },
-  { value: 'alert-triangle', label: 'Предупреждение', icon: AlertTriangle },
-  { value: 'check-circle', label: 'Успех', icon: CheckCircle },
-  { value: 'info', label: 'Информация', icon: Info },
-  { value: 'headphones', label: 'Поддержка', icon: Headphones },
-  { value: 'tag', label: 'Акция', icon: Tag },
-  { value: 'user', label: 'Пользователь', icon: User },
-  { value: 'settings', label: 'Настройки', icon: Settings },
-]
 
 export function NotificationBroadcastPage() {
   const [formData, setFormData] = useState({
     title: '',
     message: '',
-    category: 'SYSTEM' as NotificationCategory,
-    role: 'ALL' as NotificationRole,
-    priority: 'NORMAL' as NotificationPriority,
-    icon: 'info',
+    category: '' as NotificationCategory | '',
+    role: '' as NotificationRole | '',
+    priority: '' as NotificationPriority | '',
+    icon: '',
     actionUrl: '',
     expiresAt: '',
     userId: '',
@@ -90,23 +45,41 @@ export function NotificationBroadcastPage() {
   const [targetType, setTargetType] = useState<'role' | 'user'>('role')
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
 
+  // Fetch enums from backend
+  const { data: categories, isLoading: categoriesLoading } = useNotificationCategories()
+  const { data: roles, isLoading: rolesLoading } = useNotificationRoles()
+  const { data: priorities, isLoading: prioritiesLoading } = useNotificationPriorities()
+  const { data: icons, isLoading: iconsLoading } = useNotificationIcons()
+
   const createNotification = useCreateNotification()
 
-  const selectedRole = ROLE_OPTIONS.find((r) => r.value === formData.role)
-  const selectedCategory = CATEGORY_OPTIONS.find((c) => c.value === formData.category)
-  const selectedIcon = ICON_OPTIONS.find((i) => i.value === formData.icon)
+  const isEnumsLoading = categoriesLoading || rolesLoading || prioritiesLoading || iconsLoading
+
+  // Set default values when enums load
+  const categoryOptions = categories || []
+  const roleOptions = roles || []
+  const priorityOptions = priorities || []
+  const iconOptions = icons || []
+
+  // Get selected options for display
+  const selectedRole = roleOptions.find((r) => r.value === formData.role)
+  const selectedCategory = categoryOptions.find((c) => c.value === formData.category)
+  const selectedPriority = priorityOptions.find((p) => p.value === formData.priority)
+  const selectedIcon = iconOptions.find((i) => i.value === formData.icon)
 
   const handleSend = async () => {
+    if (!formData.category || !formData.priority) return
+
     try {
       await createNotification.mutateAsync({
         title: formData.title,
         message: formData.message,
         category: formData.category,
-        ...(targetType === 'role'
+        ...(targetType === 'role' && formData.role
           ? { role: formData.role }
           : { userId: parseInt(formData.userId, 10) }),
         priority: formData.priority,
-        icon: formData.icon,
+        icon: formData.icon || undefined,
         actionUrl: formData.actionUrl || undefined,
         expiresAt: formData.expiresAt || undefined,
       })
@@ -115,10 +88,10 @@ export function NotificationBroadcastPage() {
       setFormData({
         title: '',
         message: '',
-        category: 'SYSTEM',
-        role: 'ALL',
-        priority: 'NORMAL',
-        icon: 'info',
+        category: categoryOptions[0]?.value || '',
+        role: roleOptions[0]?.value || '',
+        priority: priorityOptions.find((p) => p.value === 'NORMAL')?.value || priorityOptions[0]?.value || '',
+        icon: iconOptions[0]?.value || '',
         actionUrl: '',
         expiresAt: '',
         userId: '',
@@ -131,7 +104,19 @@ export function NotificationBroadcastPage() {
   const isFormValid =
     formData.title.trim() &&
     formData.message.trim() &&
-    (targetType === 'role' || (targetType === 'user' && formData.userId))
+    formData.category &&
+    formData.priority &&
+    (targetType === 'role' ? formData.role : formData.userId)
+
+  // Show loading state while enums are being fetched
+  if (isEnumsLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <RefreshCw className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
+        <span className="ml-2 text-[hsl(var(--muted-foreground))]">Загрузка данных...</span>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -189,7 +174,8 @@ export function NotificationBroadcastPage() {
                       setFormData({ ...formData, role: e.target.value as NotificationRole })
                     }
                   >
-                    {ROLE_OPTIONS.map((opt) => (
+                    <option value="">Выберите роль</option>
+                    {roleOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
@@ -219,7 +205,8 @@ export function NotificationBroadcastPage() {
                       setFormData({ ...formData, category: e.target.value as NotificationCategory })
                     }
                   >
-                    {CATEGORY_OPTIONS.map((opt) => (
+                    <option value="">Выберите категорию</option>
+                    {categoryOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
@@ -235,7 +222,8 @@ export function NotificationBroadcastPage() {
                       setFormData({ ...formData, priority: e.target.value as NotificationPriority })
                     }
                   >
-                    {PRIORITY_OPTIONS.map((opt) => (
+                    <option value="">Выберите приоритет</option>
+                    {priorityOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
@@ -251,7 +239,8 @@ export function NotificationBroadcastPage() {
                   value={formData.icon}
                   onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
                 >
-                  {ICON_OPTIONS.map((opt) => (
+                  <option value="">Выберите иконку</option>
+                  {iconOptions.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
@@ -316,10 +305,10 @@ export function NotificationBroadcastPage() {
                     setFormData({
                       title: '',
                       message: '',
-                      category: 'SYSTEM',
-                      role: 'ALL',
-                      priority: 'NORMAL',
-                      icon: 'info',
+                      category: '',
+                      role: '',
+                      priority: '',
+                      icon: '',
                       actionUrl: '',
                       expiresAt: '',
                       userId: '',
@@ -347,7 +336,7 @@ export function NotificationBroadcastPage() {
               <div className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 p-4">
                 <div className="flex items-start gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[hsl(var(--primary))]/10">
-                    {selectedIcon && <selectedIcon.icon className="h-5 w-5 text-[hsl(var(--primary))]" />}
+                    <Bell className="h-5 w-5 text-[hsl(var(--primary))]" />
                   </div>
                   <div className="flex-1">
                     <p className="font-medium">{formData.title || 'Заголовок уведомления'}</p>
@@ -376,7 +365,7 @@ export function NotificationBroadcastPage() {
               <div className="text-center">
                 {targetType === 'role' ? (
                   <>
-                    <p className="text-3xl font-bold">{selectedRole?.label}</p>
+                    <p className="text-3xl font-bold">{selectedRole?.label || '—'}</p>
                     <p className="text-sm text-[hsl(var(--muted-foreground))]">
                       Группа получателей
                     </p>
@@ -400,17 +389,15 @@ export function NotificationBroadcastPage() {
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-[hsl(var(--muted-foreground))]">Категория:</span>
-                <span className="font-medium">{selectedCategory?.label}</span>
+                <span className="font-medium">{selectedCategory?.label || '—'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[hsl(var(--muted-foreground))]">Приоритет:</span>
-                <span className="font-medium">
-                  {PRIORITY_OPTIONS.find((p) => p.value === formData.priority)?.label}
-                </span>
+                <span className="font-medium">{selectedPriority?.label || '—'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[hsl(var(--muted-foreground))]">Иконка:</span>
-                <span className="font-medium">{selectedIcon?.label}</span>
+                <span className="font-medium">{selectedIcon?.label || '—'}</span>
               </div>
             </CardContent>
           </Card>
@@ -439,9 +426,7 @@ export function NotificationBroadcastPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-[hsl(var(--muted-foreground))]">Приоритет:</span>
-                <span className="font-medium">
-                  {PRIORITY_OPTIONS.find((p) => p.value === formData.priority)?.label}
-                </span>
+                <span className="font-medium">{selectedPriority?.label}</span>
               </div>
               {formData.expiresAt && (
                 <div className="flex justify-between">

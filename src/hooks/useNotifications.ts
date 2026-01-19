@@ -287,3 +287,65 @@ export function useCleanupRead() {
     },
   })
 }
+
+// ==================== ENUM HOOKS ====================
+
+/**
+ * Get all notification enums
+ */
+export function useNotificationEnums() {
+  return useQuery({
+    queryKey: [...notificationKeys.all, 'enums'],
+    queryFn: () => notificationsApi.getEnums(),
+    staleTime: 1000 * 60 * 60, // 1 hour - enums rarely change
+    gcTime: 1000 * 60 * 60 * 24, // 24 hours cache
+  })
+}
+
+/**
+ * Get notification categories
+ */
+export function useNotificationCategories() {
+  return useQuery({
+    queryKey: [...notificationKeys.all, 'enums', 'categories'],
+    queryFn: () => notificationsApi.getCategories(),
+    staleTime: 1000 * 60 * 60,
+    gcTime: 1000 * 60 * 60 * 24,
+  })
+}
+
+/**
+ * Get notification roles
+ */
+export function useNotificationRoles() {
+  return useQuery({
+    queryKey: [...notificationKeys.all, 'enums', 'roles'],
+    queryFn: () => notificationsApi.getRoles(),
+    staleTime: 1000 * 60 * 60,
+    gcTime: 1000 * 60 * 60 * 24,
+  })
+}
+
+/**
+ * Get notification priorities
+ */
+export function useNotificationPriorities() {
+  return useQuery({
+    queryKey: [...notificationKeys.all, 'enums', 'priorities'],
+    queryFn: () => notificationsApi.getPriorities(),
+    staleTime: 1000 * 60 * 60,
+    gcTime: 1000 * 60 * 60 * 24,
+  })
+}
+
+/**
+ * Get notification icons
+ */
+export function useNotificationIcons() {
+  return useQuery({
+    queryKey: [...notificationKeys.all, 'enums', 'icons'],
+    queryFn: () => notificationsApi.getIcons(),
+    staleTime: 1000 * 60 * 60,
+    gcTime: 1000 * 60 * 60 * 24,
+  })
+}
