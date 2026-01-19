@@ -8,12 +8,11 @@ import type {
   AvailableCourier,
 } from '@/types'
 
+// Note: Backend API only supports page and size for courier listing
+// Status and verification filtering must be done client-side
 export interface CouriersQueryParams {
   page?: number
   size?: number
-  status?: CourierStatus
-  isVerified?: boolean
-  search?: string
 }
 
 export interface AvailableCouriersParams {
@@ -24,14 +23,12 @@ export interface AvailableCouriersParams {
 
 export const couriersApi = {
   // Get all couriers with pagination (Admin)
+  // Note: No filtering supported by backend - filter client-side if needed
   getAll: async (params: CouriersQueryParams = {}): Promise<ApiResponse<PaginatedResponse<Courier>>> => {
     const response = await api.get<ApiResponse<PaginatedResponse<Courier>>>('/couriers', {
       params: {
         page: params.page ?? 0,
         size: params.size ?? 20,
-        ...(params.status && { status: params.status }),
-        ...(params.isVerified !== undefined && { isVerified: params.isVerified }),
-        ...(params.search && { search: params.search }),
       },
     })
     return response.data

@@ -52,15 +52,16 @@ export function CourierVerificationPage() {
   const [selectedCourier, setSelectedCourier] = useState<Courier | null>(null)
   const [actionModal, setActionModal] = useState<{ type: 'approve' | 'reject'; courier: Courier } | null>(null)
 
-  // Fetch pending couriers from API
+  // Fetch all couriers from API (no status filter in backend API)
   const { data, isLoading, refetch } = useCouriers({
-    status: 'PENDING_APPROVAL',
-    size: 50,
+    size: 100,
   })
 
   const verifyCourier = useVerifyCourier()
 
-  const pendingCouriers = data?.data?.content || []
+  // Filter client-side for pending verification
+  const allCouriers = data?.data?.content || []
+  const pendingCouriers = allCouriers.filter((c) => c.status === 'PENDING_APPROVAL' || !c.isVerified)
 
   const handleApprove = async () => {
     if (actionModal?.courier) {

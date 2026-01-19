@@ -57,7 +57,7 @@ const statusColors: Record<CourierStatus, 'default' | 'secondary' | 'destructive
 }
 
 export function CouriersPage() {
-  // Filters state
+  // Filters state (client-side filtering - backend doesn't support filters)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<CourierStatus | ''>('')
   const [verifiedFilter, setVerifiedFilter] = useState<string>('')
@@ -72,26 +72,39 @@ export function CouriersPage() {
     courier: null,
   })
 
-  // Fetch couriers from API
+  // Fetch all couriers from API (backend only supports page/size, no filters)
   const { data, isLoading, refetch } = useCouriers({
-    page,
-    size: pageSize,
-    status: statusFilter || undefined,
-    isVerified: verifiedFilter === '' ? undefined : verifiedFilter === 'true',
-    search: search || undefined,
+    size: 200, // Fetch more to allow client-side filtering
   })
 
   const verifyCourier = useVerifyCourier()
 
-  const couriers = data?.data?.content || []
-  const totalItems = data?.data?.totalElements || 0
-  const totalPages = data?.data?.totalPages || 0
+  const allCouriers = data?.data?.content || []
 
-  // Calculate stats from couriers
-  const availableCount = couriers.filter((c) => c.status === 'AVAILABLE').length
-  const busyCount = couriers.filter((c) => c.status === 'BUSY').length
-  const offlineCount = couriers.filter((c) => c.status === 'OFFLINE').length
-  const pendingCount = couriers.filter((c) => c.status === 'PENDING_APPROVAL').length
+  // Client-side filtering
+  const filteredCouriers = allCouriers.filter((courier) => {
+    const matchesStatus = !statusFilter || courier.status === statusFilter
+    const matchesVerified =
+      verifiedFilter === '' ||
+      (verifiedFilter === 'true' && courier.isVerified) ||
+      (verifiedFilter === 'false' && !courier.isVerified)
+    const matchesSearch =
+      !search ||
+      (courier.userName || '').toLowerCase().includes(search.toLowerCase()) ||
+      courier.id.toString().includes(search)
+    return matchesStatus && matchesVerified && matchesSearch
+  })
+
+  // Client-side pagination
+  const totalItems = filteredCouriers.length
+  const totalPages = Math.ceil(totalItems / pageSize)
+  const couriers = filteredCouriers.slice(page * pageSize, (page + 1) * pageSize)
+
+  // Calculate stats from all couriers
+  const availableCount = allCouriers.filter((c) => c.status === 'AVAILABLE').length
+  const busyCount = allCouriers.filter((c) => c.status === 'BUSY').length
+  const offlineCount = allCouriers.filter((c) => c.status === 'OFFLINE').length
+  const pendingCount = allCouriers.filter((c) => c.status === 'PENDING_APPROVAL').length
 
   const handleVerify = async () => {
     if (verifyModal.courier) {

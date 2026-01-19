@@ -52,26 +52,22 @@ export function CouriersMapPage() {
   const [selectedCourier, setSelectedCourier] = useState<number | null>(null)
   const [zoom, setZoom] = useState(12)
 
-  // Fetch couriers from API - get those with location data
+  // Fetch all couriers from API (no filters supported by backend)
   const { data, isLoading, refetch } = useCouriers({
-    size: 100,
-    status: statusFilter as CourierStatus || undefined,
+    size: 200,
   })
 
   const allCouriers = data?.data?.content || []
 
-  // Filter couriers that have location data
-  const couriersWithLocation = allCouriers.filter(
-    (c) => c.currentLatitude && c.currentLongitude
-  )
-
-  // Apply search filter
-  const filteredCouriers = couriersWithLocation.filter((courier) => {
+  // Filter couriers that have location data and apply client-side filters
+  const filteredCouriers = allCouriers.filter((courier) => {
+    const hasLocation = courier.currentLatitude && courier.currentLongitude
+    const matchesStatus = !statusFilter || courier.status === statusFilter
     const matchesSearch =
       !searchQuery ||
       (courier.userName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       courier.id.toString().includes(searchQuery)
-    return matchesSearch
+    return hasLocation && matchesStatus && matchesSearch
   })
 
   const stats = {
