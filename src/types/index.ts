@@ -919,3 +919,19 @@ export interface ExportRequest {
   endDate: string
   format: ExportFormat
 }
+
+// Image types
+export type ImageCategory = 'restaurants' | 'menu-items' | 'profiles' | 'documents'
+
+export interface ImageUploadResponse {
+  filename: string
+  originalFilename: string
+  url: string
+  size: number
+  contentType: string
+}
+
+export interface ImageDeleteResponse {
+  success: boolean
+  message: string
+}

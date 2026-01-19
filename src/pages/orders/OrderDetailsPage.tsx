@@ -12,6 +12,7 @@ import {
   UtensilsCrossed,
   ChefHat,
   FileText,
+  Loader2,
 } from 'lucide-react'
 import {
   Card,
@@ -26,42 +27,8 @@ import {
   Textarea,
 } from '@/components/ui'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
-import type { Order, OrderStatus } from '@/types'
-
-// Mock order data - will be replaced with API call
-const mockOrder: Order = {
-  id: 1003,
-  consumerId: 7,
-  consumerName: 'Елена Васильева',
-  restaurantId: 3,
-  restaurantName: 'Бургер Кинг',
-  courierId: 8,
-  courierName: 'Дмитрий Павлов',
-  status: 'DELIVERING',
-  items: [
-    { id: 4, name: 'Воппер', quantity: 2, price: 349 },
-    { id: 5, name: 'Картофель фри', quantity: 2, price: 129 },
-    { id: 6, name: 'Кока-Кола 0.5л', quantity: 2, price: 99 },
-  ],
-  subtotal: 1154,
-  deliveryFee: 99,
-  total: 1253,
-  deliveryAddress: 'пр. Мира, д. 15, кв. 42',
-  notes: 'Позвонить за 5 минут до приезда',
-  createdAt: '2024-01-15T10:45:00Z',
-  updatedAt: '2024-01-15T11:20:00Z',
-  estimatedDeliveryTime: '2024-01-15T11:45:00Z',
-}
-
-// Mock timeline data
-const mockTimeline = [
-  { status: 'PENDING', timestamp: '2024-01-15T10:45:00Z', note: 'Заказ создан' },
-  { status: 'CONFIRMED', timestamp: '2024-01-15T10:47:00Z', note: 'Ресторан подтвердил заказ' },
-  { status: 'PREPARING', timestamp: '2024-01-15T10:50:00Z', note: 'Начато приготовление' },
-  { status: 'READY_FOR_PICKUP', timestamp: '2024-01-15T11:10:00Z', note: 'Заказ готов' },
-  { status: 'PICKED_UP', timestamp: '2024-01-15T11:15:00Z', note: 'Курьер забрал заказ' },
-  { status: 'DELIVERING', timestamp: '2024-01-15T11:20:00Z', note: 'Курьер в пути' },
-]
+import type { OrderStatus } from '@/types'
+import { useOrder, useUpdateOrderStatus } from '@/hooks'
 
 const statusLabels: Record<OrderStatus, string> = {
   PENDING: 'Ожидает',
@@ -109,20 +76,56 @@ const allStatuses: OrderStatus[] = [
 
 export function OrderDetailsPage() {
   const { id } = useParams()
+  const orderId = parseInt(id || '0', 10)
 
-  // In real app, fetch order by id
-  const order = mockOrder
-  const timeline = mockTimeline
+  const { data: orderData, isLoading } = useOrder(orderId)
+  const order = orderData?.data
+
+  const updateStatusMutation = useUpdateOrderStatus()
 
   // Modal state
   const [statusModal, setStatusModal] = useState(false)
-  const [newStatus, setNewStatus] = useState<OrderStatus>(order.status)
+  const [newStatus, setNewStatus] = useState<OrderStatus>('PENDING')
   const [statusReason, setStatusReason] = useState('')
 
   const handleStatusChange = () => {
-    console.log('Changing status:', id, newStatus, statusReason)
-    setStatusModal(false)
-    setStatusReason('')
+    if (order) {
+      updateStatusMutation.mutate(
+        { id: order.id, data: { status: newStatus, reason: statusReason } },
+        {
+          onSuccess: () => {
+            setStatusModal(false)
+            setStatusReason('')
+          },
+        }
+      )
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
+      </div>
+    )
+  }
+
+  if (!order) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Link to="/orders">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold">Заказ не найден</h1>
+            <p className="text-[hsl(var(--muted-foreground))]">ID: {id}</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -146,7 +149,14 @@ export function OrderDetailsPage() {
           </p>
         </div>
         {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
-          <Button onClick={() => setStatusModal(true)}>Изменить статус</Button>
+          <Button
+            onClick={() => {
+              setNewStatus(order.status)
+              setStatusModal(true)
+            }}
+          >
+            Изменить статус
+          </Button>
         )}
       </div>
 
@@ -202,44 +212,24 @@ export function OrderDetailsPage() {
             </CardContent>
           </Card>
 
-          {/* Timeline */}
+          {/* Timeline - Static for now since API doesn't provide history */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                История заказа
+                Текущий статус
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="relative">
-                {/* Timeline line */}
-                <div className="absolute left-4 top-0 bottom-0 w-px bg-[hsl(var(--border))]" />
-
-                <div className="space-y-6">
-                  {timeline.map((event, index) => (
-                    <div key={index} className="relative flex gap-4 pl-10">
-                      {/* Timeline dot */}
-                      <div
-                        className={`absolute left-0 flex h-8 w-8 items-center justify-center rounded-full ${
-                          index === timeline.length - 1
-                            ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
-                            : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
-                        }`}
-                      >
-                        {statusIcons[event.status as OrderStatus]}
-                      </div>
-
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium">{statusLabels[event.status as OrderStatus]}</p>
-                          <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                            {formatDateTime(event.timestamp)}
-                          </p>
-                        </div>
-                        <p className="text-sm text-[hsl(var(--muted-foreground))]">{event.note}</p>
-                      </div>
-                    </div>
-                  ))}
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]">
+                  {statusIcons[order.status]}
+                </div>
+                <div>
+                  <p className="font-medium text-lg">{statusLabels[order.status]}</p>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                    Обновлён: {formatDateTime(order.updatedAt)}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -354,7 +344,16 @@ export function OrderDetailsPage() {
           <Button variant="outline" onClick={() => setStatusModal(false)}>
             Отмена
           </Button>
-          <Button onClick={handleStatusChange}>Сохранить</Button>
+          <Button onClick={handleStatusChange} disabled={updateStatusMutation.isPending}>
+            {updateStatusMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Сохранение...
+              </>
+            ) : (
+              'Сохранить'
+            )}
+          </Button>
         </ModalFooter>
       </Modal>
     </div>

@@ -10,6 +10,7 @@ import {
   UserCog,
   Filter,
   RefreshCw,
+  Loader2,
 } from 'lucide-react'
 import {
   Card,
@@ -38,67 +39,7 @@ import {
 import { formatDateTime } from '@/lib/utils'
 import type { User, UserRole, UserStatus } from '@/types'
 import { useAuthStore } from '@/store/auth.store'
-
-// Mock data - will be replaced with API calls
-const mockUsers: User[] = [
-  {
-    id: 1,
-    email: 'admin@fooddelivery.com',
-    phone: '+7 999 123 45 67',
-    firstName: 'Алексей',
-    lastName: 'Петров',
-    roles: ['ADMIN'],
-    status: 'ACTIVE',
-    createdAt: '2024-01-01T10:00:00Z',
-    updatedAt: '2024-01-15T10:00:00Z',
-    lastLoginAt: '2024-01-15T09:30:00Z',
-  },
-  {
-    id: 2,
-    email: 'platform@fooddelivery.com',
-    phone: '+7 999 234 56 78',
-    firstName: 'Мария',
-    lastName: 'Иванова',
-    roles: ['PLATFORM'],
-    status: 'ACTIVE',
-    createdAt: '2024-01-02T10:00:00Z',
-    updatedAt: '2024-01-14T10:00:00Z',
-    lastLoginAt: '2024-01-14T15:30:00Z',
-  },
-  {
-    id: 3,
-    email: 'restaurant@example.com',
-    phone: '+7 999 345 67 89',
-    firstName: 'Дмитрий',
-    lastName: 'Сидоров',
-    roles: ['RESTAURANT_OWNER'],
-    status: 'ACTIVE',
-    createdAt: '2024-01-03T10:00:00Z',
-    updatedAt: '2024-01-13T10:00:00Z',
-  },
-  {
-    id: 4,
-    email: 'courier@example.com',
-    phone: '+7 999 456 78 90',
-    firstName: 'Игорь',
-    lastName: 'Козлов',
-    roles: ['COURIER'],
-    status: 'SUSPENDED',
-    createdAt: '2024-01-04T10:00:00Z',
-    updatedAt: '2024-01-12T10:00:00Z',
-  },
-  {
-    id: 5,
-    email: 'user@example.com',
-    phone: '+7 999 567 89 01',
-    firstName: 'Анна',
-    lastName: 'Новикова',
-    roles: ['CONSUMER'],
-    status: 'ACTIVE',
-    createdAt: '2024-01-05T10:00:00Z',
-    updatedAt: '2024-01-11T10:00:00Z',
-  },
-]
+import { useUsers, useUpdateUserStatus, useLockUser, useUnlockUser, useDeleteUser } from '@/hooks'
 
 const roleLabels: Record<UserRole, string> = {
   ADMIN: 'Администратор',
@@ -153,44 +94,54 @@ export function UsersPage() {
   const [statusReason, setStatusReason] = useState('')
   const [newStatus, setNewStatus] = useState<UserStatus>('SUSPENDED')
 
-  // Filter users
-  const filteredUsers = mockUsers.filter((user) => {
-    const matchesSearch =
-      !search ||
-      user.firstName.toLowerCase().includes(search.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(search.toLowerCase()) ||
-      user.email.toLowerCase().includes(search.toLowerCase()) ||
-      user.phone?.includes(search)
-
-    const matchesRole = !roleFilter || user.roles.includes(roleFilter as UserRole)
-    const matchesStatus = !statusFilter || user.status === statusFilter
-
-    return matchesSearch && matchesRole && matchesStatus
+  // API hooks
+  const { data: usersData, isLoading, refetch } = useUsers({
+    page,
+    size: pageSize,
+    role: roleFilter as UserRole || undefined,
+    status: statusFilter as UserStatus || undefined,
+    search: search || undefined,
   })
 
-  const totalItems = filteredUsers.length
-  const totalPages = Math.ceil(totalItems / pageSize)
-  const paginatedUsers = filteredUsers.slice(page * pageSize, (page + 1) * pageSize)
+  const updateStatusMutation = useUpdateUserStatus()
+  const lockUserMutation = useLockUser()
+  const unlockUserMutation = useUnlockUser()
+  const deleteUserMutation = useDeleteUser()
+
+  const users = usersData?.data?.content ?? []
+  const totalItems = usersData?.data?.totalElements ?? 0
+  const totalPages = usersData?.data?.totalPages ?? 0
 
   const handleStatusChange = () => {
-    // Will be replaced with API call
-    console.log('Changing status:', statusModal.user?.id, newStatus, statusReason)
-    setStatusModal({ isOpen: false, user: null })
-    setStatusReason('')
+    if (statusModal.user) {
+      updateStatusMutation.mutate(
+        { id: statusModal.user.id, data: { status: newStatus, reason: statusReason } },
+        {
+          onSuccess: () => {
+            setStatusModal({ isOpen: false, user: null })
+            setStatusReason('')
+          },
+        }
+      )
+    }
   }
 
   const handleDelete = () => {
-    // Will be replaced with API call
-    console.log('Deleting user:', deleteModal.user?.id)
-    setDeleteModal({ isOpen: false, user: null })
+    if (deleteModal.user) {
+      deleteUserMutation.mutate(deleteModal.user.id, {
+        onSuccess: () => {
+          setDeleteModal({ isOpen: false, user: null })
+        },
+      })
+    }
   }
 
   const handleLock = (user: User) => {
-    console.log('Locking user:', user.id)
+    lockUserMutation.mutate(user.id)
   }
 
   const handleUnlock = (user: User) => {
-    console.log('Unlocking user:', user.id)
+    unlockUserMutation.mutate(user.id)
   }
 
   return (
@@ -203,8 +154,8 @@ export function UsersPage() {
             Управление пользователями системы
           </p>
         </div>
-        <Button variant="outline" size="sm">
-          <RefreshCw className="mr-2 h-4 w-4" />
+        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           Обновить
         </Button>
       </div>
@@ -224,11 +175,20 @@ export function UsersPage() {
               <Input
                 placeholder="Поиск по имени, email, телефону..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  setPage(0)
+                }}
                 className="pl-10"
               />
             </div>
-            <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+            <Select
+              value={roleFilter}
+              onChange={(e) => {
+                setRoleFilter(e.target.value)
+                setPage(0)
+              }}
+            >
               <option value="">Все роли</option>
               <option value="ADMIN">Администратор</option>
               <option value="PLATFORM">Платформа</option>
@@ -236,7 +196,13 @@ export function UsersPage() {
               <option value="COURIER">Курьер</option>
               <option value="CONSUMER">Потребитель</option>
             </Select>
-            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <Select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value)
+                setPage(0)
+              }}
+            >
               <option value="">Все статусы</option>
               <option value="ACTIVE">Активен</option>
               <option value="INACTIVE">Неактивен</option>
@@ -248,6 +214,7 @@ export function UsersPage() {
                 setSearch('')
                 setRoleFilter('')
                 setStatusFilter('')
+                setPage(0)
               }}
             >
               Сбросить
@@ -259,112 +226,118 @@ export function UsersPage() {
       {/* Users table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Пользователь</TableHead>
-                <TableHead>Роли</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead>Последний вход</TableHead>
-                <TableHead>Создан</TableHead>
-                <TableHead className="w-[70px]">Действия</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar name={`${user.firstName} ${user.lastName}`} size="sm" />
-                      <div>
-                        <div className="font-medium">
-                          {user.firstName} {user.lastName}
-                        </div>
-                        <div className="text-sm text-[hsl(var(--muted-foreground))]">
-                          {user.email}
-                        </div>
-                        {user.phone && (
-                          <div className="text-sm text-[hsl(var(--muted-foreground))]">
-                            {user.phone}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {user.roles.map((role) => (
-                        <Badge key={role} variant={roleColors[role]}>
-                          {roleLabels[role]}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={statusColors[user.status]}>
-                      {statusLabels[user.status]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-[hsl(var(--muted-foreground))]">
-                    {user.lastLoginAt ? formatDateTime(user.lastLoginAt) : '—'}
-                  </TableCell>
-                  <TableCell className="text-sm text-[hsl(var(--muted-foreground))]">
-                    {formatDateTime(user.createdAt)}
-                  </TableCell>
-                  <TableCell>
-                    <Dropdown
-                      trigger={
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      }
-                    >
-                      <Link to={`/users/${user.id}`}>
-                        <DropdownItem>
-                          <Eye className="h-4 w-4" />
-                          Просмотр
-                        </DropdownItem>
-                      </Link>
-                      <DropdownItem
-                        onClick={() => {
-                          setStatusModal({ isOpen: true, user })
-                          setNewStatus(user.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED')
-                        }}
-                      >
-                        <UserCog className="h-4 w-4" />
-                        Изменить статус
-                      </DropdownItem>
-                      {user.status === 'ACTIVE' ? (
-                        <DropdownItem onClick={() => handleLock(user)}>
-                          <Lock className="h-4 w-4" />
-                          Заблокировать
-                        </DropdownItem>
-                      ) : (
-                        <DropdownItem onClick={() => handleUnlock(user)}>
-                          <Unlock className="h-4 w-4" />
-                          Разблокировать
-                        </DropdownItem>
-                      )}
-                      {isAdmin && (
-                        <>
-                          <DropdownSeparator />
-                          <DropdownItem
-                            variant="destructive"
-                            onClick={() => setDeleteModal({ isOpen: true, user })}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Удалить
-                          </DropdownItem>
-                        </>
-                      )}
-                    </Dropdown>
-                  </TableCell>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Пользователь</TableHead>
+                  <TableHead>Роли</TableHead>
+                  <TableHead>Статус</TableHead>
+                  <TableHead>Последний вход</TableHead>
+                  <TableHead>Создан</TableHead>
+                  <TableHead className="w-[70px]">Действия</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar name={`${user.firstName} ${user.lastName}`} size="sm" />
+                        <div>
+                          <div className="font-medium">
+                            {user.firstName} {user.lastName}
+                          </div>
+                          <div className="text-sm text-[hsl(var(--muted-foreground))]">
+                            {user.email}
+                          </div>
+                          {user.phone && (
+                            <div className="text-sm text-[hsl(var(--muted-foreground))]">
+                              {user.phone}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {user.roles.map((role) => (
+                          <Badge key={role} variant={roleColors[role]}>
+                            {roleLabels[role]}
+                          </Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={statusColors[user.status]}>
+                        {statusLabels[user.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-[hsl(var(--muted-foreground))]">
+                      {user.lastLoginAt ? formatDateTime(user.lastLoginAt) : '—'}
+                    </TableCell>
+                    <TableCell className="text-sm text-[hsl(var(--muted-foreground))]">
+                      {formatDateTime(user.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      <Dropdown
+                        trigger={
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        }
+                      >
+                        <Link to={`/users/${user.id}`}>
+                          <DropdownItem>
+                            <Eye className="h-4 w-4" />
+                            Просмотр
+                          </DropdownItem>
+                        </Link>
+                        <DropdownItem
+                          onClick={() => {
+                            setStatusModal({ isOpen: true, user })
+                            setNewStatus(user.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED')
+                          }}
+                        >
+                          <UserCog className="h-4 w-4" />
+                          Изменить статус
+                        </DropdownItem>
+                        {user.status === 'ACTIVE' ? (
+                          <DropdownItem onClick={() => handleLock(user)}>
+                            <Lock className="h-4 w-4" />
+                            Заблокировать
+                          </DropdownItem>
+                        ) : (
+                          <DropdownItem onClick={() => handleUnlock(user)}>
+                            <Unlock className="h-4 w-4" />
+                            Разблокировать
+                          </DropdownItem>
+                        )}
+                        {isAdmin && (
+                          <>
+                            <DropdownSeparator />
+                            <DropdownItem
+                              variant="destructive"
+                              onClick={() => setDeleteModal({ isOpen: true, user })}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Удалить
+                            </DropdownItem>
+                          </>
+                        )}
+                      </Dropdown>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
 
-          {paginatedUsers.length === 0 && (
+          {!isLoading && users.length === 0 && (
             <div className="py-12 text-center text-[hsl(var(--muted-foreground))]">
               Пользователи не найдены
             </div>
@@ -416,7 +389,16 @@ export function UsersPage() {
           <Button variant="outline" onClick={() => setStatusModal({ isOpen: false, user: null })}>
             Отмена
           </Button>
-          <Button onClick={handleStatusChange}>Сохранить</Button>
+          <Button onClick={handleStatusChange} disabled={updateStatusMutation.isPending}>
+            {updateStatusMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Сохранение...
+              </>
+            ) : (
+              'Сохранить'
+            )}
+          </Button>
         </ModalFooter>
       </Modal>
 
@@ -439,8 +421,15 @@ export function UsersPage() {
           <Button variant="outline" onClick={() => setDeleteModal({ isOpen: false, user: null })}>
             Отмена
           </Button>
-          <Button variant="destructive" onClick={handleDelete}>
-            Удалить
+          <Button variant="destructive" onClick={handleDelete} disabled={deleteUserMutation.isPending}>
+            {deleteUserMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Удаление...
+              </>
+            ) : (
+              'Удалить'
+            )}
           </Button>
         </ModalFooter>
       </Modal>
