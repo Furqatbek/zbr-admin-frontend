@@ -16,6 +16,8 @@ import {
   ShoppingBag,
   Utensils,
   DollarSign,
+  Eye,
+  RefreshCw,
 } from 'lucide-react'
 import {
   Card,
@@ -27,10 +29,52 @@ import {
   Modal,
   ModalFooter,
   Select,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Pagination,
 } from '@/components/ui'
 import { formatDateTime, formatNumber, formatCurrency } from '@/lib/utils'
 import { useRestaurant, useUpdateRestaurantStatus, useToggleRestaurantOpen } from '@/hooks/useRestaurants'
-import type { RestaurantStatus } from '@/types'
+import { useOrdersByRestaurant } from '@/hooks/useOrders'
+import type { RestaurantStatus, OrderStatus } from '@/types'
+
+const orderStatusLabels: Record<OrderStatus, string> = {
+  CREATED: 'Создан',
+  PENDING: 'Ожидает',
+  CONFIRMED: 'Подтверждён',
+  ACCEPTED: 'Принят',
+  PREPARING: 'Готовится',
+  READY: 'Готов',
+  READY_FOR_PICKUP: 'Готов к выдаче',
+  PICKED_UP: 'Забран',
+  IN_TRANSIT: 'В пути',
+  DELIVERING: 'Доставляется',
+  DELIVERED: 'Доставлен',
+  COMPLETED: 'Завершён',
+  CANCELLED: 'Отменён',
+  REFUNDED: 'Возврат',
+}
+
+const orderStatusColors: Record<OrderStatus, 'default' | 'secondary' | 'destructive' | 'success' | 'warning'> = {
+  CREATED: 'secondary',
+  PENDING: 'secondary',
+  CONFIRMED: 'default',
+  ACCEPTED: 'default',
+  PREPARING: 'warning',
+  READY: 'warning',
+  READY_FOR_PICKUP: 'warning',
+  PICKED_UP: 'default',
+  IN_TRANSIT: 'default',
+  DELIVERING: 'default',
+  DELIVERED: 'success',
+  COMPLETED: 'success',
+  CANCELLED: 'destructive',
+  REFUNDED: 'destructive',
+}
 
 const statusLabels: Record<RestaurantStatus, string> = {
   PENDING: 'На модерации',
@@ -60,6 +104,21 @@ export function RestaurantDetailsPage() {
 
   const [statusModal, setStatusModal] = useState(false)
   const [newStatus, setNewStatus] = useState<RestaurantStatus>('ACTIVE')
+
+  // Orders pagination
+  const [ordersPage, setOrdersPage] = useState(0)
+  const [ordersPageSize, setOrdersPageSize] = useState(10)
+
+  // Fetch restaurant orders
+  const {
+    data: ordersData,
+    isLoading: ordersLoading,
+    refetch: refetchOrders,
+  } = useOrdersByRestaurant(restaurantId, { page: ordersPage, size: ordersPageSize })
+
+  const orders = ordersData?.data?.content ?? []
+  const ordersTotalItems = ordersData?.data?.totalElements ?? 0
+  const ordersTotalPages = ordersData?.data?.totalPages ?? 0
 
   const handleStatusChange = async () => {
     if (restaurant) {
@@ -381,6 +440,103 @@ export function RestaurantDetailsPage() {
           </Card>
         </div>
       </div>
+
+      {/* Order History Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              История заказов
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetchOrders()}
+              disabled={ordersLoading}
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${ordersLoading ? 'animate-spin' : ''}`} />
+              Обновить
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {ordersLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="py-12 text-center text-[hsl(var(--muted-foreground))]">
+              Заказов не найдено
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Клиент</TableHead>
+                  <TableHead>Сумма</TableHead>
+                  <TableHead>Статус</TableHead>
+                  <TableHead>Создан</TableHead>
+                  <TableHead className="w-[70px]">Действия</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">
+                      {order.externalOrderNo || `#${order.id}`}
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{order.consumerName}</div>
+                        {order.deliveryAddress && (
+                          <div className="text-sm text-[hsl(var(--muted-foreground))] truncate max-w-[200px]">
+                            {order.deliveryAddress}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {formatCurrency(order.total)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={orderStatusColors[order.status]}>
+                        {orderStatusLabels[order.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-[hsl(var(--muted-foreground))]">
+                      {formatDateTime(order.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      <Link to={`/orders/${order.id}`}>
+                        <Button variant="ghost" size="icon">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Orders Pagination */}
+      {ordersTotalItems > 0 && (
+        <Pagination
+          currentPage={ordersPage}
+          totalPages={ordersTotalPages}
+          pageSize={ordersPageSize}
+          totalItems={ordersTotalItems}
+          onPageChange={setOrdersPage}
+          onPageSizeChange={(size) => {
+            setOrdersPageSize(size)
+            setOrdersPage(0)
+          }}
+        />
+      )}
 
       {/* Status change modal */}
       <Modal

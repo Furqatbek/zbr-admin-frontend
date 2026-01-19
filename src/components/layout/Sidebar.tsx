@@ -148,6 +148,7 @@ export function Sidebar() {
             label="Заказы"
             children={[
               { to: '/orders', label: 'Все заказы' },
+              { to: '/orders/live', label: 'Активные заказы' },
               { to: '/orders/issues', label: 'Проблемные' },
             ]}
           />

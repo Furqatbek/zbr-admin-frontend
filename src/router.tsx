@@ -18,6 +18,7 @@ const UserRolesPage = lazy(() => import('@/pages/users/UserRolesPage').then(m =>
 const OrdersPage = lazy(() => import('@/pages/orders/OrdersPage').then(m => ({ default: m.OrdersPage })))
 const OrderDetailsPage = lazy(() => import('@/pages/orders/OrderDetailsPage').then(m => ({ default: m.OrderDetailsPage })))
 const ProblematicOrdersPage = lazy(() => import('@/pages/orders/ProblematicOrdersPage').then(m => ({ default: m.ProblematicOrdersPage })))
+const LiveOrdersPage = lazy(() => import('@/pages/orders/LiveOrdersPage').then(m => ({ default: m.LiveOrdersPage })))
 
 const CouriersPage = lazy(() => import('@/pages/couriers/CouriersPage').then(m => ({ default: m.CouriersPage })))
 const CourierDetailsPage = lazy(() => import('@/pages/couriers/CourierDetailsPage').then(m => ({ default: m.CourierDetailsPage })))
@@ -122,6 +123,10 @@ export const router = createBrowserRouter([
       {
         path: 'orders/:id',
         element: <LazyPage><OrderDetailsPage /></LazyPage>,
+      },
+      {
+        path: 'orders/live',
+        element: <LazyPage><LiveOrdersPage /></LazyPage>,
       },
       {
         path: 'orders/issues',

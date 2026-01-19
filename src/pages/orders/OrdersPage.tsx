@@ -9,6 +9,8 @@ import {
   RefreshCw,
   Calendar,
   Loader2,
+  Hash,
+  ArrowRight,
 } from 'lucide-react'
 import {
   Card,
@@ -34,7 +36,7 @@ import {
 } from '@/components/ui'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
 import type { Order, OrderStatus } from '@/types'
-import { useOrders, useCancelOrder } from '@/hooks'
+import { useOrders, useCancelOrder, useOrderByNumber } from '@/hooks'
 
 const statusLabels: Record<OrderStatus, string> = {
   CREATED: 'Создан',
@@ -74,6 +76,10 @@ const statusColors: Record<OrderStatus, 'default' | 'secondary' | 'destructive' 
 const cancellableStatuses: OrderStatus[] = ['CREATED', 'ACCEPTED', 'PREPARING', 'READY']
 
 export function OrdersPage() {
+  // Order number search state
+  const [orderNoSearch, setOrderNoSearch] = useState('')
+  const [searchedOrderNo, setSearchedOrderNo] = useState('')
+
   // Filters state
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
@@ -90,6 +96,33 @@ export function OrdersPage() {
     order: null,
   })
   const [cancelReason, setCancelReason] = useState('')
+
+  // Order number search hook
+  const {
+    data: orderByNoData,
+    isLoading: orderByNoLoading,
+    error: orderByNoError,
+  } = useOrderByNumber(searchedOrderNo)
+
+  const foundOrder = orderByNoData?.data
+
+  // Handle order number search
+  const handleOrderNoSearch = () => {
+    if (orderNoSearch.trim()) {
+      setSearchedOrderNo(orderNoSearch.trim())
+    }
+  }
+
+  const handleOrderNoKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleOrderNoSearch()
+    }
+  }
+
+  const clearOrderNoSearch = () => {
+    setOrderNoSearch('')
+    setSearchedOrderNo('')
+  }
 
   // API hooks
   const { data: ordersData, isLoading, refetch } = useOrders({
@@ -151,6 +184,88 @@ export function OrdersPage() {
           Обновить
         </Button>
       </div>
+
+      {/* Quick Order Number Search */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Hash className="h-4 w-4" />
+            Быстрый поиск по номеру заказа
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" />
+              <Input
+                placeholder="Введите номер заказа (ORD-2024-001)..."
+                value={orderNoSearch}
+                onChange={(e) => setOrderNoSearch(e.target.value)}
+                onKeyDown={handleOrderNoKeyDown}
+                className="pl-10"
+              />
+            </div>
+            <Button onClick={handleOrderNoSearch} disabled={orderByNoLoading || !orderNoSearch.trim()}>
+              {orderByNoLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="mr-2 h-4 w-4" />
+              )}
+              Найти
+            </Button>
+            {searchedOrderNo && (
+              <Button variant="outline" onClick={clearOrderNoSearch}>
+                Очистить
+              </Button>
+            )}
+          </div>
+
+          {/* Search Result */}
+          {searchedOrderNo && (
+            <div className="mt-4">
+              {orderByNoLoading ? (
+                <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Поиск заказа...</span>
+                </div>
+              ) : orderByNoError || !foundOrder ? (
+                <div className="rounded-lg border border-[hsl(var(--destructive))]/20 bg-[hsl(var(--destructive))]/10 p-4">
+                  <p className="text-[hsl(var(--destructive))]">
+                    Заказ с номером "{searchedOrderNo}" не найден
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-3">
+                        <span className="font-semibold text-lg">
+                          {foundOrder.externalOrderNo || `#${foundOrder.id}`}
+                        </span>
+                        <Badge variant={statusColors[foundOrder.status]}>
+                          {statusLabels[foundOrder.status]}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-[hsl(var(--muted-foreground))]">
+                        <span>Клиент: {foundOrder.consumerName}</span>
+                        <span>Ресторан: {foundOrder.restaurantName}</span>
+                        <span>Сумма: {formatCurrency(foundOrder.total)}</span>
+                        <span>{formatDateTime(foundOrder.createdAt)}</span>
+                      </div>
+                    </div>
+                    <Link to={`/orders/${foundOrder.id}`}>
+                      <Button>
+                        Открыть заказ
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <Card>
