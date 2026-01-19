@@ -159,9 +159,11 @@ export function Sidebar() {
             children={[
               { to: '/analytics/revenue', label: 'Доходы' },
               { to: '/analytics/orders', label: 'Заказы' },
-              { to: '/analytics/operations', label: 'Операции' },
+              { to: '/analytics/operations', label: 'Курьеры' },
+              { to: '/analytics/restaurants', label: 'Рестораны' },
               { to: '/analytics/financial', label: 'Финансы' },
               { to: '/analytics/cx', label: 'Клиентский опыт' },
+              { to: '/analytics/support', label: 'Поддержка' },
               ...(isAdmin ? [{ to: '/analytics/fraud', label: 'Безопасность' }] : []),
               { to: '/analytics/technical', label: 'Технические' },
             ]}
