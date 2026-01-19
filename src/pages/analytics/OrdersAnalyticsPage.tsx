@@ -8,6 +8,11 @@ import {
   Loader2,
   AlertCircle,
   Ban,
+  TrendingUp,
+  CheckCircle,
+  Users,
+  UserPlus,
+  BarChart3,
 } from 'lucide-react'
 import {
   Card,
@@ -25,12 +30,13 @@ import {
   TableCell,
 } from '@/components/ui'
 import { SimpleBarChart } from '@/components/charts'
-import { formatNumber, formatCurrency, formatDateTime } from '@/lib/utils'
+import { formatNumber, formatCurrency, formatDateTime, formatPercent } from '@/lib/utils'
 import {
   useActiveOrders,
   useCancelledOrders,
   useRejectedOrders,
 } from '@/hooks/useDashboard'
+import { useOrderVolumeMetrics } from '@/hooks/useAnalytics'
 
 const statusLabels: Record<string, string> = {
   PENDING: 'Ожидает',
@@ -94,18 +100,21 @@ export function OrdersAnalyticsPage() {
   const { data: activeOrdersData, isLoading: activeLoading, refetch: refetchActive } = useActiveOrders()
   const { data: cancelledOrdersData, isLoading: cancelledLoading, refetch: refetchCancelled } = useCancelledOrders(dateRange)
   const { data: rejectedOrdersData, isLoading: rejectedLoading, refetch: refetchRejected } = useRejectedOrders(dateRange)
+  const { data: orderVolumeData, isLoading: volumeLoading, refetch: refetchVolume } = useOrderVolumeMetrics()
 
-  const isLoading = activeLoading || cancelledLoading || rejectedLoading
+  const isLoading = activeLoading || cancelledLoading || rejectedLoading || volumeLoading
 
   const handleRefresh = () => {
     refetchActive()
     refetchCancelled()
     refetchRejected()
+    refetchVolume()
   }
 
   const activeOrders = activeOrdersData?.data
   const cancelledOrders = cancelledOrdersData?.data
   const rejectedOrders = rejectedOrdersData?.data
+  const orderVolume = orderVolumeData?.data
 
   // Calculate totals
   const totalActiveOrders = activeOrders?.totalActiveOrders ?? 0
@@ -143,6 +152,241 @@ export function OrdersAnalyticsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Order Volume Stats (from Analytics API) */}
+      {orderVolume && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">Заказов сегодня</p>
+                  <p className="text-2xl font-bold">{formatNumber(orderVolume.ordersToday)}</p>
+                </div>
+                <Package className="h-6 w-6 text-[hsl(var(--primary))]" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">За неделю</p>
+                  <p className="text-2xl font-bold">{formatNumber(orderVolume.ordersThisWeek)}</p>
+                </div>
+                <BarChart3 className="h-6 w-6 text-[hsl(var(--primary))]" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">Первые заказы</p>
+                  <p className="text-2xl font-bold">{formatNumber(orderVolume.firstOrdersToday)}</p>
+                </div>
+                <UserPlus className="h-6 w-6 text-[hsl(var(--success))]" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">Повторные</p>
+                  <p className="text-2xl font-bold">{formatNumber(orderVolume.repeatOrdersToday)}</p>
+                </div>
+                <Users className="h-6 w-6 text-[hsl(var(--warning))]" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">Успешность</p>
+                  <p className="text-2xl font-bold text-[hsl(var(--success))]">
+                    {formatPercent(orderVolume.successRate)}
+                  </p>
+                </div>
+                <CheckCircle className="h-6 w-6 text-[hsl(var(--success))]" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">Отмены</p>
+                  <p className="text-2xl font-bold text-[hsl(var(--destructive))]">
+                    {formatPercent(orderVolume.cancellationRate)}
+                  </p>
+                </div>
+                <XCircle className="h-6 w-6 text-[hsl(var(--destructive))]" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Orders per Hour Chart */}
+      {orderVolume?.ordersPerHour && Object.keys(orderVolume.ordersPerHour).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Распределение заказов по часам (сегодня)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SimpleBarChart
+              data={Object.entries(orderVolume.ordersPerHour)
+                .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                .map(([hour, count]) => ({
+                  label: `${hour}:00`,
+                  value: count,
+                  color: 'hsl(var(--primary))',
+                }))}
+              height={250}
+              valueFormatter={(v) => formatNumber(v)}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* First vs Repeat Orders */}
+      {orderVolume && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Новые vs Повторные заказы
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-lg border border-[hsl(var(--border))] p-6">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[hsl(var(--success))]/10">
+                    <UserPlus className="h-8 w-8 text-[hsl(var(--success))]" />
+                  </div>
+                  <div>
+                    <p className="text-3xl font-bold">{formatNumber(orderVolume.firstOrdersToday)}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Первые заказы сегодня</p>
+                    <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                      Новые клиенты
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <div className="h-2 w-full rounded-full bg-[hsl(var(--muted))]">
+                    <div
+                      className="h-full rounded-full bg-[hsl(var(--success))]"
+                      style={{
+                        width: `${orderVolume.ordersToday > 0 ? (orderVolume.firstOrdersToday / orderVolume.ordersToday) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                    {orderVolume.ordersToday > 0
+                      ? formatPercent((orderVolume.firstOrdersToday / orderVolume.ordersToday) * 100)
+                      : '0%'}{' '}
+                    от всех заказов
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-[hsl(var(--border))] p-6">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[hsl(var(--warning))]/10">
+                    <Users className="h-8 w-8 text-[hsl(var(--warning))]" />
+                  </div>
+                  <div>
+                    <p className="text-3xl font-bold">{formatNumber(orderVolume.repeatOrdersToday)}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Повторные заказы сегодня</p>
+                    <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                      Возвратные клиенты
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <div className="h-2 w-full rounded-full bg-[hsl(var(--muted))]">
+                    <div
+                      className="h-full rounded-full bg-[hsl(var(--warning))]"
+                      style={{
+                        width: `${orderVolume.ordersToday > 0 ? (orderVolume.repeatOrdersToday / orderVolume.ordersToday) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                    {orderVolume.ordersToday > 0
+                      ? formatPercent((orderVolume.repeatOrdersToday / orderVolume.ordersToday) * 100)
+                      : '0%'}{' '}
+                    от всех заказов
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Success / Cancellation Rates */}
+      {orderVolume && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Показатели эффективности</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-lg bg-[hsl(var(--success))]/10 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Успешность заказов</p>
+                    <p className="text-4xl font-bold text-[hsl(var(--success))]">
+                      {formatPercent(orderVolume.successRate)}
+                    </p>
+                  </div>
+                  <CheckCircle className="h-12 w-12 text-[hsl(var(--success))]" />
+                </div>
+                <div className="mt-4">
+                  <div className="h-3 w-full rounded-full bg-[hsl(var(--muted))]">
+                    <div
+                      className="h-full rounded-full bg-[hsl(var(--success))]"
+                      style={{ width: `${orderVolume.successRate}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-[hsl(var(--destructive))]/10 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Процент отмен</p>
+                    <p className="text-4xl font-bold text-[hsl(var(--destructive))]">
+                      {formatPercent(orderVolume.cancellationRate)}
+                    </p>
+                  </div>
+                  <XCircle className="h-12 w-12 text-[hsl(var(--destructive))]" />
+                </div>
+                <div className="mt-4">
+                  <div className="h-3 w-full rounded-full bg-[hsl(var(--muted))]">
+                    <div
+                      className="h-full rounded-full bg-[hsl(var(--destructive))]"
+                      style={{ width: `${orderVolume.cancellationRate}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

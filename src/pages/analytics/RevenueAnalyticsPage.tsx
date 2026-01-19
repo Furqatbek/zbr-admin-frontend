@@ -1,70 +1,44 @@
-import { useState } from 'react'
 import {
   TrendingUp,
-  TrendingDown,
   DollarSign,
-  CreditCard,
-  Truck,
-  Store,
-  Calendar,
+  ShoppingCart,
+  Package,
+  Calculator,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react'
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  Select,
   Badge,
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
+  Button,
 } from '@/components/ui'
-import { SimpleBarChart, SimpleLineChart } from '@/components/charts'
-import { formatNumber, formatCurrency } from '@/lib/utils'
-
-// Mock data
-const mockRevenueData = {
-  totalRevenue: 15750000,
-  platformFees: 1575000,
-  deliveryFees: 2362500,
-  restaurantRevenue: 11812500,
-  periodComparison: {
-    current: 15750000,
-    previous: 14200000,
-    changePercent: 10.9,
-  },
-  dailyRevenue: [
-    { date: '01.01', revenue: 520000, orders: 156 },
-    { date: '02.01', revenue: 480000, orders: 142 },
-    { date: '03.01', revenue: 560000, orders: 168 },
-    { date: '04.01', revenue: 610000, orders: 183 },
-    { date: '05.01', revenue: 590000, orders: 177 },
-    { date: '06.01', revenue: 720000, orders: 216 },
-    { date: '07.01', revenue: 680000, orders: 204 },
-    { date: '08.01', revenue: 540000, orders: 162 },
-    { date: '09.01', revenue: 510000, orders: 153 },
-    { date: '10.01', revenue: 580000, orders: 174 },
-    { date: '11.01', revenue: 620000, orders: 186 },
-    { date: '12.01', revenue: 590000, orders: 177 },
-    { date: '13.01', revenue: 710000, orders: 213 },
-    { date: '14.01', revenue: 740000, orders: 222 },
-  ],
-  topRestaurants: [
-    { id: 1, name: 'Пицца Хат', revenue: 2150000, orders: 645 },
-    { id: 2, name: 'Суши Мастер', revenue: 1890000, orders: 567 },
-    { id: 3, name: 'Бургер Кинг', revenue: 1650000, orders: 495 },
-    { id: 4, name: 'KFC', revenue: 1420000, orders: 426 },
-    { id: 5, name: 'Додо Пицца', revenue: 1280000, orders: 384 },
-  ],
-}
+import { formatNumber, formatCurrency, formatDateTime } from '@/lib/utils'
+import { useAOVMetrics, useRefreshAnalyticsCache } from '@/hooks/useAnalytics'
 
 export function RevenueAnalyticsPage() {
-  const [period, setPeriod] = useState('month')
-  const data = mockRevenueData
-  const isPositiveChange = data.periodComparison.changePercent >= 0
+  const { data: aovData, isLoading, refetch } = useAOVMetrics()
+  const refreshCacheMutation = useRefreshAnalyticsCache()
+
+  const aov = aovData?.data
+
+  const handleRefresh = () => {
+    refetch()
+  }
+
+  const handleForceRefresh = () => {
+    refreshCacheMutation.mutate()
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -73,176 +47,216 @@ export function RevenueAnalyticsPage() {
         <div>
           <h1 className="text-2xl font-bold">Аналитика доходов</h1>
           <p className="text-[hsl(var(--muted-foreground))]">
-            Финансовые показатели платформы
+            Средний чек и показатели выручки
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-          <Select value={period} onChange={(e) => setPeriod(e.target.value)}>
-            <option value="week">Неделя</option>
-            <option value="month">Месяц</option>
-            <option value="quarter">Квартал</option>
-            <option value="year">Год</option>
-          </Select>
+          <Button variant="outline" size="icon" onClick={handleRefresh}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleForceRefresh}
+            disabled={refreshCacheMutation.isPending}
+          >
+            {refreshCacheMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            Обновить кэш
+          </Button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">Общий доход</p>
-                <p className="text-2xl font-bold">{formatCurrency(data.totalRevenue)}</p>
-                <div className="mt-1 flex items-center gap-1">
-                  {isPositiveChange ? (
-                    <TrendingUp className="h-4 w-4 text-[hsl(var(--success))]" />
-                  ) : (
-                    <TrendingDown className="h-4 w-4 text-[hsl(var(--destructive))]" />
-                  )}
-                  <span
-                    className={`text-sm ${
-                      isPositiveChange ? 'text-[hsl(var(--success))]' : 'text-[hsl(var(--destructive))]'
-                    }`}
-                  >
-                    {isPositiveChange ? '+' : ''}{data.periodComparison.changePercent}%
-                  </span>
+      {aov ? (
+        <>
+          {/* KPI Cards */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Общая выручка</p>
+                    <p className="text-2xl font-bold">{formatCurrency(aov.totalRevenue, aov.currency)}</p>
+                    <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                      {formatNumber(aov.totalCompletedOrders)} заказов
+                    </p>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--primary))]/10">
+                    <DollarSign className="h-6 w-6 text-[hsl(var(--primary))]" />
+                  </div>
                 </div>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--primary))]/10">
-                <DollarSign className="h-6 w-6 text-[hsl(var(--primary))]" />
-              </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Средний чек (AOV)</p>
+                    <p className="text-2xl font-bold">{formatCurrency(aov.averageOrderValue, aov.currency)}</p>
+                    <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                      Среднее значение
+                    </p>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--success))]/10">
+                    <TrendingUp className="h-6 w-6 text-[hsl(var(--success))]" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Медианный чек</p>
+                    <p className="text-2xl font-bold">{formatCurrency(aov.medianOrderValue, aov.currency)}</p>
+                    <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                      50-й перцентиль
+                    </p>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--warning))]/10">
+                    <Calculator className="h-6 w-6 text-[hsl(var(--warning))]" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Позиций в заказе</p>
+                    <p className="text-2xl font-bold">{aov.averageItemsPerOrder.toFixed(1)}</p>
+                    <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                      В среднем
+                    </p>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--secondary))]/50">
+                    <Package className="h-6 w-6 text-[hsl(var(--secondary-foreground))]" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Detailed Metrics */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* AOV Analysis */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Анализ среднего чека
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="rounded-lg bg-[hsl(var(--muted))] p-6">
+                  <div className="text-center">
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Средний чек (AOV)</p>
+                    <p className="text-5xl font-bold text-[hsl(var(--primary))]">
+                      {formatCurrency(aov.averageOrderValue, aov.currency)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-lg border border-[hsl(var(--border))] p-4 text-center">
+                    <p className="text-2xl font-bold">{formatCurrency(aov.medianOrderValue, aov.currency)}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Медианный чек</p>
+                    <Badge variant="secondary" className="mt-2">50-й перцентиль</Badge>
+                  </div>
+                  <div className="rounded-lg border border-[hsl(var(--border))] p-4 text-center">
+                    <p className="text-2xl font-bold">{aov.averageItemsPerOrder.toFixed(2)}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Позиций в заказе</p>
+                    <Badge variant="secondary" className="mt-2">В среднем</Badge>
+                  </div>
+                </div>
+
+                {aov.averageOrderValue > aov.medianOrderValue && (
+                  <div className="rounded-lg bg-[hsl(var(--warning))]/10 p-4">
+                    <p className="text-sm">
+                      <strong>Примечание:</strong> Средний чек выше медианного на{' '}
+                      {formatCurrency(aov.averageOrderValue - aov.medianOrderValue, aov.currency)}.
+                      Это указывает на наличие крупных заказов, которые повышают среднее значение.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Revenue Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Сводка по выручке
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="rounded-lg bg-[hsl(var(--success))]/10 p-6">
+                  <div className="text-center">
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Общая выручка</p>
+                    <p className="text-5xl font-bold text-[hsl(var(--success))]">
+                      {formatCurrency(aov.totalRevenue, aov.currency)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ShoppingCart className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+                      <span>Завершённых заказов</span>
+                    </div>
+                    <span className="font-bold">{formatNumber(aov.totalCompletedOrders)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+                      <span>Средний чек</span>
+                    </div>
+                    <span className="font-bold">{formatCurrency(aov.averageOrderValue, aov.currency)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+                      <span>Позиций в заказе</span>
+                    </div>
+                    <span className="font-bold">{aov.averageItemsPerOrder.toFixed(1)}</span>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-[hsl(var(--border))] p-4">
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                    Формула: Общая выручка = Количество заказов × Средний чек
+                  </p>
+                  <p className="mt-2 font-mono text-sm">
+                    {formatNumber(aov.totalCompletedOrders)} × {formatCurrency(aov.averageOrderValue, aov.currency)} = {formatCurrency(aov.totalRevenue, aov.currency)}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Timestamp */}
+          {aov.calculatedAt && (
+            <p className="text-xs text-[hsl(var(--muted-foreground))] text-center">
+              Данные обновлены: {formatDateTime(aov.calculatedAt)}
+            </p>
+          )}
+        </>
+      ) : (
+        <Card>
+          <CardContent className="py-12">
+            <div className="text-center text-[hsl(var(--muted-foreground))]">
+              Нет данных для отображения
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">Комиссия платформы</p>
-                <p className="text-2xl font-bold">{formatCurrency(data.platformFees)}</p>
-                <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                  10% от оборота
-                </p>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--success))]/10">
-                <CreditCard className="h-6 w-6 text-[hsl(var(--success))]" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">Доставка</p>
-                <p className="text-2xl font-bold">{formatCurrency(data.deliveryFees)}</p>
-                <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                  Сборы за доставку
-                </p>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--warning))]/10">
-                <Truck className="h-6 w-6 text-[hsl(var(--warning))]" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">Доход ресторанов</p>
-                <p className="text-2xl font-bold">{formatCurrency(data.restaurantRevenue)}</p>
-                <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                  После комиссии
-                </p>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--secondary))]/50">
-                <Store className="h-6 w-6 text-[hsl(var(--secondary-foreground))]" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Revenue Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Динамика доходов</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <SimpleLineChart
-              data={data.dailyRevenue.map((d) => ({
-                label: d.date,
-                value: d.revenue,
-              }))}
-              height={250}
-              color="hsl(var(--primary))"
-            />
-          </CardContent>
-        </Card>
-
-        {/* Orders Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Количество заказов</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <SimpleBarChart
-              data={data.dailyRevenue.map((d) => ({
-                label: d.date,
-                value: d.orders,
-              }))}
-              height={250}
-              valueFormatter={(v) => formatNumber(v)}
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Top Restaurants */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Топ ресторанов по доходу</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">#</TableHead>
-                <TableHead>Ресторан</TableHead>
-                <TableHead>Заказов</TableHead>
-                <TableHead>Доход</TableHead>
-                <TableHead>Ср. чек</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.topRestaurants.map((restaurant, index) => (
-                <TableRow key={restaurant.id}>
-                  <TableCell>
-                    <Badge variant={index < 3 ? 'default' : 'secondary'}>
-                      {index + 1}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-medium">{restaurant.name}</TableCell>
-                  <TableCell>{formatNumber(restaurant.orders)}</TableCell>
-                  <TableCell className="font-medium">
-                    {formatCurrency(restaurant.revenue)}
-                  </TableCell>
-                  <TableCell>
-                    {formatCurrency(Math.round(restaurant.revenue / restaurant.orders))}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      )}
     </div>
   )
 }

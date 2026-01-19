@@ -12,11 +12,16 @@ import {
   Activity,
   ShoppingCart,
   BarChart3,
+  Users,
+  Target,
+  UserMinus,
+  Zap,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Select } from '@/components/ui'
-import { formatCurrency, formatNumber, formatDateTime } from '@/lib/utils'
+import { formatCurrency, formatNumber, formatDateTime, formatPercent } from '@/lib/utils'
 import { useDashboardOverview, useDashboardStuckOrders, useRefreshAllCaches } from '@/hooks/useDashboard'
 import { useOrderAnalytics } from '@/hooks/usePlatform'
+import { useAnalyticsSummary } from '@/hooks/useAnalytics'
 import type { TrendDirection, StuckOrderPriority } from '@/types'
 
 interface StatCardProps {
@@ -107,11 +112,13 @@ export function DashboardPage() {
   const { data: overviewData, isLoading: overviewLoading, refetch: refetchOverview } = useDashboardOverview()
   const { data: stuckOrdersData, isLoading: stuckOrdersLoading, refetch: refetchStuckOrders } = useDashboardStuckOrders()
   const { data: orderAnalyticsData, isLoading: analyticsLoading, refetch: refetchAnalytics } = useOrderAnalytics(analyticsDays)
+  const { data: analyticsSummaryData, isLoading: summaryLoading, refetch: refetchSummary } = useAnalyticsSummary()
   const refreshCaches = useRefreshAllCaches()
 
   const overview = overviewData?.data
   const stuckOrders = stuckOrdersData?.data?.orders || []
   const orderAnalytics = orderAnalyticsData?.data
+  const analyticsSummary = analyticsSummaryData?.data
 
   const statusLabels: Record<string, string> = {
     PENDING: 'Ожидает',
@@ -131,6 +138,7 @@ export function DashboardPage() {
     refetchOverview()
     refetchStuckOrders()
     refetchAnalytics()
+    refetchSummary()
   }
 
   const systemStatusBadge = () => {
@@ -282,6 +290,109 @@ export function DashboardPage() {
                 <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
                   Средняя стоимость заказа
                 </p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-[hsl(var(--muted-foreground))]">
+              Нет данных для отображения
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Analytics Summary Widget */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-[hsl(var(--warning))]" />
+            <CardTitle>Ключевые метрики платформы</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {summaryLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--muted-foreground))]" />
+            </div>
+          ) : analyticsSummary ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {/* User Activity */}
+              <div className="rounded-lg bg-[hsl(var(--primary))]/10 p-4">
+                <div className="flex items-center gap-2 text-[hsl(var(--primary))]">
+                  <Users className="h-4 w-4" />
+                  <span className="text-sm font-medium">Активность</span>
+                </div>
+                <div className="mt-3 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">DAU</span>
+                    <span className="text-sm font-bold">{formatNumber(analyticsSummary.dau)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">WAU</span>
+                    <span className="text-sm font-bold">{formatNumber(analyticsSummary.wau)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">MAU</span>
+                    <span className="text-sm font-bold">{formatNumber(analyticsSummary.mau)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Orders & AOV */}
+              <div className="rounded-lg bg-[hsl(var(--success))]/10 p-4">
+                <div className="flex items-center gap-2 text-[hsl(var(--success))]">
+                  <ShoppingCart className="h-4 w-4" />
+                  <span className="text-sm font-medium">Заказы</span>
+                </div>
+                <div className="mt-3 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">Сегодня</span>
+                    <span className="text-sm font-bold">{formatNumber(analyticsSummary.ordersToday)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">Ср. чек</span>
+                    <span className="text-sm font-bold">{formatCurrency(analyticsSummary.aov)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Conversion */}
+              <div className="rounded-lg bg-[hsl(var(--warning))]/10 p-4">
+                <div className="flex items-center gap-2 text-[hsl(var(--warning))]">
+                  <Target className="h-4 w-4" />
+                  <span className="text-sm font-medium">Конверсия</span>
+                </div>
+                <div className="mt-3 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">Общая</span>
+                    <span className="text-sm font-bold">{formatPercent(analyticsSummary.conversionRate)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">Активация</span>
+                    <span className="text-sm font-bold">{formatPercent(analyticsSummary.activationRate)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Churn */}
+              <div className="rounded-lg bg-[hsl(var(--destructive))]/10 p-4">
+                <div className="flex items-center gap-2 text-[hsl(var(--destructive))]">
+                  <UserMinus className="h-4 w-4" />
+                  <span className="text-sm font-medium">Отток</span>
+                </div>
+                <div className="mt-3 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">Пользователей</span>
+                    <span className="text-sm font-bold">{formatPercent(analyticsSummary.userChurnRate)}</span>
+                  </div>
+                  <div className="mt-2">
+                    <div className="h-2 w-full rounded-full bg-[hsl(var(--muted))]">
+                      <div
+                        className="h-full rounded-full bg-[hsl(var(--destructive))]"
+                        style={{ width: `${Math.min(analyticsSummary.userChurnRate, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
