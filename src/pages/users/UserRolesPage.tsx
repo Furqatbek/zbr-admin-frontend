@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Lock,
   Unlock,
+  Loader2,
 } from 'lucide-react'
 import {
   Card,
@@ -29,71 +30,8 @@ import {
   Label,
 } from '@/components/ui'
 import { formatNumber } from '@/lib/utils'
-
-// Mock data
-const mockRoles = [
-  {
-    id: 1,
-    name: 'ADMIN',
-    displayName: 'Администратор',
-    description: 'Полный доступ ко всем функциям системы',
-    usersCount: 3,
-    isSystem: true,
-    permissions: [
-      'users.read', 'users.write', 'users.delete',
-      'orders.read', 'orders.write', 'orders.cancel',
-      'restaurants.read', 'restaurants.write', 'restaurants.moderate',
-      'couriers.read', 'couriers.write', 'couriers.verify',
-      'analytics.read', 'analytics.export',
-      'settings.read', 'settings.write',
-      'notifications.send', 'notifications.cleanup',
-    ],
-  },
-  {
-    id: 2,
-    name: 'PLATFORM',
-    displayName: 'Оператор платформы',
-    description: 'Управление заказами, пользователями и поддержка',
-    usersCount: 12,
-    isSystem: true,
-    permissions: [
-      'users.read', 'users.write',
-      'orders.read', 'orders.write',
-      'restaurants.read', 'restaurants.moderate',
-      'couriers.read', 'couriers.verify',
-      'analytics.read',
-      'notifications.send',
-    ],
-  },
-  {
-    id: 3,
-    name: 'SUPPORT',
-    displayName: 'Поддержка',
-    description: 'Только просмотр и работа с обращениями',
-    usersCount: 8,
-    isSystem: false,
-    permissions: [
-      'users.read',
-      'orders.read',
-      'restaurants.read',
-      'couriers.read',
-    ],
-  },
-  {
-    id: 4,
-    name: 'ANALYST',
-    displayName: 'Аналитик',
-    description: 'Доступ к аналитике и отчётам',
-    usersCount: 5,
-    isSystem: false,
-    permissions: [
-      'analytics.read',
-      'analytics.export',
-      'orders.read',
-      'users.read',
-    ],
-  },
-]
+import { useRoles, useCreateRole, useUpdateRole, useDeleteRole } from '@/hooks/useUsers'
+import type { RoleDefinition } from '@/api/users.api'
 
 const allPermissions = {
   users: {
@@ -152,7 +90,14 @@ const allPermissions = {
 }
 
 export function UserRolesPage() {
-  const [selectedRole, setSelectedRole] = useState<typeof mockRoles[0] | null>(null)
+  const { data: rolesResponse, isLoading, error } = useRoles()
+  const createRole = useCreateRole()
+  const updateRole = useUpdateRole()
+  const deleteRoleMutation = useDeleteRole()
+
+  const roles = rolesResponse?.data || []
+
+  const [selectedRole, setSelectedRole] = useState<RoleDefinition | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [editForm, setEditForm] = useState({
@@ -161,7 +106,7 @@ export function UserRolesPage() {
     permissions: [] as string[],
   })
 
-  const handleEditRole = (role: typeof mockRoles[0]) => {
+  const handleEditRole = (role: RoleDefinition) => {
     setSelectedRole(role)
     setEditForm({
       displayName: role.displayName,
@@ -195,15 +140,49 @@ export function UserRolesPage() {
     }
   }
 
-  const handleSave = () => {
-    console.log('Saving role:', selectedRole?.id, editForm)
+  const handleSave = async () => {
+    if (selectedRole) {
+      await updateRole.mutateAsync({
+        id: selectedRole.id,
+        data: {
+          displayName: editForm.displayName,
+          description: editForm.description,
+          permissions: editForm.permissions,
+        },
+      })
+    } else {
+      await createRole.mutateAsync({
+        name: editForm.displayName.toUpperCase().replace(/\s+/g, '_'),
+        displayName: editForm.displayName,
+        description: editForm.description,
+        permissions: editForm.permissions,
+      })
+    }
     setIsEditModalOpen(false)
   }
 
-  const handleDelete = () => {
-    console.log('Deleting role:', selectedRole?.id)
+  const handleDelete = async () => {
+    if (selectedRole) {
+      await deleteRoleMutation.mutateAsync(selectedRole.id)
+    }
     setIsDeleteModalOpen(false)
     setSelectedRole(null)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--primary))]" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <p className="text-[hsl(var(--destructive))]">Ошибка загрузки ролей</p>
+      </div>
+    )
   }
 
   return (
@@ -232,7 +211,7 @@ export function UserRolesPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Всего ролей</p>
-                <p className="text-2xl font-bold">{mockRoles.length}</p>
+                <p className="text-2xl font-bold">{roles.length}</p>
               </div>
             </div>
           </CardContent>
@@ -246,7 +225,7 @@ export function UserRolesPage() {
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Пользователей с ролями</p>
                 <p className="text-2xl font-bold">
-                  {formatNumber(mockRoles.reduce((sum, r) => sum + r.usersCount, 0))}
+                  {formatNumber(roles.reduce((sum, r) => sum + r.usersCount, 0))}
                 </p>
               </div>
             </div>
@@ -284,7 +263,7 @@ export function UserRolesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockRoles.map((role) => (
+              {roles.map((role) => (
                 <TableRow key={role.id}>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -424,8 +403,12 @@ export function UserRolesPage() {
             {selectedRole?.isSystem ? 'Закрыть' : 'Отмена'}
           </Button>
           {!selectedRole?.isSystem && (
-            <Button onClick={handleSave}>
-              <CheckCircle className="mr-2 h-4 w-4" />
+            <Button onClick={handleSave} disabled={updateRole.isPending || createRole.isPending}>
+              {updateRole.isPending || createRole.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle className="mr-2 h-4 w-4" />
+              )}
               Сохранить
             </Button>
           )}
@@ -461,8 +444,12 @@ export function UserRolesPage() {
           <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
             Отмена
           </Button>
-          <Button variant="destructive" onClick={handleDelete}>
-            <Trash2 className="mr-2 h-4 w-4" />
+          <Button variant="destructive" onClick={handleDelete} disabled={deleteRoleMutation.isPending}>
+            {deleteRoleMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="mr-2 h-4 w-4" />
+            )}
             Удалить
           </Button>
         </ModalFooter>

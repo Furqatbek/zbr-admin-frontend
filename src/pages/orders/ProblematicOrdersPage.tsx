@@ -13,6 +13,7 @@ import {
   Store,
   Truck,
   User,
+  Loader2,
 } from 'lucide-react'
 import {
   Card,
@@ -34,76 +35,8 @@ import {
   Label,
 } from '@/components/ui'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
-
-// Mock data
-const mockProblematicOrders = [
-  {
-    id: 1089,
-    problem: 'STUCK' as const,
-    problemLabel: 'Застрявший заказ',
-    status: 'PREPARING',
-    statusLabel: 'Готовится',
-    stuckMinutes: 45,
-    customer: { name: 'Анна Смирнова', phone: '+7 (999) 111-22-33' },
-    restaurant: { id: 1, name: 'Пицца Хат' },
-    courier: null,
-    total: 1850,
-    createdAt: '2024-01-15T10:30:00Z',
-  },
-  {
-    id: 1085,
-    problem: 'DELAYED' as const,
-    problemLabel: 'Задержка доставки',
-    status: 'DELIVERING',
-    statusLabel: 'Доставляется',
-    stuckMinutes: 25,
-    customer: { name: 'Петр Иванов', phone: '+7 (999) 222-33-44' },
-    restaurant: { id: 2, name: 'Суши Мастер' },
-    courier: { id: 5, name: 'Дмитрий Сидоров', phone: '+7 (999) 345-67-89' },
-    total: 2340,
-    createdAt: '2024-01-15T10:00:00Z',
-  },
-  {
-    id: 1078,
-    problem: 'NO_COURIER' as const,
-    problemLabel: 'Нет курьера',
-    status: 'READY',
-    statusLabel: 'Готов',
-    stuckMinutes: 15,
-    customer: { name: 'Мария Козлова', phone: '+7 (999) 333-44-55' },
-    restaurant: { id: 3, name: 'Бургер Кинг' },
-    courier: null,
-    total: 1120,
-    createdAt: '2024-01-15T10:45:00Z',
-  },
-  {
-    id: 1072,
-    problem: 'COMPLAINT' as const,
-    problemLabel: 'Жалоба клиента',
-    status: 'DELIVERED',
-    statusLabel: 'Доставлен',
-    stuckMinutes: 0,
-    customer: { name: 'Иван Новиков', phone: '+7 (999) 444-55-66' },
-    restaurant: { id: 1, name: 'Пицца Хат' },
-    courier: { id: 3, name: 'Елена Петрова', phone: '+7 (999) 456-78-90' },
-    total: 1560,
-    createdAt: '2024-01-15T09:00:00Z',
-    complaint: 'Холодная еда при получении',
-  },
-  {
-    id: 1065,
-    problem: 'STUCK' as const,
-    problemLabel: 'Застрявший заказ',
-    status: 'CONFIRMED',
-    statusLabel: 'Подтверждён',
-    stuckMinutes: 60,
-    customer: { name: 'Ольга Сергеева', phone: '+7 (999) 555-66-77' },
-    restaurant: { id: 4, name: 'KFC' },
-    courier: null,
-    total: 890,
-    createdAt: '2024-01-15T09:30:00Z',
-  },
-]
+import { useProblematicOrders, useResolveOrderProblem } from '@/hooks/useOrders'
+import type { ProblematicOrder, ProblemType } from '@/api/orders.api'
 
 const problemColors = {
   STUCK: 'destructive',
@@ -120,31 +53,57 @@ const problemIcons = {
 }
 
 export function ProblematicOrdersPage() {
-  const [problemFilter, setProblemFilter] = useState('')
-  const [selectedOrder, setSelectedOrder] = useState<typeof mockProblematicOrders[0] | null>(null)
+  const [problemFilter, setProblemFilter] = useState<ProblemType | ''>('')
+  const { data: ordersResponse, isLoading, error, refetch } = useProblematicOrders(
+    problemFilter ? { problemType: problemFilter } : {}
+  )
+  const resolveOrderProblem = useResolveOrderProblem()
+
+  const orders = ordersResponse?.data || []
+
+  const [selectedOrder, setSelectedOrder] = useState<ProblematicOrder | null>(null)
   const [actionModal, setActionModal] = useState<{
     isOpen: boolean
     action: 'resolve' | 'cancel' | 'reassign' | null
   }>({ isOpen: false, action: null })
   const [resolution, setResolution] = useState('')
 
-  const filteredOrders = mockProblematicOrders.filter(
-    (order) => !problemFilter || order.problem === problemFilter
-  )
+  const filteredOrders = orders
 
   const stats = {
-    total: mockProblematicOrders.length,
-    stuck: mockProblematicOrders.filter((o) => o.problem === 'STUCK').length,
-    delayed: mockProblematicOrders.filter((o) => o.problem === 'DELAYED').length,
-    noCourier: mockProblematicOrders.filter((o) => o.problem === 'NO_COURIER').length,
-    complaints: mockProblematicOrders.filter((o) => o.problem === 'COMPLAINT').length,
+    total: orders.length,
+    stuck: orders.filter((o) => o.problem === 'STUCK').length,
+    delayed: orders.filter((o) => o.problem === 'DELAYED').length,
+    noCourier: orders.filter((o) => o.problem === 'NO_COURIER').length,
+    complaints: orders.filter((o) => o.problem === 'COMPLAINT').length,
   }
 
-  const handleAction = () => {
-    console.log('Action:', actionModal.action, 'Order:', selectedOrder?.id, 'Resolution:', resolution)
+  const handleAction = async () => {
+    if (selectedOrder && resolution) {
+      await resolveOrderProblem.mutateAsync({
+        orderId: selectedOrder.id,
+        data: { resolution },
+      })
+    }
     setActionModal({ isOpen: false, action: null })
     setSelectedOrder(null)
     setResolution('')
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--primary))]" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <p className="text-[hsl(var(--destructive))]">Ошибка загрузки данных</p>
+      </div>
+    )
   }
 
   return (
@@ -157,7 +116,7 @@ export function ProblematicOrdersPage() {
             Заказы, требующие внимания оператора
           </p>
         </div>
-        <Button variant="outline">
+        <Button variant="outline" onClick={() => refetch()}>
           <RefreshCw className="mr-2 h-4 w-4" />
           Обновить
         </Button>
@@ -244,7 +203,7 @@ export function ProblematicOrdersPage() {
           <div className="flex gap-4">
             <Select
               value={problemFilter}
-              onChange={(e) => setProblemFilter(e.target.value)}
+              onChange={(e) => setProblemFilter(e.target.value as ProblemType | '')}
               className="w-48"
             >
               <option value="">Все проблемы</option>
@@ -436,8 +395,12 @@ export function ProblematicOrdersPage() {
           >
             Отмена
           </Button>
-          <Button variant="success" onClick={handleAction}>
-            <CheckCircle className="mr-2 h-4 w-4" />
+          <Button variant="success" onClick={handleAction} disabled={resolveOrderProblem.isPending || !resolution}>
+            {resolveOrderProblem.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle className="mr-2 h-4 w-4" />
+            )}
             Решить
           </Button>
         </ModalFooter>

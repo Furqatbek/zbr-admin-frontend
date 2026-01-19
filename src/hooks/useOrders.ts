@@ -1,5 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ordersApi, type OrdersQueryParams, type UpdateOrderStatusRequest } from '@/api/orders.api'
+import {
+  ordersApi,
+  type OrdersQueryParams,
+  type UpdateOrderStatusRequest,
+  type ProblematicOrdersQueryParams,
+  type ResolveOrderProblemRequest,
+} from '@/api/orders.api'
 import type { CreateOrderRequest, CreatePaymentRequest, CancelOrderRequest } from '@/types'
 
 export const orderKeys = {
@@ -14,6 +20,7 @@ export const orderKeys = {
   detail: (id: number) => [...orderKeys.details(), id] as const,
   byNumber: (orderNo: string) => [...orderKeys.all, 'number', orderNo] as const,
   payment: (orderId: number) => [...orderKeys.detail(orderId), 'payment'] as const,
+  problematic: (params?: ProblematicOrdersQueryParams) => [...orderKeys.all, 'problematic', params] as const,
 }
 
 // ============ Query Hooks ============
@@ -158,6 +165,35 @@ export function useCreatePayment() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: orderKeys.payment(variables.orderId) })
       queryClient.invalidateQueries({ queryKey: orderKeys.detail(variables.orderId) })
+    },
+  })
+}
+
+// ============ Problematic Orders Hooks ============
+
+/**
+ * Get problematic orders requiring operator attention
+ */
+export function useProblematicOrders(params: ProblematicOrdersQueryParams = {}) {
+  return useQuery({
+    queryKey: orderKeys.problematic(params),
+    queryFn: () => ordersApi.getProblematicOrders(params),
+    refetchInterval: 30000, // Refresh every 30 seconds
+  })
+}
+
+/**
+ * Resolve a problematic order
+ */
+export function useResolveOrderProblem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ orderId, data }: { orderId: number; data: ResolveOrderProblemRequest }) =>
+      ordersApi.resolveOrderProblem(orderId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.problematic() })
+      queryClient.invalidateQueries({ queryKey: orderKeys.all })
     },
   })
 }

@@ -54,6 +54,7 @@ export interface ExportJob {
   createdAt: string
   completedAt?: string
   error?: string
+  recordCount?: number
 }
 
 export const settingsApi = {

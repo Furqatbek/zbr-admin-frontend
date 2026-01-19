@@ -7,6 +7,7 @@ import {
   DollarSign,
   Calendar,
   AlertCircle,
+  Loader2,
 } from 'lucide-react'
 import {
   Card,
@@ -25,64 +26,7 @@ import {
 } from '@/components/ui'
 import { SimpleBarChart } from '@/components/charts'
 import { formatNumber, formatCurrency, formatDateTime } from '@/lib/utils'
-
-// Mock data
-const mockFraudData = {
-  suspiciousOrders: 23,
-  flaggedAccounts: 8,
-  chargebacks: 12,
-  fraudPreventedAmount: 856000,
-  riskScore: 15, // percentage
-  alertsByType: [
-    { type: 'Подозрительный платёж', count: 45, severity: 'high' as const },
-    { type: 'Множественные аккаунты', count: 23, severity: 'medium' as const },
-    { type: 'Нетипичная активность', count: 67, severity: 'low' as const },
-    { type: 'Фейковые отзывы', count: 12, severity: 'medium' as const },
-    { type: 'Злоупотребление промо', count: 34, severity: 'low' as const },
-  ],
-  recentAlerts: [
-    {
-      id: 1,
-      type: 'Подозрительный платёж',
-      description: 'Несколько неудачных попыток оплаты с разных карт',
-      createdAt: '2024-01-14T15:30:00Z',
-      severity: 'high' as const,
-      status: 'open',
-    },
-    {
-      id: 2,
-      type: 'Множественные аккаунты',
-      description: 'Обнаружено 3 аккаунта с одного устройства',
-      createdAt: '2024-01-14T14:15:00Z',
-      severity: 'medium' as const,
-      status: 'investigating',
-    },
-    {
-      id: 3,
-      type: 'Злоупотребление промо',
-      description: 'Повторное использование промокода с разных аккаунтов',
-      createdAt: '2024-01-14T12:45:00Z',
-      severity: 'low' as const,
-      status: 'resolved',
-    },
-    {
-      id: 4,
-      type: 'Нетипичная активность',
-      description: 'Резкий рост заказов с нового аккаунта',
-      createdAt: '2024-01-14T11:20:00Z',
-      severity: 'medium' as const,
-      status: 'open',
-    },
-    {
-      id: 5,
-      type: 'Фейковые отзывы',
-      description: 'Подозрительные положительные отзывы на новый ресторан',
-      createdAt: '2024-01-14T10:00:00Z',
-      severity: 'low' as const,
-      status: 'resolved',
-    },
-  ],
-}
+import { useFraudMetrics } from '@/hooks/useAnalytics'
 
 const severityColors = {
   low: 'warning',
@@ -110,7 +54,41 @@ const statusColors = {
 
 export function FraudAnalyticsPage() {
   const [period, setPeriod] = useState('month')
-  const data = mockFraudData
+
+  const periodMap: Record<string, { startDate: string; endDate: string }> = {
+    week: {
+      startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      endDate: new Date().toISOString().split('T')[0],
+    },
+    month: {
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      endDate: new Date().toISOString().split('T')[0],
+    },
+    quarter: {
+      startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      endDate: new Date().toISOString().split('T')[0],
+    },
+  }
+
+  const { data: fraudData, isLoading, error } = useFraudMetrics(periodMap[period])
+
+  if (isLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--primary))]" />
+      </div>
+    )
+  }
+
+  if (error || !fraudData) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <p className="text-[hsl(var(--destructive))]">Ошибка загрузки данных</p>
+      </div>
+    )
+  }
+
+  const data = fraudData
 
   return (
     <div className="space-y-6">

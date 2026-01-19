@@ -124,6 +124,7 @@ export interface FraudMetrics {
     description: string
     createdAt: string
     severity: 'low' | 'medium' | 'high'
+    status: 'open' | 'investigating' | 'resolved'
   }>
 }
 
@@ -148,6 +149,11 @@ export interface TechnicalMetrics {
     cache: 'healthy' | 'degraded' | 'down'
     websocket: 'healthy' | 'degraded' | 'down'
   }
+  endpointPerformance: Array<{
+    endpoint: string
+    avgTime: number
+    calls: number
+  }>
 }
 
 export interface AnalyticsQueryParams {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Settings,
   Save,
@@ -25,40 +25,41 @@ import {
   Modal,
   ModalFooter,
 } from '@/components/ui'
+import { usePlatformSettings, useUpdateSettings } from '@/hooks/useSettings'
+import type { PlatformSettings } from '@/api/settings.api'
 
-// Mock data
-const mockSettings = {
-  platformName: 'ZBR Delivery',
-  supportEmail: 'support@zbr.delivery',
-  supportPhone: '+7 (800) 123-45-67',
+const defaultSettings: PlatformSettings = {
+  platformName: '',
+  supportEmail: '',
+  supportPhone: '',
   defaultCurrency: 'RUB',
   timezone: 'Europe/Moscow',
   maintenanceMode: false,
   maintenanceMessage: '',
   orderSettings: {
-    minOrderAmount: 500,
-    maxOrderAmount: 50000,
-    defaultDeliveryRadius: 5,
-    maxDeliveryRadius: 15,
-    freeDeliveryThreshold: 1500,
-    baseDeliveryFee: 150,
+    minOrderAmount: 0,
+    maxOrderAmount: 0,
+    defaultDeliveryRadius: 0,
+    maxDeliveryRadius: 0,
+    freeDeliveryThreshold: 0,
+    baseDeliveryFee: 0,
   },
   courierSettings: {
-    maxActiveOrders: 3,
-    autoAssignEnabled: true,
-    verificationRequired: true,
-    minRatingForBonus: 4.5,
+    maxActiveOrders: 0,
+    autoAssignEnabled: false,
+    verificationRequired: false,
+    minRatingForBonus: 0,
   },
   restaurantSettings: {
-    commissionRate: 15,
+    commissionRate: 0,
     autoApproveEnabled: false,
-    maxPrepTime: 60,
-    minRating: 3.0,
+    maxPrepTime: 0,
+    minRating: 0,
   },
   notificationSettings: {
-    emailEnabled: true,
-    smsEnabled: true,
-    pushEnabled: true,
+    emailEnabled: false,
+    smsEnabled: false,
+    pushEnabled: false,
     marketingEnabled: false,
   },
 }
@@ -66,13 +67,21 @@ const mockSettings = {
 type SettingsSection = 'general' | 'orders' | 'couriers' | 'restaurants' | 'notifications'
 
 export function PlatformSettingsPage() {
-  const [settings, setSettings] = useState(mockSettings)
+  const { data: platformSettings, isLoading, error } = usePlatformSettings()
+  const updateSettings = useUpdateSettings()
+
+  const [settings, setSettings] = useState<PlatformSettings>(defaultSettings)
   const [activeSection, setActiveSection] = useState<SettingsSection>('general')
-  const [isSaving, setIsSaving] = useState(false)
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
 
-  const handleChange = <T extends keyof typeof settings>(
+  useEffect(() => {
+    if (platformSettings) {
+      setSettings(platformSettings)
+    }
+  }, [platformSettings])
+
+  const handleChange = <T extends keyof PlatformSettings>(
     section: T,
     field: string,
     value: unknown
@@ -88,18 +97,38 @@ export function PlatformSettingsPage() {
     } else {
       setSettings({
         ...settings,
-        [section]: value,
+        [section]: value as PlatformSettings[T],
       })
     }
     setHasChanges(true)
   }
 
-  const handleSave = () => {
-    setIsSaving(true)
-    setTimeout(() => {
-      setIsSaving(false)
+  const handleSave = async () => {
+    await updateSettings.mutateAsync(settings)
+    setHasChanges(false)
+  }
+
+  const handleReset = () => {
+    if (platformSettings) {
+      setSettings(platformSettings)
       setHasChanges(false)
-    }, 1500)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--primary))]" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <p className="text-[hsl(var(--destructive))]">Ошибка загрузки настроек</p>
+      </div>
+    )
   }
 
   const sections = [
@@ -124,12 +153,12 @@ export function PlatformSettingsPage() {
           {hasChanges && (
             <Badge variant="warning">Есть несохранённые изменения</Badge>
           )}
-          <Button variant="outline" onClick={() => setSettings(mockSettings)}>
+          <Button variant="outline" onClick={handleReset} disabled={!hasChanges}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Сбросить
           </Button>
-          <Button onClick={handleSave} disabled={!hasChanges || isSaving}>
-            {isSaving ? (
+          <Button onClick={handleSave} disabled={!hasChanges || updateSettings.isPending}>
+            {updateSettings.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Сохранение...

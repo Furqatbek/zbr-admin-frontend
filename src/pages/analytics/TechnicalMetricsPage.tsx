@@ -10,6 +10,7 @@ import {
   Database,
   Wifi,
   RefreshCw,
+  Loader2,
 } from 'lucide-react'
 import {
   Card,
@@ -22,51 +23,7 @@ import {
 } from '@/components/ui'
 import { SimpleLineChart, SimpleBarChart } from '@/components/charts'
 import { formatNumber } from '@/lib/utils'
-
-// Mock data
-const mockTechnicalData = {
-  apiResponseTime: 145, // ms
-  errorRate: 0.8, // percentage
-  uptime: 99.95, // percentage
-  activeUsers: 1234,
-  requestsPerMinute: 4567,
-  serverLoad: 42, // percentage
-  responseTimeHistory: [
-    { timestamp: '12:00', responseTime: 142 },
-    { timestamp: '12:05', responseTime: 156 },
-    { timestamp: '12:10', responseTime: 138 },
-    { timestamp: '12:15', responseTime: 162 },
-    { timestamp: '12:20', responseTime: 145 },
-    { timestamp: '12:25', responseTime: 151 },
-    { timestamp: '12:30', responseTime: 148 },
-    { timestamp: '12:35', responseTime: 139 },
-    { timestamp: '12:40', responseTime: 144 },
-    { timestamp: '12:45', responseTime: 152 },
-    { timestamp: '12:50', responseTime: 146 },
-    { timestamp: '12:55', responseTime: 145 },
-  ],
-  errorsByType: [
-    { type: '500 Server Error', count: 23 },
-    { type: '503 Service Unavailable', count: 8 },
-    { type: '504 Gateway Timeout', count: 12 },
-    { type: '400 Bad Request', count: 45 },
-    { type: '401 Unauthorized', count: 156 },
-    { type: '404 Not Found', count: 89 },
-  ],
-  systemHealth: {
-    api: 'healthy' as const,
-    database: 'healthy' as const,
-    cache: 'healthy' as const,
-    websocket: 'degraded' as const,
-  },
-  endpointPerformance: [
-    { endpoint: '/api/orders', avgTime: 89, calls: 12500 },
-    { endpoint: '/api/restaurants', avgTime: 45, calls: 8900 },
-    { endpoint: '/api/users', avgTime: 62, calls: 5600 },
-    { endpoint: '/api/couriers', avgTime: 78, calls: 4200 },
-    { endpoint: '/api/auth', avgTime: 120, calls: 3400 },
-  ],
-}
+import { useTechnicalMetrics } from '@/hooks/useAnalytics'
 
 const healthColors = {
   healthy: 'success',
@@ -96,7 +53,41 @@ const serviceLabels = {
 
 export function TechnicalMetricsPage() {
   const [period, setPeriod] = useState('hour')
-  const data = mockTechnicalData
+
+  const periodMap: Record<string, { startDate: string; endDate: string }> = {
+    hour: {
+      startDate: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      endDate: new Date().toISOString(),
+    },
+    day: {
+      startDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      endDate: new Date().toISOString().split('T')[0],
+    },
+    week: {
+      startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      endDate: new Date().toISOString().split('T')[0],
+    },
+  }
+
+  const { data: technicalData, isLoading, error, refetch } = useTechnicalMetrics(periodMap[period])
+
+  if (isLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--primary))]" />
+      </div>
+    )
+  }
+
+  if (error || !technicalData) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <p className="text-[hsl(var(--destructive))]">Ошибка загрузки данных</p>
+      </div>
+    )
+  }
+
+  const data = technicalData
 
   return (
     <div className="space-y-6">
@@ -109,7 +100,7 @@ export function TechnicalMetricsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Обновить
           </Button>

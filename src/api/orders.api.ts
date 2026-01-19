@@ -29,6 +29,31 @@ export interface UpdateOrderStatusRequest {
   reason?: string
 }
 
+export type ProblemType = 'STUCK' | 'DELAYED' | 'NO_COURIER' | 'COMPLAINT'
+
+export interface ProblematicOrder {
+  id: number
+  problem: ProblemType
+  problemLabel: string
+  status: string
+  statusLabel: string
+  stuckMinutes: number
+  customer: { name: string; phone: string }
+  restaurant: { id: number; name: string }
+  courier: { id: number; name: string; phone: string } | null
+  total: number
+  createdAt: string
+  complaint?: string
+}
+
+export interface ProblematicOrdersQueryParams {
+  problemType?: ProblemType
+}
+
+export interface ResolveOrderProblemRequest {
+  resolution: string
+}
+
 export const ordersApi = {
   // ============ Create Order ============
 
@@ -139,6 +164,36 @@ export const ordersApi = {
    */
   getPayment: async (orderId: number): Promise<ApiResponse<Payment>> => {
     const response = await api.get<ApiResponse<Payment>>(`/orders/${orderId}/payment`)
+    return response.data
+  },
+
+  // ============ Problematic Orders ============
+
+  /**
+   * Get problematic orders requiring operator attention
+   * Roles: PLATFORM, ADMIN
+   */
+  getProblematicOrders: async (
+    params: ProblematicOrdersQueryParams = {}
+  ): Promise<ApiResponse<ProblematicOrder[]>> => {
+    const response = await api.get<ApiResponse<ProblematicOrder[]>>('/orders/problematic', {
+      params,
+    })
+    return response.data
+  },
+
+  /**
+   * Resolve a problematic order
+   * Roles: PLATFORM, ADMIN
+   */
+  resolveOrderProblem: async (
+    orderId: number,
+    data: ResolveOrderProblemRequest
+  ): Promise<ApiResponse<ProblematicOrder>> => {
+    const response = await api.post<ApiResponse<ProblematicOrder>>(
+      `/orders/${orderId}/resolve`,
+      data
+    )
     return response.data
   },
 }
