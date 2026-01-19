@@ -179,7 +179,7 @@ export function NotificationBroadcastPage() {
                     <option value="">Выберите роль</option>
                     {roles.map((opt) => (
                       <option key={opt.value} value={opt.value}>
-                        {opt.label}
+                        {opt.displayName}
                       </option>
                     ))}
                   </Select>
@@ -210,7 +210,7 @@ export function NotificationBroadcastPage() {
                     <option value="">Выберите категорию</option>
                     {categories.map((opt) => (
                       <option key={opt.value} value={opt.value}>
-                        {opt.label}
+                        {opt.displayName}
                       </option>
                     ))}
                   </Select>
@@ -227,7 +227,7 @@ export function NotificationBroadcastPage() {
                     <option value="">Выберите приоритет</option>
                     {priorities.map((opt) => (
                       <option key={opt.value} value={opt.value}>
-                        {opt.label}
+                        {opt.displayName}
                       </option>
                     ))}
                   </Select>
@@ -366,7 +366,7 @@ export function NotificationBroadcastPage() {
               <div className="text-center">
                 {targetType === 'role' ? (
                   <>
-                    <p className="text-3xl font-bold">{selectedRole?.label || '—'}</p>
+                    <p className="text-3xl font-bold">{selectedRole?.displayName || '—'}</p>
                     <p className="text-sm text-[hsl(var(--muted-foreground))]">
                       Группа получателей
                     </p>
@@ -390,11 +390,11 @@ export function NotificationBroadcastPage() {
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-[hsl(var(--muted-foreground))]">Категория:</span>
-                <span className="font-medium">{selectedCategory?.label || '—'}</span>
+                <span className="font-medium">{selectedCategory?.displayName || '—'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[hsl(var(--muted-foreground))]">Приоритет:</span>
-                <span className="font-medium">{selectedPriority?.label || '—'}</span>
+                <span className="font-medium">{selectedPriority?.displayName || '—'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[hsl(var(--muted-foreground))]">Иконка:</span>
@@ -418,16 +418,16 @@ export function NotificationBroadcastPage() {
               <div className="flex justify-between">
                 <span className="text-[hsl(var(--muted-foreground))]">Получатель:</span>
                 <span className="font-medium">
-                  {targetType === 'role' ? selectedRole?.label : `User #${formData.userId}`}
+                  {targetType === 'role' ? selectedRole?.displayName : `User #${formData.userId}`}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[hsl(var(--muted-foreground))]">Категория:</span>
-                <span className="font-medium">{selectedCategory?.label}</span>
+                <span className="font-medium">{selectedCategory?.displayName}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[hsl(var(--muted-foreground))]">Приоритет:</span>
-                <span className="font-medium">{selectedPriority?.label}</span>
+                <span className="font-medium">{selectedPriority?.displayName}</span>
               </div>
               {formData.expiresAt && (
                 <div className="flex justify-between">

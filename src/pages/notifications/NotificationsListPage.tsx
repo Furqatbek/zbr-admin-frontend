@@ -87,7 +87,7 @@ export function NotificationsListPage() {
   const categoryLabels = useMemo(() => {
     const labels: Record<string, string> = {}
     categories.forEach((cat) => {
-      labels[cat.value] = cat.label
+      labels[cat.value] = cat.displayName
     })
     return labels
   }, [categories])
@@ -168,7 +168,7 @@ export function NotificationsListPage() {
               <option value="">All Categories</option>
               {categories.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label}
+                  {opt.displayName}
                 </option>
               ))}
             </Select>
@@ -181,7 +181,7 @@ export function NotificationsListPage() {
               <option value="">All Roles</option>
               {roles.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label}
+                  {opt.displayName}
                 </option>
               ))}
             </Select>

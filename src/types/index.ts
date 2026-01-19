@@ -192,25 +192,29 @@ export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
 // Notification enum option types (from backend API)
 export interface NotificationTypeOption {
   value: string
-  label: string
+  displayName: string
+  code: string
   description?: string
 }
 
 export interface NotificationRoleOption {
   value: NotificationRole
-  label: string
+  displayName: string
+  code: string
   description?: string
 }
 
 export interface NotificationCategoryOption {
   value: NotificationCategory
-  label: string
+  displayName: string
+  code: string
   description?: string
 }
 
 export interface NotificationPriorityOption {
   value: NotificationPriority
-  label: string
+  displayName: string
+  code: string
 }
 
 export interface NotificationReferenceData {
