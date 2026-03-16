@@ -15,6 +15,8 @@ import {
   EyeOff,
   Shield,
   Save,
+  AlertTriangle,
+  ArrowRight,
 } from 'lucide-react'
 import {
   Card,
@@ -153,6 +155,9 @@ export function ApiSettingsPage() {
     }
   }
 
+  const [showSwitchAfterSave, setShowSwitchAfterSave] = useState(false)
+  const [savedCredProvider, setSavedCredProvider] = useState<SmsProvider | null>(null)
+
   const handleSaveCredentials = async () => {
     try {
       await updateCredentials.mutateAsync({
@@ -164,17 +169,50 @@ export function ApiSettingsPage() {
           : { token: credToken }),
       })
       toast.success('Учётные данные обновлены', `Провайдер: ${credProvider}`)
+      // Offer to switch if this isn't the current provider
+      if (smsStatus && credProvider !== smsStatus.currentProvider && credEnabled) {
+        setSavedCredProvider(credProvider)
+        setShowSwitchAfterSave(true)
+      }
     } catch {
       toast.error('Ошибка', 'Не удалось обновить учётные данные')
     }
   }
 
+  const handleSwitchAfterSave = async () => {
+    if (!savedCredProvider) return
+    try {
+      await switchProvider.mutateAsync(savedCredProvider)
+      toast.success('Провайдер переключён', `Активный провайдер: ${savedCredProvider}`)
+    } catch {
+      toast.error('Ошибка', `Не удалось переключиться на ${savedCredProvider}`)
+    }
+    setShowSwitchAfterSave(false)
+    setSavedCredProvider(null)
+  }
+
+  const getProviderInfo = (provider: SmsProvider) =>
+    smsStatus?.providers.find((p) => p.type === provider)
+
   const handleSwitchProvider = async (provider: SmsProvider) => {
+    const info = getProviderInfo(provider)
+    if (info && !info.available) {
+      toast.error(
+        `${provider} недоступен`,
+        info.configured
+          ? 'Провайдер не включён. Включите его или настройте учётные данные.'
+          : 'Сначала настройте учётные данные провайдера.'
+      )
+      return
+    }
     try {
       await switchProvider.mutateAsync(provider)
       toast.success('Провайдер переключён', `Активный провайдер: ${provider}`)
     } catch {
-      toast.error('Ошибка', `Не удалось переключиться на ${provider}`)
+      toast.error(
+        'Ошибка',
+        `Не удалось переключиться на ${provider}. Убедитесь, что провайдер включён и имеет настроенные учётные данные.`
+      )
     }
   }
 
@@ -197,7 +235,12 @@ export function ApiSettingsPage() {
         toast.success(`${provider} включён`)
       }
     } catch {
-      toast.error('Ошибка', `Не удалось изменить статус ${provider}`)
+      toast.error(
+        'Ошибка',
+        currentlyEnabled
+          ? `Не удалось отключить ${provider}`
+          : `Не удалось включить ${provider}. Возможно, учётные данные не настроены.`
+      )
     }
   }
 
@@ -366,6 +409,23 @@ export function ApiSettingsPage() {
                         <p className="text-sm text-[hsl(var(--muted-foreground))]">
                           {provider.statusMessage}
                         </p>
+                        {!provider.available && provider.configured && (
+                          <p className="mt-1 text-xs text-[hsl(var(--warning))]">
+                            Настроен, но не включён — используйте toggle или сохраните учётные данные с enabled: true
+                          </p>
+                        )}
+                        {!provider.configured && (
+                          <button
+                            onClick={() => {
+                              setCredProvider(provider.type)
+                              setActiveSection('credentials')
+                            }}
+                            className="mt-1 inline-flex items-center gap-1 text-xs text-[hsl(var(--primary))] hover:underline"
+                          >
+                            Настроить учётные данные
+                            <ArrowRight className="h-3 w-3" />
+                          </button>
+                        )}
                       </div>
                       <div className="flex items-center gap-3">
                         <Badge variant={provider.configured ? 'success' : 'secondary'}>
@@ -377,6 +437,7 @@ export function ApiSettingsPage() {
                         <button
                           onClick={() => handleToggleProvider(provider.type, provider.available)}
                           disabled={enableProvider.isPending || disableProvider.isPending}
+                          title={provider.available ? 'Отключить провайдер' : 'Включить провайдер'}
                           className={`relative h-6 w-11 rounded-full transition-colors ${
                             provider.available
                               ? 'bg-[hsl(var(--success))]'
@@ -467,38 +528,82 @@ export function ApiSettingsPage() {
                 <CardHeader>
                   <CardTitle>Быстрое переключение провайдера</CardTitle>
                   <CardDescription>
-                    Мгновенное переключение между SMS-провайдерами без перезагрузки
+                    Переключение требует, чтобы провайдер был включён и имел настроенные учётные данные
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
-                    {(['ESKIZ', 'DEVSMS'] as SmsProvider[]).map((provider) => (
-                      <button
-                        key={provider}
-                        onClick={() => handleSwitchProvider(provider)}
-                        disabled={switchProvider.isPending}
-                        className={`flex items-center justify-between rounded-lg border p-4 text-left transition-colors ${
-                          smsStatus?.currentProvider === provider
-                            ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
-                            : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50'
-                        }`}
-                      >
-                        <div>
-                          <p className="font-medium">{provider}</p>
-                          <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                            {provider === 'ESKIZ'
-                              ? 'Токен-аутентификация с авто-обновлением'
-                              : 'Упрощённая токен-аутентификация'}
-                          </p>
-                        </div>
-                        {smsStatus?.currentProvider === provider ? (
-                          <Badge variant="success">Активен</Badge>
-                        ) : (
-                          <Badge variant="outline">Переключить</Badge>
-                        )}
-                      </button>
-                    ))}
+                    {(['ESKIZ', 'DEVSMS'] as SmsProvider[]).map((provider) => {
+                      const info = getProviderInfo(provider)
+                      const isActive = smsStatus?.currentProvider === provider
+                      const isAvailable = info?.available ?? false
+                      const isConfigured = info?.configured ?? false
+                      return (
+                        <button
+                          key={provider}
+                          onClick={() => handleSwitchProvider(provider)}
+                          disabled={switchProvider.isPending || isActive}
+                          className={`flex flex-col gap-3 rounded-lg border p-4 text-left transition-colors ${
+                            isActive
+                              ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
+                              : isAvailable
+                                ? 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50'
+                                : 'border-[hsl(var(--border))] opacity-75'
+                          }`}
+                        >
+                          <div className="flex w-full items-center justify-between">
+                            <div>
+                              <p className="font-medium">{provider}</p>
+                              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                                {provider === 'ESKIZ'
+                                  ? 'Email/пароль аутентификация'
+                                  : 'Токен-аутентификация'}
+                              </p>
+                            </div>
+                            {isActive ? (
+                              <Badge variant="success">Активен</Badge>
+                            ) : isAvailable ? (
+                              <Badge variant="outline">Переключить</Badge>
+                            ) : (
+                              <Badge variant="warning">Недоступен</Badge>
+                            )}
+                          </div>
+                          {!isActive && !isAvailable && (
+                            <div className="flex items-center gap-2 text-xs text-[hsl(var(--warning))]">
+                              <AlertTriangle className="h-3 w-3 shrink-0" />
+                              {!isConfigured
+                                ? 'Учётные данные не настроены'
+                                : 'Провайдер отключён — включите через учётные данные'}
+                            </div>
+                          )}
+                        </button>
+                      )
+                    })}
                   </div>
+
+                  {/* Workflow hint */}
+                  {smsStatus?.providers.some((p) => !p.available && p.type !== smsStatus.currentProvider) && (
+                    <div className="rounded-lg border border-[hsl(var(--primary))]/30 bg-[hsl(var(--primary))]/5 p-3">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--primary))]" />
+                        <div className="text-sm text-[hsl(var(--muted-foreground))]">
+                          <p className="font-medium text-[hsl(var(--foreground))]">Порядок подключения провайдера:</p>
+                          <ol className="mt-1 list-inside list-decimal space-y-0.5">
+                            <li>Настройте учётные данные во вкладке «Учётные данные»</li>
+                            <li>Убедитесь, что провайдер включён (enabled: true)</li>
+                            <li>Переключитесь на провайдер кнопкой выше</li>
+                          </ol>
+                          <button
+                            onClick={() => setActiveSection('credentials')}
+                            className="mt-2 inline-flex items-center gap-1 text-[hsl(var(--primary))] hover:underline"
+                          >
+                            Перейти к учётным данным
+                            <ArrowRight className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -727,7 +832,10 @@ export function ApiSettingsPage() {
                   </div>
                 )}
 
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                    После сохранения используйте «Быстрое переключение» для активации провайдера
+                  </p>
                   <Button
                     onClick={handleSaveCredentials}
                     disabled={
@@ -748,6 +856,46 @@ export function ApiSettingsPage() {
                     )}
                   </Button>
                 </div>
+
+                {/* Switch prompt after saving credentials */}
+                {showSwitchAfterSave && savedCredProvider && (
+                  <div className="rounded-lg border border-[hsl(var(--success))]/50 bg-[hsl(var(--success))]/5 p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle className="h-5 w-5 text-[hsl(var(--success))]" />
+                        <div>
+                          <p className="font-medium text-[hsl(var(--success))]">
+                            Учётные данные {savedCredProvider} сохранены
+                          </p>
+                          <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                            Переключить активный провайдер на {savedCredProvider}?
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => { setShowSwitchAfterSave(false); setSavedCredProvider(null) }}
+                        >
+                          Позже
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleSwitchAfterSave}
+                          disabled={switchProvider.isPending}
+                        >
+                          {switchProvider.isPending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <ArrowRight className="mr-2 h-4 w-4" />
+                          )}
+                          Переключить
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
