@@ -189,6 +189,7 @@ export function Sidebar() {
             children={[
               ...(isAdmin ? [{ to: '/settings', label: 'Платформа' }] : []),
               { to: '/settings/referrals', label: 'Рефералы' },
+              ...(isAdmin ? [{ to: '/settings/api', label: 'SMS API' }] : []),
               ...(isAdmin ? [{ to: '/settings/export', label: 'Экспорт данных' }] : []),
             ]}
           />
