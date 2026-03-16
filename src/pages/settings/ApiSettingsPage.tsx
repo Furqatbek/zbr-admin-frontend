@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Radio,
   Send,
@@ -14,6 +14,7 @@ import {
   Eye,
   EyeOff,
   Shield,
+  Save,
 } from 'lucide-react'
 import {
   Card,
@@ -29,6 +30,7 @@ import {
   Modal,
   ModalFooter,
 } from '@/components/ui'
+import { useToastActions } from '@/components/ui/toast'
 import {
   useSmsStatus,
   useUpdateSmsConfig,
@@ -53,6 +55,7 @@ export function ApiSettingsPage() {
   const updateCredentials = useUpdateProviderCredentials()
   const enableProvider = useEnableProvider()
   const disableProvider = useDisableProvider()
+  const toast = useToastActions()
 
   const [activeSection, setActiveSection] = useState<Section>('status')
   const [testPhone, setTestPhone] = useState('')
@@ -63,9 +66,11 @@ export function ApiSettingsPage() {
   const [configProvider, setConfigProvider] = useState<SmsProvider>('ESKIZ')
   const [configFallbackEnabled, setConfigFallbackEnabled] = useState(true)
   const [configFallbackProvider, setConfigFallbackProvider] = useState<SmsProvider>('DEVSMS')
+  const [configHasChanges, setConfigHasChanges] = useState(false)
 
   // Credentials form state
   const [credProvider, setCredProvider] = useState<SmsProvider>('ESKIZ')
+  const [credEnabled, setCredEnabled] = useState(true)
   const [credEmail, setCredEmail] = useState('')
   const [credPassword, setCredPassword] = useState('')
   const [credToken, setCredToken] = useState('')
@@ -76,6 +81,24 @@ export function ApiSettingsPage() {
   // Provider details
   const [detailsProvider, setDetailsProvider] = useState<SmsProvider>('ESKIZ')
   const { data: providerDetails, isLoading: detailsLoading } = useProviderDetails(detailsProvider)
+
+  // Initialize config form from server data
+  useEffect(() => {
+    if (smsStatus) {
+      setConfigProvider(smsStatus.currentProvider)
+      setConfigFallbackEnabled(smsStatus.fallbackEnabled)
+      setConfigFallbackProvider(smsStatus.fallbackProvider)
+      setConfigHasChanges(false)
+    }
+  }, [smsStatus])
+
+  // Pre-fill credentials enabled state from provider details
+  useEffect(() => {
+    if (providerDetails && providerDetails.provider === credProvider) {
+      setCredEnabled(providerDetails.enabled)
+      setCredFrom(providerDetails.from || '4546')
+    }
+  }, [providerDetails, credProvider])
 
   if (isLoading) {
     return (
@@ -94,44 +117,91 @@ export function ApiSettingsPage() {
   }
 
   const handleToggle = async () => {
-    if (smsStatus) {
+    if (!smsStatus) return
+    try {
       await toggleSms.mutateAsync(!smsStatus.enabled)
+      toast.success(
+        smsStatus.enabled ? 'SMS-сервис отключён' : 'SMS-сервис включён'
+      )
       setIsToggleModalOpen(false)
+    } catch {
+      toast.error('Ошибка', 'Не удалось изменить статус SMS-сервиса')
     }
   }
 
   const handleSaveConfig = async () => {
-    await updateConfig.mutateAsync({
-      provider: configProvider,
-      fallbackEnabled: configFallbackEnabled,
-      fallbackProvider: configFallbackProvider,
-      enabled: smsStatus?.enabled,
-    })
+    try {
+      await updateConfig.mutateAsync({
+        provider: configProvider,
+        fallbackEnabled: configFallbackEnabled,
+        fallbackProvider: configFallbackProvider,
+        enabled: smsStatus?.enabled,
+      })
+      setConfigHasChanges(false)
+      toast.success('Конфигурация сохранена')
+    } catch {
+      toast.error('Ошибка', 'Не удалось сохранить конфигурацию')
+    }
+  }
+
+  const handleResetConfig = () => {
+    if (smsStatus) {
+      setConfigProvider(smsStatus.currentProvider)
+      setConfigFallbackEnabled(smsStatus.fallbackEnabled)
+      setConfigFallbackProvider(smsStatus.fallbackProvider)
+      setConfigHasChanges(false)
+    }
   }
 
   const handleSaveCredentials = async () => {
-    await updateCredentials.mutateAsync({
-      provider: credProvider,
-      from: credFrom,
-      ...(credProvider === 'ESKIZ'
-        ? { email: credEmail, password: credPassword }
-        : { token: credToken }),
-    })
+    try {
+      await updateCredentials.mutateAsync({
+        provider: credProvider,
+        enabled: credEnabled,
+        from: credFrom,
+        ...(credProvider === 'ESKIZ'
+          ? { email: credEmail, password: credPassword }
+          : { token: credToken }),
+      })
+      toast.success('Учётные данные обновлены', `Провайдер: ${credProvider}`)
+    } catch {
+      toast.error('Ошибка', 'Не удалось обновить учётные данные')
+    }
+  }
+
+  const handleSwitchProvider = async (provider: SmsProvider) => {
+    try {
+      await switchProvider.mutateAsync(provider)
+      toast.success('Провайдер переключён', `Активный провайдер: ${provider}`)
+    } catch {
+      toast.error('Ошибка', `Не удалось переключиться на ${provider}`)
+    }
   }
 
   const handleSendTest = async () => {
-    if (testPhone && testMessage) {
+    if (!testPhone || !testMessage) return
+    try {
       await sendTestSms.mutateAsync({ phoneNumber: testPhone, message: testMessage })
+    } catch {
+      // Error shown inline
     }
   }
 
   const handleToggleProvider = async (provider: SmsProvider, currentlyEnabled: boolean) => {
-    if (currentlyEnabled) {
-      await disableProvider.mutateAsync(provider)
-    } else {
-      await enableProvider.mutateAsync(provider)
+    try {
+      if (currentlyEnabled) {
+        await disableProvider.mutateAsync(provider)
+        toast.warning(`${provider} отключён`)
+      } else {
+        await enableProvider.mutateAsync(provider)
+        toast.success(`${provider} включён`)
+      }
+    } catch {
+      toast.error('Ошибка', `Не удалось изменить статус ${provider}`)
     }
   }
+
+  const markConfigChanged = () => setConfigHasChanges(true)
 
   const sections = [
     { id: 'status' as const, label: 'Статус', icon: Activity },
@@ -291,13 +361,11 @@ export function ApiSettingsPage() {
                       key={provider.type}
                       className="flex items-center justify-between rounded-lg border border-[hsl(var(--border))] p-4"
                     >
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <p className="font-medium">{provider.type}</p>
-                          <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                            {provider.statusMessage}
-                          </p>
-                        </div>
+                      <div>
+                        <p className="font-medium">{provider.type}</p>
+                        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                          {provider.statusMessage}
+                        </p>
                       </div>
                       <div className="flex items-center gap-3">
                         <Badge variant={provider.configured ? 'success' : 'secondary'}>
@@ -407,7 +475,7 @@ export function ApiSettingsPage() {
                     {(['ESKIZ', 'DEVSMS'] as SmsProvider[]).map((provider) => (
                       <button
                         key={provider}
-                        onClick={() => switchProvider.mutateAsync(provider)}
+                        onClick={() => handleSwitchProvider(provider)}
                         disabled={switchProvider.isPending}
                         className={`flex items-center justify-between rounded-lg border p-4 text-left transition-colors ${
                           smsStatus?.currentProvider === provider
@@ -437,8 +505,15 @@ export function ApiSettingsPage() {
               {/* Configuration */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Конфигурация</CardTitle>
-                  <CardDescription>Настройки провайдера и фоллбэка</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Конфигурация</CardTitle>
+                      <CardDescription>Настройки провайдера и фоллбэка</CardDescription>
+                    </div>
+                    {configHasChanges && (
+                      <Badge variant="warning">Есть несохранённые изменения</Badge>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
@@ -446,7 +521,10 @@ export function ApiSettingsPage() {
                       <Label>Основной провайдер</Label>
                       <Select
                         value={configProvider}
-                        onChange={(e) => setConfigProvider(e.target.value as SmsProvider)}
+                        onChange={(e) => {
+                          setConfigProvider(e.target.value as SmsProvider)
+                          markConfigChanged()
+                        }}
                       >
                         <option value="ESKIZ">Eskiz</option>
                         <option value="DEVSMS">DevSMS</option>
@@ -456,7 +534,10 @@ export function ApiSettingsPage() {
                       <Label>Резервный провайдер</Label>
                       <Select
                         value={configFallbackProvider}
-                        onChange={(e) => setConfigFallbackProvider(e.target.value as SmsProvider)}
+                        onChange={(e) => {
+                          setConfigFallbackProvider(e.target.value as SmsProvider)
+                          markConfigChanged()
+                        }}
                       >
                         <option value="ESKIZ">Eskiz</option>
                         <option value="DEVSMS">DevSMS</option>
@@ -472,7 +553,10 @@ export function ApiSettingsPage() {
                       </p>
                     </div>
                     <button
-                      onClick={() => setConfigFallbackEnabled(!configFallbackEnabled)}
+                      onClick={() => {
+                        setConfigFallbackEnabled(!configFallbackEnabled)
+                        markConfigChanged()
+                      }}
                       className={`relative h-6 w-11 rounded-full transition-colors ${
                         configFallbackEnabled
                           ? 'bg-[hsl(var(--success))]'
@@ -487,10 +571,18 @@ export function ApiSettingsPage() {
                     </button>
                   </div>
 
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={handleResetConfig}
+                      disabled={!configHasChanges}
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Сбросить
+                    </Button>
                     <Button
                       onClick={handleSaveConfig}
-                      disabled={updateConfig.isPending}
+                      disabled={!configHasChanges || updateConfig.isPending}
                     >
                       {updateConfig.isPending ? (
                         <>
@@ -499,7 +591,7 @@ export function ApiSettingsPage() {
                         </>
                       ) : (
                         <>
-                          <RefreshCw className="mr-2 h-4 w-4" />
+                          <Save className="mr-2 h-4 w-4" />
                           Сохранить конфигурацию
                         </>
                       )}
@@ -520,52 +612,94 @@ export function ApiSettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Провайдер</Label>
-                  <Select
-                    value={credProvider}
-                    onChange={(e) => setCredProvider(e.target.value as SmsProvider)}
-                  >
-                    <option value="ESKIZ">Eskiz</option>
-                    <option value="DEVSMS">DevSMS</option>
-                  </Select>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Провайдер</Label>
+                    <Select
+                      value={credProvider}
+                      onChange={(e) => setCredProvider(e.target.value as SmsProvider)}
+                    >
+                      <option value="ESKIZ">Eskiz</option>
+                      <option value="DEVSMS">DevSMS</option>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Sender ID (from)</Label>
+                    <Input
+                      placeholder="4546"
+                      value={credFrom}
+                      onChange={(e) => setCredFrom(e.target.value)}
+                    />
+                  </div>
                 </div>
 
-                {credProvider === 'ESKIZ' ? (
+                <div className="flex items-center justify-between rounded-lg border border-[hsl(var(--border))] p-4">
+                  <div>
+                    <p className="font-medium">Провайдер включён</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                      Включить или отключить {credProvider} при сохранении
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setCredEnabled(!credEnabled)}
+                    className={`relative h-6 w-11 rounded-full transition-colors ${
+                      credEnabled
+                        ? 'bg-[hsl(var(--success))]'
+                        : 'bg-[hsl(var(--muted))]'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                        credEnabled ? 'left-[22px]' : 'left-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {credProvider === 'ESKIZ' && (
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Email</Label>
-                      <Input
-                        type="email"
-                        placeholder="your@email.com"
-                        value={credEmail}
-                        onChange={(e) => setCredEmail(e.target.value)}
-                      />
+                    <div className="rounded-lg border border-[hsl(var(--primary))]/30 bg-[hsl(var(--primary))]/5 p-3">
+                      <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                        Eskiz использует email/пароль для аутентификации. Токен генерируется автоматически (TTL: 29 дней) и обновляется каждые 25 дней.
+                      </p>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Пароль</Label>
-                      <div className="relative">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Email</Label>
                         <Input
-                          type={showPassword ? 'text' : 'password'}
-                          placeholder="Пароль Eskiz"
-                          value={credPassword}
-                          onChange={(e) => setCredPassword(e.target.value)}
+                          type="email"
+                          placeholder="your@email.com"
+                          value={credEmail}
+                          onChange={(e) => setCredEmail(e.target.value)}
                         />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-                        >
-                          {showPassword ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Пароль</Label>
+                        <div className="relative">
+                          <Input
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="Пароль Eskiz"
+                            value={credPassword}
+                            onChange={(e) => setCredPassword(e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+                          >
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                ) : (
+                )}
+
+                {credProvider === 'DEVSMS' && (
                   <div className="space-y-2">
                     <Label>API Токен</Label>
                     <div className="relative">
@@ -587,20 +721,11 @@ export function ApiSettingsPage() {
                         )}
                       </button>
                     </div>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                      Токен для аутентификации с DevSMS API
+                    </p>
                   </div>
                 )}
-
-                <div className="space-y-2">
-                  <Label>Sender ID (from)</Label>
-                  <Input
-                    placeholder="4546"
-                    value={credFrom}
-                    onChange={(e) => setCredFrom(e.target.value)}
-                  />
-                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                    Идентификатор отправителя SMS
-                  </p>
-                </div>
 
                 <div className="flex justify-end">
                   <Button
@@ -623,28 +748,6 @@ export function ApiSettingsPage() {
                     )}
                   </Button>
                 </div>
-
-                {updateCredentials.isSuccess && (
-                  <div className="rounded-lg border border-[hsl(var(--success))]/50 bg-[hsl(var(--success))]/5 p-4">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle className="h-5 w-5 text-[hsl(var(--success))]" />
-                      <p className="font-medium text-[hsl(var(--success))]">
-                        Учётные данные успешно обновлены
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {updateCredentials.isError && (
-                  <div className="rounded-lg border border-[hsl(var(--destructive))]/50 bg-[hsl(var(--destructive))]/5 p-4">
-                    <div className="flex items-center gap-3">
-                      <XCircle className="h-5 w-5 text-[hsl(var(--destructive))]" />
-                      <p className="font-medium text-[hsl(var(--destructive))]">
-                        Ошибка обновления учётных данных
-                      </p>
-                    </div>
-                  </div>
-                )}
               </CardContent>
             </Card>
           )}
@@ -667,7 +770,7 @@ export function ApiSettingsPage() {
                     onChange={(e) => setTestPhone(e.target.value)}
                   />
                   <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                    Формат: +998XXXXXXXXX
+                    Формат: +998XXXXXXXXX, 998XXXXXXXXX, 8XXXXXXXXX или 9XXXXXXXXX
                   </p>
                 </div>
                 <div className="space-y-2">
