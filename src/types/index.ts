@@ -1461,42 +1461,54 @@ export interface CxSummary {
 // SMS Provider Types
 export type SmsProvider = 'ESKIZ' | 'DEVSMS'
 
-export interface SmsProviderConfig {
-  provider: SmsProvider
-  enabled: boolean
-  baseUrl?: string
-  email?: string
-  tokenExpiry?: string
+export interface SmsProviderInfo {
+  type: SmsProvider
+  configured: boolean
+  available: boolean
+  statusMessage: string
 }
 
 export interface SmsStatus {
-  activeProvider: SmsProvider
   enabled: boolean
-  primaryProvider: SmsProviderConfig
-  fallbackProvider?: SmsProviderConfig
-  totalSentToday?: number
-  failedToday?: number
-  lastSentAt?: string
+  currentProvider: SmsProvider
+  fallbackEnabled: boolean
+  fallbackProvider: SmsProvider
+  activeProviderName: SmsProvider
+  providers: SmsProviderInfo[]
 }
 
 export interface SmsConfigUpdate {
-  activeProvider?: SmsProvider
+  provider?: SmsProvider
+  fallbackEnabled?: boolean
   fallbackProvider?: SmsProvider
   enabled?: boolean
-  retryAttempts?: number
-  retryDelayMs?: number
-}
-
-export interface SmsTestRequest {
-  phoneNumber: string
-  message: string
 }
 
 export interface SmsTestResponse {
   success: boolean
+  message: string
+  data: string
+}
+
+export interface SmsProviderDetails {
   provider: SmsProvider
-  messageId?: string
-  error?: string
+  enabled: boolean
+  baseUrl: string
+  from: string
+  hasToken: boolean
+  callbackUrl: string | null
+  available: boolean
+}
+
+export interface SmsProviderCredentials {
+  provider: SmsProvider
+  enabled?: boolean
+  from?: string
+  // Eskiz-specific
+  email?: string
+  password?: string
+  // DevSMS-specific
+  token?: string
 }
 
 // CX Analytics Query Params

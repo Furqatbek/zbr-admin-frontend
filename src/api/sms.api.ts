@@ -1,5 +1,12 @@
 import { api as apiClient } from './axios'
-import type { SmsStatus, SmsConfigUpdate, SmsProvider, SmsTestResponse } from '@/types'
+import type {
+  SmsStatus,
+  SmsConfigUpdate,
+  SmsProvider,
+  SmsTestResponse,
+  SmsProviderDetails,
+  SmsProviderCredentials,
+} from '@/types'
 
 export const smsApi = {
   getStatus: async () => {
@@ -26,6 +33,26 @@ export const smsApi = {
     const response = await apiClient.post<SmsTestResponse>(
       `/admin/sms/test?phoneNumber=${encodeURIComponent(phoneNumber)}&message=${encodeURIComponent(message)}`
     )
+    return response.data
+  },
+
+  getProviderDetails: async (provider: SmsProvider) => {
+    const response = await apiClient.get<SmsProviderDetails>(`/admin/sms/provider/${provider}`)
+    return response.data
+  },
+
+  updateProviderCredentials: async (credentials: SmsProviderCredentials) => {
+    const response = await apiClient.put('/admin/sms/provider/credentials', credentials)
+    return response.data
+  },
+
+  enableProvider: async (provider: SmsProvider) => {
+    const response = await apiClient.post(`/admin/sms/provider/${provider}/enable`)
+    return response.data
+  },
+
+  disableProvider: async (provider: SmsProvider) => {
+    const response = await apiClient.post(`/admin/sms/provider/${provider}/disable`)
     return response.data
   },
 }
