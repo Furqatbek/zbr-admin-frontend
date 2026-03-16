@@ -1458,6 +1458,47 @@ export interface CxSummary {
   calculatedAt: string
 }
 
+// SMS Provider Types
+export type SmsProvider = 'ESKIZ' | 'DEVSMS'
+
+export interface SmsProviderConfig {
+  provider: SmsProvider
+  enabled: boolean
+  baseUrl?: string
+  email?: string
+  tokenExpiry?: string
+}
+
+export interface SmsStatus {
+  activeProvider: SmsProvider
+  enabled: boolean
+  primaryProvider: SmsProviderConfig
+  fallbackProvider?: SmsProviderConfig
+  totalSentToday?: number
+  failedToday?: number
+  lastSentAt?: string
+}
+
+export interface SmsConfigUpdate {
+  activeProvider?: SmsProvider
+  fallbackProvider?: SmsProvider
+  enabled?: boolean
+  retryAttempts?: number
+  retryDelayMs?: number
+}
+
+export interface SmsTestRequest {
+  phoneNumber: string
+  message: string
+}
+
+export interface SmsTestResponse {
+  success: boolean
+  provider: SmsProvider
+  messageId?: string
+  error?: string
+}
+
 // CX Analytics Query Params
 export interface CxAnalyticsQueryParams {
   startDate: string

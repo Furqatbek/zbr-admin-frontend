@@ -47,6 +47,7 @@ const NotificationCleanupPage = lazy(() => import('@/pages/notifications/Notific
 const PlatformSettingsPage = lazy(() => import('@/pages/settings/PlatformSettingsPage').then(m => ({ default: m.PlatformSettingsPage })))
 const DataExportPage = lazy(() => import('@/pages/settings/DataExportPage').then(m => ({ default: m.DataExportPage })))
 const ReferralsPage = lazy(() => import('@/pages/settings/ReferralsPage').then(m => ({ default: m.ReferralsPage })))
+const ApiSettingsPage = lazy(() => import('@/pages/settings/ApiSettingsPage').then(m => ({ default: m.ApiSettingsPage })))
 
 // Wrapper for lazy loaded components
 function LazyPage({ children }: { children: React.ReactNode }) {
@@ -218,6 +219,14 @@ export const router = createBrowserRouter([
         element: (
           <AuthGuard requiredRoles={['ADMIN', 'PLATFORM']}>
             <LazyPage><ReferralsPage /></LazyPage>
+          </AuthGuard>
+        ),
+      },
+      {
+        path: 'settings/api',
+        element: (
+          <AuthGuard requiredRoles={['ADMIN']}>
+            <LazyPage><ApiSettingsPage /></LazyPage>
           </AuthGuard>
         ),
       },
