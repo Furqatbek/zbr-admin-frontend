@@ -79,6 +79,8 @@ export function ApiSettingsPage() {
   const [credFrom, setCredFrom] = useState('4546')
   const [showPassword, setShowPassword] = useState(false)
   const [showToken, setShowToken] = useState(false)
+  const [showSwitchAfterSave, setShowSwitchAfterSave] = useState(false)
+  const [savedCredProvider, setSavedCredProvider] = useState<SmsProvider | null>(null)
 
   // Provider details
   const [detailsProvider, setDetailsProvider] = useState<SmsProvider>('ESKIZ')
@@ -154,9 +156,6 @@ export function ApiSettingsPage() {
       setConfigHasChanges(false)
     }
   }
-
-  const [showSwitchAfterSave, setShowSwitchAfterSave] = useState(false)
-  const [savedCredProvider, setSavedCredProvider] = useState<SmsProvider | null>(null)
 
   const handleSaveCredentials = async () => {
     try {
