@@ -19,7 +19,7 @@ export function formatNumber(num: number): string {
 }
 
 export function formatPercent(value: number, decimals = 1): string {
-  return `${value.toFixed(decimals)}%`
+  return `${(value ?? 0).toFixed(decimals)}%`
 }
 
 export function formatDate(date: string | Date | null | undefined, options?: Intl.DateTimeFormatOptions): string {
