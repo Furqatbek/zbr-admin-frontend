@@ -191,7 +191,7 @@ export function ApiSettingsPage() {
   }
 
   const getProviderInfo = (provider: SmsProvider) =>
-    smsStatus?.providers.find((p) => p.type === provider)
+    smsStatus?.providers?.find((p) => p.type === provider)
 
   const handleSwitchProvider = async (provider: SmsProvider) => {
     const info = getProviderInfo(provider)
@@ -398,7 +398,7 @@ export function ApiSettingsPage() {
                   <CardDescription>Статус и доступность всех SMS-провайдеров</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {smsStatus.providers.map((provider) => (
+                  {(smsStatus.providers ?? []).map((provider) => (
                     <div
                       key={provider.type}
                       className="flex items-center justify-between rounded-lg border border-[hsl(var(--border))] p-4"
@@ -581,7 +581,7 @@ export function ApiSettingsPage() {
                   </div>
 
                   {/* Workflow hint */}
-                  {smsStatus?.providers.some((p) => !p.available && p.type !== smsStatus.currentProvider) && (
+                  {smsStatus?.providers?.some((p) => !p.available && p.type !== smsStatus.currentProvider) && (
                     <div className="rounded-lg border border-[hsl(var(--primary))]/30 bg-[hsl(var(--primary))]/5 p-3">
                       <div className="flex items-start gap-2">
                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--primary))]" />
