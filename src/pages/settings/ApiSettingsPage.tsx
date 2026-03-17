@@ -57,7 +57,7 @@ import {
   useSyncSmsTemplate,
   useSyncAllSmsTemplates,
 } from '@/hooks/useSmsTemplates'
-import type { SmsProvider, SmsTemplate, SmsTemplateRequest } from '@/types'
+import type { SmsProvider, SmsTemplate, SmsTemplateRequest, SmsTemplateType } from '@/types'
 
 type Section = 'status' | 'provider' | 'credentials' | 'test' | 'templates'
 
@@ -89,9 +89,12 @@ export function ApiSettingsPage() {
   const [isTemplateFormOpen, setIsTemplateFormOpen] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<SmsTemplate | null>(null)
   const [tplName, setTplName] = useState('')
-  const [tplSlug, setTplSlug] = useState('')
+  const [tplCode, setTplCode] = useState('')
   const [tplContent, setTplContent] = useState('')
+  const [tplType, setTplType] = useState<SmsTemplateType>('OTP')
   const [tplProvider, setTplProvider] = useState<SmsProvider>('ESKIZ')
+  const [tplDescription, setTplDescription] = useState('')
+  const [tplLanguage, setTplLanguage] = useState('uz')
 
   // Config form state
   const [configProvider, setConfigProvider] = useState<SmsProvider>('ESKIZ')
@@ -286,25 +289,37 @@ export function ApiSettingsPage() {
     if (template) {
       setEditingTemplate(template)
       setTplName(template.name)
-      setTplSlug(template.slug)
+      setTplCode(template.templateCode)
       setTplContent(template.content)
+      setTplType(template.templateType)
       setTplProvider(template.provider)
+      setTplDescription(template.description ?? '')
+      setTplLanguage(template.language ?? 'uz')
     } else {
       setEditingTemplate(null)
       setTplName('')
-      setTplSlug('')
+      setTplCode('')
       setTplContent('')
+      setTplType('OTP')
       setTplProvider(smsStatus?.currentProvider ?? 'ESKIZ')
+      setTplDescription('')
+      setTplLanguage('uz')
     }
     setIsTemplateFormOpen(true)
   }
 
   const handleSaveTemplate = async () => {
+    // Extract variables from content like {code}, {minutes}
+    const variables = [...tplContent.matchAll(/\{(\w+)}/g)].map((m) => m[1])
     const data: SmsTemplateRequest = {
       name: tplName,
-      slug: tplSlug,
+      templateCode: tplCode,
       content: tplContent,
+      templateType: tplType,
       provider: tplProvider,
+      variables,
+      language: tplLanguage,
+      description: tplDescription || undefined,
     }
     try {
       if (editingTemplate) {
@@ -1153,7 +1168,7 @@ export function ApiSettingsPage() {
                           className="flex items-start justify-between rounded-lg border border-[hsl(var(--border))] p-4"
                         >
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <p className="font-medium">{tpl.name}</p>
                               <Badge
                                 variant={
@@ -1171,13 +1186,31 @@ export function ApiSettingsPage() {
                                     : 'Черновик'}
                               </Badge>
                               <Badge variant="outline">{tpl.provider}</Badge>
+                              <Badge variant="outline">{tpl.templateType}</Badge>
+                              {!tpl.active && (
+                                <Badge variant="destructive">Неактивен</Badge>
+                              )}
                             </div>
                             <p className="mt-1 font-mono text-xs text-[hsl(var(--muted-foreground))]">
-                              {tpl.slug}
+                              {tpl.templateCode}
                             </p>
+                            {tpl.description && (
+                              <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+                                {tpl.description}
+                              </p>
+                            )}
                             <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
                               {tpl.content.length > 120 ? `${tpl.content.slice(0, 120)}...` : tpl.content}
                             </p>
+                            {tpl.variables?.length > 0 && (
+                              <div className="mt-1 flex gap-1">
+                                {tpl.variables.map((v) => (
+                                  <span key={v} className="rounded bg-[hsl(var(--muted))] px-1.5 py-0.5 font-mono text-xs">
+                                    {`{${v}}`}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <div className="ml-4 flex shrink-0 gap-1">
                             <Button
@@ -1254,45 +1287,77 @@ export function ApiSettingsPage() {
         description={editingTemplate ? 'Измените параметры SMS-шаблона' : 'Заполните данные нового SMS-шаблона'}
       >
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Название</Label>
-            <Input
-              placeholder="OTP верификация"
-              value={tplName}
-              onChange={(e) => setTplName(e.target.value)}
-            />
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Название</Label>
+              <Input
+                placeholder="OTP Signup"
+                value={tplName}
+                onChange={(e) => setTplName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Код шаблона</Label>
+              <Input
+                placeholder="OTP_SIGNUP"
+                value={tplCode}
+                onChange={(e) => setTplCode(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Тип</Label>
+              <Select
+                value={tplType}
+                onChange={(e) => setTplType(e.target.value as SmsTemplateType)}
+              >
+                <option value="OTP">OTP</option>
+                <option value="NOTIFICATION">Уведомление</option>
+                <option value="MARKETING">Маркетинг</option>
+                <option value="TRANSACTIONAL">Транзакционный</option>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Провайдер</Label>
+              <Select
+                value={tplProvider}
+                onChange={(e) => setTplProvider(e.target.value as SmsProvider)}
+              >
+                <option value="ESKIZ">Eskiz</option>
+                <option value="DEVSMS">DevSMS</option>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Язык</Label>
+              <Select
+                value={tplLanguage}
+                onChange={(e) => setTplLanguage(e.target.value)}
+              >
+                <option value="uz">Узбекский</option>
+                <option value="ru">Русский</option>
+                <option value="en">Английский</option>
+              </Select>
+            </div>
           </div>
           <div className="space-y-2">
-            <Label>Slug (идентификатор)</Label>
+            <Label>Описание</Label>
             <Input
-              placeholder="otp_verification"
-              value={tplSlug}
-              onChange={(e) => setTplSlug(e.target.value)}
+              placeholder="OTP code for user signup"
+              value={tplDescription}
+              onChange={(e) => setTplDescription(e.target.value)}
             />
-            <p className="text-xs text-[hsl(var(--muted-foreground))]">
-              Уникальный идентификатор шаблона, используется в коде
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label>Провайдер</Label>
-            <Select
-              value={tplProvider}
-              onChange={(e) => setTplProvider(e.target.value as SmsProvider)}
-            >
-              <option value="ESKIZ">Eskiz</option>
-              <option value="DEVSMS">DevSMS</option>
-            </Select>
           </div>
           <div className="space-y-2">
             <Label>Текст шаблона</Label>
             <Textarea
-              placeholder="Ваш код подтверждения: {code}. Действителен {minutes} минут."
+              placeholder="Ваш код подтверждения: {code}. Код действителен {minutes} минут."
               value={tplContent}
               onChange={(e) => setTplContent(e.target.value)}
               rows={4}
             />
             <p className="text-xs text-[hsl(var(--muted-foreground))]">
-              Используйте {'{переменная}'} для подстановки значений
+              Используйте {'{переменная}'} для подстановки значений. Переменные определяются автоматически.
             </p>
           </div>
         </div>
@@ -1303,7 +1368,7 @@ export function ApiSettingsPage() {
           <Button
             onClick={handleSaveTemplate}
             disabled={
-              !tplName || !tplSlug || !tplContent ||
+              !tplName || !tplCode || !tplContent ||
               createTemplate.isPending || updateTemplate.isPending
             }
           >

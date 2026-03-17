@@ -36,8 +36,8 @@ export const smsTemplatesApi = {
     return response.data.data
   },
 
-  getStats: async () => {
+  getStats: async (): Promise<SmsTemplateStats> => {
     const response = await apiClient.get<{ data: SmsTemplateStats }>('/sms/templates/stats')
-    return response.data.data
+    return response.data.data ?? { total: 0, draft: 0, pending: 0, approved: 0, byProvider: {} }
   },
 }

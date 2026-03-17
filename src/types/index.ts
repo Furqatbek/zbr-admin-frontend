@@ -1513,24 +1513,32 @@ export interface SmsProviderCredentials {
 
 // SMS Template Types
 export type SmsTemplateStatus = 'DRAFT' | 'PENDING' | 'APPROVED'
+export type SmsTemplateType = 'OTP' | 'NOTIFICATION' | 'MARKETING' | 'TRANSACTIONAL'
 
 export interface SmsTemplate {
   id: number
+  templateCode: string
   name: string
-  slug: string
   content: string
+  templateType: SmsTemplateType
   provider: SmsProvider
   status: SmsTemplateStatus
-  providerTemplateId?: string
+  active: boolean
+  variables: string[]
+  language: string
+  description: string
   createdAt: string
-  updatedAt: string
 }
 
 export interface SmsTemplateRequest {
+  templateCode: string
   name: string
-  slug: string
   content: string
+  templateType: SmsTemplateType
   provider: SmsProvider
+  variables?: string[]
+  language?: string
+  description?: string
 }
 
 export interface SmsTemplateSyncResponse {
