@@ -40,4 +40,9 @@ export const smsTemplatesApi = {
     const response = await apiClient.get<SmsTemplateStats>('/sms/templates/stats')
     return response.data ?? { total: 0, draft: 0, pending: 0, approved: 0, byProvider: {} }
   },
+
+  deactivate: async (id: number) => {
+    const response = await apiClient.delete<SmsTemplate>(`/sms/templates/${id}`)
+    return response.data
+  },
 }

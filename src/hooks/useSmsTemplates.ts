@@ -62,3 +62,13 @@ export function useSyncAllSmsTemplates() {
     },
   })
 }
+
+export function useDeactivateSmsTemplate() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => smsTemplatesApi.deactivate(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: smsTemplateKeys.all })
+    },
+  })
+}

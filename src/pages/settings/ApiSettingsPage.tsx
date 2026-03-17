@@ -56,6 +56,7 @@ import {
   useUpdateSmsTemplate,
   useSyncSmsTemplate,
   useSyncAllSmsTemplates,
+  useDeactivateSmsTemplate,
 } from '@/hooks/useSmsTemplates'
 import type { SmsProvider, SmsTemplate, SmsTemplateRequest, SmsTemplateType } from '@/types'
 
@@ -79,6 +80,7 @@ export function ApiSettingsPage() {
   const updateTemplate = useUpdateSmsTemplate()
   const syncTemplate = useSyncSmsTemplate()
   const syncAllTemplates = useSyncAllSmsTemplates()
+  const deactivateTemplate = useDeactivateSmsTemplate()
 
   const [activeSection, setActiveSection] = useState<Section>('status')
   const [testPhone, setTestPhone] = useState('')
@@ -355,6 +357,15 @@ export function ApiSettingsPage() {
       }
     } catch {
       toast.error('Ошибка', 'Не удалось синхронизировать шаблон')
+    }
+  }
+
+  const handleDeactivateTemplate = async (id: number) => {
+    try {
+      await deactivateTemplate.mutateAsync(id)
+      toast.success('Шаблон деактивирован')
+    } catch {
+      toast.error('Ошибка', 'Не удалось деактивировать шаблон')
     }
   }
 
@@ -1212,7 +1223,7 @@ export function ApiSettingsPage() {
                               </div>
                             )}
                           </div>
-                          <div className="ml-4 flex shrink-0 gap-1">
+                          <div className="ml-4 flex shrink-0 items-center gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1232,6 +1243,25 @@ export function ApiSettingsPage() {
                                 <Upload className="h-4 w-4" />
                               )}
                             </Button>
+                            {tpl.active && (
+                              <button
+                                onClick={() => handleDeactivateTemplate(tpl.id)}
+                                disabled={deactivateTemplate.isPending}
+                                title="Деактивировать шаблон"
+                                className="relative h-6 w-11 rounded-full bg-[hsl(var(--success))] transition-colors"
+                              >
+                                <span className="absolute left-[22px] top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform" />
+                              </button>
+                            )}
+                            {!tpl.active && (
+                              <button
+                                disabled
+                                title="Шаблон деактивирован"
+                                className="relative h-6 w-11 rounded-full bg-[hsl(var(--muted))] transition-colors"
+                              >
+                                <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
