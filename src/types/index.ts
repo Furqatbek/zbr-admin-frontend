@@ -1513,7 +1513,7 @@ export interface SmsProviderCredentials {
 
 // SMS Template Types
 export type SmsTemplateStatus = 'DRAFT' | 'PENDING' | 'APPROVED'
-export type SmsTemplateType = 'OTP' | 'NOTIFICATION' | 'MARKETING' | 'TRANSACTIONAL'
+export type SmsTemplateType = 'OTP' | 'NOTIFICATION' | 'MARKETING' | 'TRANSACTIONAL' | 'WELCOME'
 
 export interface SmsTemplate {
   id: number

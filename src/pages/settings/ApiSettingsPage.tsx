@@ -1316,6 +1316,7 @@ export function ApiSettingsPage() {
                 <option value="NOTIFICATION">Уведомление</option>
                 <option value="MARKETING">Маркетинг</option>
                 <option value="TRANSACTIONAL">Транзакционный</option>
+                <option value="WELCOME">Приветствие</option>
               </Select>
             </div>
             <div className="space-y-2">
