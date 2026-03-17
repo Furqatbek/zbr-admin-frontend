@@ -1511,6 +1511,44 @@ export interface SmsProviderCredentials {
   token?: string
 }
 
+// SMS Template Types
+export type SmsTemplateStatus = 'DRAFT' | 'PENDING' | 'APPROVED'
+
+export interface SmsTemplate {
+  id: number
+  name: string
+  slug: string
+  content: string
+  provider: SmsProvider
+  status: SmsTemplateStatus
+  providerTemplateId?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SmsTemplateRequest {
+  name: string
+  slug: string
+  content: string
+  provider: SmsProvider
+}
+
+export interface SmsTemplateSyncResponse {
+  templateId: number
+  provider: SmsProvider
+  success: boolean
+  providerTemplateId?: string
+  message: string
+}
+
+export interface SmsTemplateStats {
+  total: number
+  draft: number
+  pending: number
+  approved: number
+  byProvider: Record<string, number>
+}
+
 // CX Analytics Query Params
 export interface CxAnalyticsQueryParams {
   startDate: string

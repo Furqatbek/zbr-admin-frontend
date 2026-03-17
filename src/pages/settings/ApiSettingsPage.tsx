@@ -17,6 +17,10 @@ import {
   Save,
   AlertTriangle,
   ArrowRight,
+  FileText,
+  Plus,
+  Upload,
+  Pencil,
 } from 'lucide-react'
 import {
   Card,
@@ -31,6 +35,7 @@ import {
   Badge,
   Modal,
   ModalFooter,
+  Textarea,
 } from '@/components/ui'
 import { useToastActions } from '@/components/ui/toast'
 import {
@@ -44,9 +49,17 @@ import {
   useEnableProvider,
   useDisableProvider,
 } from '@/hooks/useSms'
-import type { SmsProvider } from '@/types'
+import {
+  useSmsTemplates,
+  useSmsTemplateStats,
+  useCreateSmsTemplate,
+  useUpdateSmsTemplate,
+  useSyncSmsTemplate,
+  useSyncAllSmsTemplates,
+} from '@/hooks/useSmsTemplates'
+import type { SmsProvider, SmsTemplate, SmsTemplateRequest } from '@/types'
 
-type Section = 'status' | 'provider' | 'credentials' | 'test'
+type Section = 'status' | 'provider' | 'credentials' | 'test' | 'templates'
 
 export function ApiSettingsPage() {
   const { data: smsStatus, isLoading, error } = useSmsStatus()
@@ -59,10 +72,26 @@ export function ApiSettingsPage() {
   const disableProvider = useDisableProvider()
   const toast = useToastActions()
 
+  // SMS Templates
+  const { data: templates, isLoading: templatesLoading } = useSmsTemplates()
+  const { data: templateStats } = useSmsTemplateStats()
+  const createTemplate = useCreateSmsTemplate()
+  const updateTemplate = useUpdateSmsTemplate()
+  const syncTemplate = useSyncSmsTemplate()
+  const syncAllTemplates = useSyncAllSmsTemplates()
+
   const [activeSection, setActiveSection] = useState<Section>('status')
   const [testPhone, setTestPhone] = useState('')
   const [testMessage, setTestMessage] = useState('')
   const [isToggleModalOpen, setIsToggleModalOpen] = useState(false)
+
+  // Template form state
+  const [isTemplateFormOpen, setIsTemplateFormOpen] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState<SmsTemplate | null>(null)
+  const [tplName, setTplName] = useState('')
+  const [tplSlug, setTplSlug] = useState('')
+  const [tplContent, setTplContent] = useState('')
+  const [tplProvider, setTplProvider] = useState<SmsProvider>('ESKIZ')
 
   // Config form state
   const [configProvider, setConfigProvider] = useState<SmsProvider>('ESKIZ')
@@ -250,7 +279,69 @@ export function ApiSettingsPage() {
     { id: 'provider' as const, label: 'Провайдер', icon: Radio },
     { id: 'credentials' as const, label: 'Учётные данные', icon: KeyRound },
     { id: 'test' as const, label: 'Тестирование', icon: MessageSquare },
+    { id: 'templates' as const, label: 'Шаблоны', icon: FileText },
   ]
+
+  const openTemplateForm = (template?: SmsTemplate) => {
+    if (template) {
+      setEditingTemplate(template)
+      setTplName(template.name)
+      setTplSlug(template.slug)
+      setTplContent(template.content)
+      setTplProvider(template.provider)
+    } else {
+      setEditingTemplate(null)
+      setTplName('')
+      setTplSlug('')
+      setTplContent('')
+      setTplProvider(smsStatus?.currentProvider ?? 'ESKIZ')
+    }
+    setIsTemplateFormOpen(true)
+  }
+
+  const handleSaveTemplate = async () => {
+    const data: SmsTemplateRequest = {
+      name: tplName,
+      slug: tplSlug,
+      content: tplContent,
+      provider: tplProvider,
+    }
+    try {
+      if (editingTemplate) {
+        await updateTemplate.mutateAsync({ id: editingTemplate.id, data })
+        toast.success('Шаблон обновлён')
+      } else {
+        await createTemplate.mutateAsync(data)
+        toast.success('Шаблон создан')
+      }
+      setIsTemplateFormOpen(false)
+    } catch {
+      toast.error('Ошибка', editingTemplate ? 'Не удалось обновить шаблон' : 'Не удалось создать шаблон')
+    }
+  }
+
+  const handleSyncAll = async () => {
+    try {
+      const results = await syncAllTemplates.mutateAsync()
+      const successCount = results.filter((r) => r.success).length
+      toast.success(`Синхронизировано ${successCount} из ${results.length} шаблонов`)
+    } catch {
+      toast.error('Ошибка', 'Не удалось синхронизировать шаблоны')
+    }
+  }
+
+  const handleSyncTemplate = async (id: number) => {
+    try {
+      const result = await syncTemplate.mutateAsync(id)
+      if (result.success) {
+        toast.success(result.message || 'Шаблон синхронизирован')
+      } else {
+        toast.warning(result.message || 'Синхронизация не удалась')
+      }
+    } catch {
+      toast.error('Ошибка', 'Не удалось синхронизировать шаблон')
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -981,6 +1072,142 @@ export function ApiSettingsPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* ===== TEMPLATES SECTION ===== */}
+          {activeSection === 'templates' && (
+            <div className="space-y-4">
+              {/* Stats */}
+              {templateStats && (
+                <div className="grid gap-4 md:grid-cols-4">
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-2xl font-bold">{templateStats.total}</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">Всего</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-2xl font-bold text-[hsl(var(--muted-foreground))]">{templateStats.draft}</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">Черновик</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-2xl font-bold text-[hsl(var(--warning))]">{templateStats.pending}</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">Ожидание</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-2xl font-bold text-[hsl(var(--success))]">{templateStats.approved}</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">Одобрено</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Templates list */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>SMS-шаблоны</CardTitle>
+                      <CardDescription>Управление шаблонами сообщений для провайдеров</CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={handleSyncAll}
+                        disabled={syncAllTemplates.isPending}
+                      >
+                        {syncAllTemplates.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Upload className="mr-2 h-4 w-4" />
+                        )}
+                        Синхронизировать все
+                      </Button>
+                      <Button onClick={() => openTemplateForm()}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Создать шаблон
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {templatesLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--muted-foreground))]" />
+                    </div>
+                  ) : !templates?.length ? (
+                    <div className="py-8 text-center text-[hsl(var(--muted-foreground))]">
+                      <FileText className="mx-auto mb-2 h-8 w-8" />
+                      <p>Шаблоны не найдены</p>
+                      <p className="text-sm">Создайте первый шаблон для начала работы</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {templates.map((tpl) => (
+                        <div
+                          key={tpl.id}
+                          className="flex items-start justify-between rounded-lg border border-[hsl(var(--border))] p-4"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{tpl.name}</p>
+                              <Badge
+                                variant={
+                                  tpl.status === 'APPROVED'
+                                    ? 'success'
+                                    : tpl.status === 'PENDING'
+                                      ? 'warning'
+                                      : 'secondary'
+                                }
+                              >
+                                {tpl.status === 'APPROVED'
+                                  ? 'Одобрен'
+                                  : tpl.status === 'PENDING'
+                                    ? 'Ожидание'
+                                    : 'Черновик'}
+                              </Badge>
+                              <Badge variant="outline">{tpl.provider}</Badge>
+                            </div>
+                            <p className="mt-1 font-mono text-xs text-[hsl(var(--muted-foreground))]">
+                              {tpl.slug}
+                            </p>
+                            <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
+                              {tpl.content.length > 120 ? `${tpl.content.slice(0, 120)}...` : tpl.content}
+                            </p>
+                          </div>
+                          <div className="ml-4 flex shrink-0 gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openTemplateForm(tpl)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSyncTemplate(tpl.id)}
+                              disabled={syncTemplate.isPending}
+                            >
+                              {syncTemplate.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Upload className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1015,6 +1242,77 @@ export function ApiSettingsPage() {
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : null}
             {smsStatus?.enabled ? 'Отключить' : 'Включить'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Template Create/Edit Modal */}
+      <Modal
+        isOpen={isTemplateFormOpen}
+        onClose={() => setIsTemplateFormOpen(false)}
+        title={editingTemplate ? 'Редактировать шаблон' : 'Создать шаблон'}
+        description={editingTemplate ? 'Измените параметры SMS-шаблона' : 'Заполните данные нового SMS-шаблона'}
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Название</Label>
+            <Input
+              placeholder="OTP верификация"
+              value={tplName}
+              onChange={(e) => setTplName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Slug (идентификатор)</Label>
+            <Input
+              placeholder="otp_verification"
+              value={tplSlug}
+              onChange={(e) => setTplSlug(e.target.value)}
+            />
+            <p className="text-xs text-[hsl(var(--muted-foreground))]">
+              Уникальный идентификатор шаблона, используется в коде
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Провайдер</Label>
+            <Select
+              value={tplProvider}
+              onChange={(e) => setTplProvider(e.target.value as SmsProvider)}
+            >
+              <option value="ESKIZ">Eskiz</option>
+              <option value="DEVSMS">DevSMS</option>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Текст шаблона</Label>
+            <Textarea
+              placeholder="Ваш код подтверждения: {code}. Действителен {minutes} минут."
+              value={tplContent}
+              onChange={(e) => setTplContent(e.target.value)}
+              rows={4}
+            />
+            <p className="text-xs text-[hsl(var(--muted-foreground))]">
+              Используйте {'{переменная}'} для подстановки значений
+            </p>
+          </div>
+        </div>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setIsTemplateFormOpen(false)}>
+            Отмена
+          </Button>
+          <Button
+            onClick={handleSaveTemplate}
+            disabled={
+              !tplName || !tplSlug || !tplContent ||
+              createTemplate.isPending || updateTemplate.isPending
+            }
+          >
+            {(createTemplate.isPending || updateTemplate.isPending) ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            {editingTemplate ? 'Сохранить' : 'Создать'}
           </Button>
         </ModalFooter>
       </Modal>
