@@ -1175,15 +1175,13 @@ export interface ChurnMetrics {
 
 // Analytics Summary (quick overview)
 export interface AnalyticsSummary {
-  dau: number
-  wau: number
-  mau: number
+  dailyActiveUsers: number
   ordersToday: number
-  aov: number
-  conversionRate: number
+  averageOrderValue: number
   userChurnRate: number
-  activationRate: number
-  calculatedAt: string
+  restaurantChurnRate: number
+  courierChurnRate: number
+  generatedAt: string
 }
 
 // ============ CX Analytics Types (from cx-analytics.md) ============

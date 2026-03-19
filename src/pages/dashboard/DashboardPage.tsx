@@ -13,7 +13,6 @@ import {
   ShoppingCart,
   BarChart3,
   Users,
-  Target,
   UserMinus,
   Zap,
 } from 'lucide-react'
@@ -323,16 +322,8 @@ export function DashboardPage() {
                 </div>
                 <div className="mt-3 space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-xs text-[hsl(var(--muted-foreground))]">DAU</span>
-                    <span className="text-sm font-bold">{formatNumber(analyticsSummary.dau)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-[hsl(var(--muted-foreground))]">WAU</span>
-                    <span className="text-sm font-bold">{formatNumber(analyticsSummary.wau)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-[hsl(var(--muted-foreground))]">MAU</span>
-                    <span className="text-sm font-bold">{formatNumber(analyticsSummary.mau)}</span>
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">Активные пользователи</span>
+                    <span className="text-sm font-bold">{formatNumber(analyticsSummary.dailyActiveUsers)}</span>
                   </div>
                 </div>
               </div>
@@ -350,25 +341,7 @@ export function DashboardPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-xs text-[hsl(var(--muted-foreground))]">Ср. чек</span>
-                    <span className="text-sm font-bold">{formatCurrency(analyticsSummary.aov)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Conversion */}
-              <div className="rounded-lg bg-[hsl(var(--warning))]/10 p-4">
-                <div className="flex items-center gap-2 text-[hsl(var(--warning))]">
-                  <Target className="h-4 w-4" />
-                  <span className="text-sm font-medium">Конверсия</span>
-                </div>
-                <div className="mt-3 space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-xs text-[hsl(var(--muted-foreground))]">Общая</span>
-                    <span className="text-sm font-bold">{formatPercent(analyticsSummary.conversionRate)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-[hsl(var(--muted-foreground))]">Активация</span>
-                    <span className="text-sm font-bold">{formatPercent(analyticsSummary.activationRate)}</span>
+                    <span className="text-sm font-bold">{formatCurrency(analyticsSummary.averageOrderValue)}</span>
                   </div>
                 </div>
               </div>
@@ -384,14 +357,25 @@ export function DashboardPage() {
                     <span className="text-xs text-[hsl(var(--muted-foreground))]">Пользователей</span>
                     <span className="text-sm font-bold">{formatPercent(analyticsSummary.userChurnRate)}</span>
                   </div>
-                  <div className="mt-2">
-                    <div className="h-2 w-full rounded-full bg-[hsl(var(--muted))]">
-                      <div
-                        className="h-full rounded-full bg-[hsl(var(--destructive))]"
-                        style={{ width: `${Math.min(analyticsSummary.userChurnRate, 100)}%` }}
-                      />
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">Ресторанов</span>
+                    <span className="text-sm font-bold">{formatPercent(analyticsSummary.restaurantChurnRate)}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">Курьеров</span>
+                    <span className="text-sm font-bold">{formatPercent(analyticsSummary.courierChurnRate)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Generated At */}
+              <div className="rounded-lg bg-[hsl(var(--muted))]/50 p-4">
+                <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
+                  <Clock className="h-4 w-4" />
+                  <span className="text-sm font-medium">Обновлено</span>
+                </div>
+                <div className="mt-3">
+                  <span className="text-sm">{formatDateTime(analyticsSummary.generatedAt)}</span>
                 </div>
               </div>
             </div>
