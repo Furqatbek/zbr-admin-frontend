@@ -9,7 +9,6 @@ import {
   AlertTriangle,
   RefreshCw,
   Loader2,
-  Activity,
   ShoppingCart,
   BarChart3,
   Users,
@@ -142,7 +141,7 @@ export function DashboardPage() {
 
   const systemStatusBadge = () => {
     if (!overview?.systemStatus) return null
-    const status = overview.systemStatus.overallHealth
+    const status = overview.systemStatus.overallStatus
     switch (status) {
       case 'HEALTHY':
         return <Badge variant="success">Система работает</Badge>
@@ -189,10 +188,10 @@ export function DashboardPage() {
           value={formatNumber(overview?.ordersToday ?? 0)}
           icon={<Package className="h-4 w-4" />}
           trend={
-            overview?.orderComparison
+            overview?.comparison
               ? {
-                  value: overview.orderComparison.percentageChange,
-                  direction: overview.orderComparison.trend,
+                  value: overview.comparison.orderChangePercent,
+                  direction: overview.comparison.trend,
                 }
               : undefined
           }
@@ -202,32 +201,40 @@ export function DashboardPage() {
           title="Выручка сегодня"
           value={formatCurrency(overview?.revenueToday ?? 0)}
           icon={<DollarSign className="h-4 w-4" />}
+          trend={
+            overview?.comparison
+              ? {
+                  value: overview.comparison.revenueChangePercent,
+                  direction: overview.comparison.trend,
+                }
+              : undefined
+          }
+          isLoading={overviewLoading}
+        />
+        <StatCard
+          title="Средний чек"
+          value={formatCurrency(overview?.averageOrderValue ?? 0)}
+          icon={<TrendingUp className="h-4 w-4" />}
           isLoading={overviewLoading}
         />
         <StatCard
           title="Среднее время доставки"
-          value={overview?.avgDeliveryTimeMinutes ? `${overview.avgDeliveryTimeMinutes} мин` : '—'}
+          value={overview?.avgDeliveryTimeToday ? `${overview.avgDeliveryTimeToday.toFixed(0)} мин` : '—'}
           icon={<Clock className="h-4 w-4" />}
           isLoading={overviewLoading}
         />
         <StatCard
-          title="Активные рестораны"
-          value={formatNumber(overview?.activeRestaurants ?? 0)}
+          title="Рестораны онлайн"
+          value={formatNumber(overview?.totalRestaurantsOnline ?? 0)}
           icon={<UtensilsCrossed className="h-4 w-4" />}
+          description={`Принимают заказы: ${overview?.restaurantsAcceptingOrders ?? 0}`}
           isLoading={overviewLoading}
         />
         <StatCard
-          title="Активные курьеры"
-          value={formatNumber(overview?.activeCouriers ?? 0)}
+          title="Курьеры онлайн"
+          value={formatNumber(overview?.totalCouriersOnline ?? 0)}
           icon={<Bike className="h-4 w-4" />}
-          description="Онлайн сейчас"
-          isLoading={overviewLoading}
-        />
-        <StatCard
-          title="Активные компоненты"
-          value={overview?.systemStatus?.activeComponents ?? '—'}
-          icon={<Activity className="h-4 w-4" />}
-          description={`из ${overview?.systemStatus?.totalComponents ?? 0}`}
+          description={`Свободных: ${overview?.availableCouriers ?? 0}, Занятых: ${overview?.busyCouriers ?? 0}`}
           isLoading={overviewLoading}
         />
       </div>

@@ -427,31 +427,49 @@ export type SystemHealthStatus = 'HEALTHY' | 'DEGRADED' | 'UNHEALTHY'
 export type StuckOrderPriority = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
 
 export interface OrderComparison {
-  previousPeriodOrders: number
-  changePercent: number
-  percentageChange: number
+  ordersYesterday: number
+  revenueYesterday: number
+  orderChangePercent: number
+  revenueChangePercent: number
   trend: TrendDirection
 }
 
 export interface SystemStatus {
-  status: SystemHealthStatus
-  overallHealth: SystemHealthStatus
-  activeComponents: number
-  totalComponents: number
-  apiLatencyMs: number
-  dbLoadPercent: number
-  redisLatencyMs: number
-  errorRate: number
-  healthScore: number
+  apiLatencyP50: number
+  apiLatencyP90: number
+  dbLoad: number
+  dbIdleConnections: number
+  redisLatency: number
+  queueBacklog: number
+  errorRatePercent: number
+  cpuUsagePercent: number
+  memoryUsagePercent: number
+  overallStatus: SystemHealthStatus
 }
 
 export interface DashboardOverview {
   ordersToday: number
+  ordersPendingAcceptance: number
+  ordersInPreparation: number
+  ordersInDelivery: number
+  ordersCompletedToday: number
+  ordersCancelledToday: number
   revenueToday: number
+  averageOrderValue: number
+  totalTipsToday: number
+  totalDiscountsToday: number
   activeCouriers: number
+  totalCouriersOnline: number
+  availableCouriers: number
+  busyCouriers: number
   activeRestaurants: number
-  avgDeliveryTimeMinutes: number
-  orderComparison: OrderComparison
+  totalRestaurantsOnline: number
+  restaurantsAcceptingOrders: number
+  avgDeliveryTimeToday: number
+  avgPrepTimeToday: number
+  avgAcceptanceTimeToday: number
+  orderFulfillmentRate: number
+  comparison: OrderComparison
   systemStatus: SystemStatus
   generatedAt: string
 }
