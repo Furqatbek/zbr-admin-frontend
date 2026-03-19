@@ -482,38 +482,32 @@ export interface ActiveOrdersResponse {
 
 export interface StuckOrderItem {
   orderId: number
-  orderNumber: string
+  externalOrderNo: string
   status: string
-  currentStatus: string
-  minutesInCurrentStatus: number
-  stuckMinutes: number
-  thresholdMinutes: number
-  priority: StuckOrderPriority
-  priorityScore: number
-  suggestedAction: string
+  stuckStage: string
   restaurantId: number
   restaurantName: string
-  orderTotal: number
+  customerId: number
+  customerName: string
+  customerPhone: string
+  deliveryAddress: string
   createdAt: string
-}
-
-export interface StuckOrdersSummary {
-  critical: number
-  high: number
-  medium: number
-  low: number
+  lastStatusChange: string
+  minutesStuck: number
+  expectedTimeMinutes: number
+  total: number
+  priority: StuckOrderPriority
+  suggestedAction: string
 }
 
 export interface StuckOrdersResponse {
   totalStuckOrders: number
-  criticalCount: number
-  highCount: number
-  mediumCount: number
-  thresholds: Record<string, number>
+  stuckPending: number
+  stuckAccepted: number
+  stuckPreparing: number
+  stuckReady: number
+  stuckInTransit: number
   orders: StuckOrderItem[]
-  summary: StuckOrdersSummary
-  statusBreakdown: Record<string, number>
-  generatedAt: string
 }
 
 export interface CancelledOrderItem {

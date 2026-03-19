@@ -395,12 +395,7 @@ export function DashboardPage() {
             <CardTitle>Застрявшие заказы</CardTitle>
           </div>
           <div className="flex items-center gap-2">
-            {stuckOrdersData?.data?.summary && (
-              <span className="text-sm text-[hsl(var(--muted-foreground))]">
-                Критических: {stuckOrdersData.data.summary.critical}
-              </span>
-            )}
-            <Badge variant="warning">{stuckOrders.length} заказов</Badge>
+            <Badge variant="warning">{stuckOrdersData?.data?.totalStuckOrders ?? stuckOrders.length} заказов</Badge>
           </div>
         </CardHeader>
         <CardContent>
@@ -447,13 +442,13 @@ export function DashboardPage() {
                       <td className="py-3 px-4 text-sm">{order.restaurantName}</td>
                       <td className="py-3 px-4">
                         <Badge variant="secondary">
-                          {statusLabels[order.currentStatus] || order.currentStatus}
+                          {statusLabels[order.stuckStage] || order.stuckStage}
                         </Badge>
                       </td>
                       <td className="py-3 px-4">{getPriorityBadge(order.priority)}</td>
                       <td className="py-3 px-4">
                         <span className="text-sm text-[hsl(var(--destructive))] font-medium">
-                          {order.stuckMinutes} мин
+                          {order.minutesStuck} мин
                         </span>
                       </td>
                       <td className="py-3 px-4 text-sm text-[hsl(var(--muted-foreground))]">
@@ -468,18 +463,16 @@ export function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Summary cards */}
-      {stuckOrdersData?.data?.summary && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Stuck orders by stage */}
+      {stuckOrdersData?.data && stuckOrdersData.data.totalStuckOrders > 0 && (
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
                 <div className="text-3xl font-bold text-[hsl(var(--destructive))]">
-                  {stuckOrdersData.data.summary.critical}
+                  {stuckOrdersData.data.stuckPending}
                 </div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-                  Критических заказов
-                </p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Ожидают</p>
               </div>
             </CardContent>
           </Card>
@@ -487,11 +480,9 @@ export function DashboardPage() {
             <CardContent className="pt-6">
               <div className="text-center">
                 <div className="text-3xl font-bold text-[hsl(var(--warning))]">
-                  {stuckOrdersData.data.summary.high}
+                  {stuckOrdersData.data.stuckAccepted}
                 </div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-                  Высокий приоритет
-                </p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Приняты</p>
               </div>
             </CardContent>
           </Card>
@@ -499,23 +490,29 @@ export function DashboardPage() {
             <CardContent className="pt-6">
               <div className="text-center">
                 <div className="text-3xl font-bold">
-                  {stuckOrdersData.data.summary.medium}
+                  {stuckOrdersData.data.stuckPreparing}
                 </div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-                  Средний приоритет
-                </p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Готовятся</p>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
-                <div className="text-3xl font-bold text-[hsl(var(--muted-foreground))]">
-                  {stuckOrdersData.data.summary.low}
+                <div className="text-3xl font-bold">
+                  {stuckOrdersData.data.stuckReady}
                 </div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-                  Низкий приоритет
-                </p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Готовы</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="text-3xl font-bold">
+                  {stuckOrdersData.data.stuckInTransit}
+                </div>
+                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">В пути</p>
               </div>
             </CardContent>
           </Card>
