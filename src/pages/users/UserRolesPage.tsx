@@ -283,7 +283,7 @@ export function UserRolesPage() {
                     <Badge variant="secondary">{role.usersCount}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{role.permissions.length}</Badge>
+                    <Badge variant="outline">{role.permissions?.length ?? 0}</Badge>
                   </TableCell>
                   <TableCell>
                     {role.isSystem ? (
