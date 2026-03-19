@@ -32,7 +32,7 @@ const defaultSettings: PlatformSettings = {
   platformName: '',
   supportEmail: '',
   supportPhone: '',
-  defaultCurrency: 'RUB',
+  defaultCurrency: 'UZS',
   timezone: 'Europe/Moscow',
   maintenanceMode: false,
   maintenanceMessage: '',
@@ -301,7 +301,7 @@ export function PlatformSettingsPage() {
                       handleChange('defaultCurrency' as keyof typeof settings, '', e.target.value)
                     }
                   >
-                    <option value="RUB">Российский рубль (₽)</option>
+                    <option value="UZS">O'zbek so'm (сўм)</option>
                     <option value="USD">Доллар США ($)</option>
                     <option value="EUR">Евро (€)</option>
                   </Select>
@@ -319,7 +319,7 @@ export function PlatformSettingsPage() {
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Мин. сумма заказа (₽)</Label>
+                    <Label>Мин. сумма заказа</Label>
                     <Input
                       type="number"
                       value={settings.orderSettings.minOrderAmount}
@@ -329,7 +329,7 @@ export function PlatformSettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Макс. сумма заказа (₽)</Label>
+                    <Label>Макс. сумма заказа</Label>
                     <Input
                       type="number"
                       value={settings.orderSettings.maxOrderAmount}
@@ -363,7 +363,7 @@ export function PlatformSettingsPage() {
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Порог бесплатной доставки (₽)</Label>
+                    <Label>Порог бесплатной доставки</Label>
                     <Input
                       type="number"
                       value={settings.orderSettings.freeDeliveryThreshold}
@@ -373,7 +373,7 @@ export function PlatformSettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Базовая стоимость доставки (₽)</Label>
+                    <Label>Базовая стоимость доставки</Label>
                     <Input
                       type="number"
                       value={settings.orderSettings.baseDeliveryFee}
