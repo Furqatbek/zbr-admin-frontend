@@ -59,10 +59,7 @@ export function ProblematicOrdersPage() {
   )
   const resolveOrderProblem = useResolveOrderProblem()
 
-  const rawData = ordersResponse?.data
-  const orders = Array.isArray(rawData)
-    ? rawData
-    : (rawData as any)?.content ?? []
+  const orders = ordersResponse?.data?.content || []
 
   const [selectedOrder, setSelectedOrder] = useState<ProblematicOrder | null>(null)
   const [actionModal, setActionModal] = useState<{
