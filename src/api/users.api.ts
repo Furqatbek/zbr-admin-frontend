@@ -19,13 +19,8 @@ export interface AssignRoleRequest {
 }
 
 export interface RoleDefinition {
-  id: number
-  name: string
   displayName: string
-  description: string
-  usersCount: number
-  isSystem: boolean
-  permissions: string[]
+  value: string
 }
 
 export interface CreateRoleRequest {
