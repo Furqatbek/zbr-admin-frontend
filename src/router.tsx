@@ -28,6 +28,7 @@ const CouriersMapPage = lazy(() => import('@/pages/couriers/CouriersMapPage').th
 const RestaurantsPage = lazy(() => import('@/pages/restaurants/RestaurantsPage').then(m => ({ default: m.RestaurantsPage })))
 const RestaurantDetailsPage = lazy(() => import('@/pages/restaurants/RestaurantDetailsPage').then(m => ({ default: m.RestaurantDetailsPage })))
 const RestaurantModerationPage = lazy(() => import('@/pages/restaurants/RestaurantModerationPage').then(m => ({ default: m.RestaurantModerationPage })))
+const RestaurantMenuPage = lazy(() => import('@/pages/restaurants/RestaurantMenuPage').then(m => ({ default: m.RestaurantMenuPage })))
 
 const RevenueAnalyticsPage = lazy(() => import('@/pages/analytics/RevenueAnalyticsPage').then(m => ({ default: m.RevenueAnalyticsPage })))
 const OrdersAnalyticsPage = lazy(() => import('@/pages/analytics/OrdersAnalyticsPage').then(m => ({ default: m.OrdersAnalyticsPage })))
@@ -43,6 +44,8 @@ const UserAnalyticsPage = lazy(() => import('@/pages/analytics/UserAnalyticsPage
 const NotificationsListPage = lazy(() => import('@/pages/notifications/NotificationsListPage').then(m => ({ default: m.NotificationsListPage })))
 const NotificationBroadcastPage = lazy(() => import('@/pages/notifications/NotificationBroadcastPage').then(m => ({ default: m.NotificationBroadcastPage })))
 const NotificationCleanupPage = lazy(() => import('@/pages/notifications/NotificationCleanupPage').then(m => ({ default: m.NotificationCleanupPage })))
+const NotificationTemplatesPage = lazy(() => import('@/pages/notifications/NotificationTemplatesPage').then(m => ({ default: m.NotificationTemplatesPage })))
+const NotificationInboxPage = lazy(() => import('@/pages/notifications/NotificationInboxPage').then(m => ({ default: m.NotificationInboxPage })))
 
 const PlatformSettingsPage = lazy(() => import('@/pages/settings/PlatformSettingsPage').then(m => ({ default: m.PlatformSettingsPage })))
 const DataExportPage = lazy(() => import('@/pages/settings/DataExportPage').then(m => ({ default: m.DataExportPage })))
@@ -117,6 +120,10 @@ export const router = createBrowserRouter([
       {
         path: 'restaurants/moderation',
         element: <LazyPage><RestaurantModerationPage /></LazyPage>,
+      },
+      {
+        path: 'restaurants/:id/menu',
+        element: <LazyPage><RestaurantMenuPage /></LazyPage>,
       },
       // Orders
       {
@@ -196,6 +203,18 @@ export const router = createBrowserRouter([
             <LazyPage><NotificationCleanupPage /></LazyPage>
           </AuthGuard>
         ),
+      },
+      {
+        path: 'notifications/templates',
+        element: (
+          <AuthGuard requiredRoles={['ADMIN']}>
+            <LazyPage><NotificationTemplatesPage /></LazyPage>
+          </AuthGuard>
+        ),
+      },
+      {
+        path: 'notifications/inbox',
+        element: <LazyPage><NotificationInboxPage /></LazyPage>,
       },
       // Settings (Admin only)
       {

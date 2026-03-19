@@ -177,7 +177,9 @@ export function Sidebar() {
             label="Уведомления"
             children={[
               { to: '/notifications', label: 'Все уведомления' },
+              { to: '/notifications/inbox', label: 'Входящие' },
               { to: '/notifications/broadcast', label: 'Рассылка' },
+              ...(isAdmin ? [{ to: '/notifications/templates', label: 'Шаблоны' }] : []),
               ...(isAdmin ? [{ to: '/notifications/cleanup', label: 'Очистка' }] : []),
             ]}
           />

@@ -198,6 +198,12 @@ export function RestaurantDetailsPage() {
               'Открыть ресторан'
             )}
           </Button>
+          <Link to={`/restaurants/${id}/menu`}>
+            <Button variant="outline">
+              <Utensils className="mr-2 h-4 w-4" />
+              Меню
+            </Button>
+          </Link>
           <Button variant="outline" onClick={() => {
             setNewStatus(restaurant.status)
             setStatusModal(true)

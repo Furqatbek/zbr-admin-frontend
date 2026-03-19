@@ -13,6 +13,7 @@ import {
   Footprints,
   Ban,
   Play,
+  Edit,
 } from 'lucide-react'
 import {
   Card,
@@ -24,9 +25,11 @@ import {
   Avatar,
   Modal,
   ModalFooter,
+  Input,
+  Select,
 } from '@/components/ui'
 import { formatDateTime, formatNumber } from '@/lib/utils'
-import { useCourier, useVerifyCourier, useSuspendCourier, useActivateCourier } from '@/hooks/useCouriers'
+import { useCourier, useVerifyCourier, useSuspendCourier, useActivateCourier, useUpdateCourier } from '@/hooks/useCouriers'
 import type { CourierStatus, VehicleType } from '@/types'
 
 const statusLabels: Record<CourierStatus, string> = {
@@ -77,9 +80,19 @@ export function CourierDetailsPage() {
   const suspendCourier = useSuspendCourier()
   const activateCourier = useActivateCourier()
 
+  const updateCourier = useUpdateCourier()
+
   const [verifyModal, setVerifyModal] = useState(false)
   const [suspendModal, setSuspendModal] = useState(false)
   const [activateModal, setActivateModal] = useState(false)
+  const [editModal, setEditModal] = useState(false)
+  const [editForm, setEditForm] = useState({
+    vehicleType: '' as string,
+    vehicleNumber: '',
+    licenseNumber: '',
+    maxConcurrentOrders: 3,
+    preferredRadiusKm: 5,
+  })
 
   const courier = data?.data
 
@@ -103,6 +116,36 @@ export function CourierDetailsPage() {
     if (courier) {
       await activateCourier.mutateAsync(courier.id)
       setActivateModal(false)
+      refetch()
+    }
+  }
+
+  const openEditModal = () => {
+    if (courier) {
+      setEditForm({
+        vehicleType: courier.vehicleType || '',
+        vehicleNumber: courier.vehicleNumber || '',
+        licenseNumber: courier.licenseNumber || '',
+        maxConcurrentOrders: courier.maxConcurrentOrders || 3,
+        preferredRadiusKm: courier.preferredRadiusKm || 5,
+      })
+      setEditModal(true)
+    }
+  }
+
+  const handleEditSave = async () => {
+    if (courier) {
+      await updateCourier.mutateAsync({
+        courierId: courier.id,
+        data: {
+          vehicleType: editForm.vehicleType as VehicleType || undefined,
+          vehicleNumber: editForm.vehicleNumber || undefined,
+          licenseNumber: editForm.licenseNumber || undefined,
+          maxConcurrentOrders: editForm.maxConcurrentOrders,
+          preferredRadiusKm: editForm.preferredRadiusKm,
+        },
+      })
+      setEditModal(false)
       refetch()
     }
   }
@@ -159,6 +202,10 @@ export function CourierDetailsPage() {
           <p className="text-[hsl(var(--muted-foreground))]">ID: {id}</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={openEditModal}>
+            <Edit className="mr-2 h-4 w-4" />
+            Редактировать
+          </Button>
           {!isVerified && (
             <Button variant="success" onClick={() => setVerifyModal(true)}>
               <CheckCircle className="mr-2 h-4 w-4" />
@@ -468,6 +515,70 @@ export function CourierDetailsPage() {
               <Play className="mr-2 h-4 w-4" />
             )}
             Активировать
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Edit modal */}
+      <Modal
+        isOpen={editModal}
+        onClose={() => setEditModal(false)}
+        title="Редактирование курьера"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="mb-2 block text-sm font-medium">Тип транспорта</label>
+            <Select value={editForm.vehicleType} onChange={(e) => setEditForm({ ...editForm, vehicleType: e.target.value })}>
+              <option value="">Не указан</option>
+              {Object.entries(vehicleLabels).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Номер транспорта</label>
+            <Input
+              value={editForm.vehicleNumber}
+              onChange={(e) => setEditForm({ ...editForm, vehicleNumber: e.target.value })}
+              placeholder="Номерной знак"
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Номер водительских прав</label>
+            <Input
+              value={editForm.licenseNumber}
+              onChange={(e) => setEditForm({ ...editForm, licenseNumber: e.target.value })}
+              placeholder="Номер прав"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium">Макс. заказов</label>
+              <Input
+                type="number"
+                min={1}
+                max={10}
+                value={editForm.maxConcurrentOrders}
+                onChange={(e) => setEditForm({ ...editForm, maxConcurrentOrders: parseInt(e.target.value) || 3 })}
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Радиус работы (км)</label>
+              <Input
+                type="number"
+                min={1}
+                max={50}
+                value={editForm.preferredRadiusKm}
+                onChange={(e) => setEditForm({ ...editForm, preferredRadiusKm: parseInt(e.target.value) || 5 })}
+              />
+            </div>
+          </div>
+        </div>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setEditModal(false)}>Отмена</Button>
+          <Button onClick={handleEditSave} disabled={updateCourier.isPending}>
+            {updateCourier.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Сохранить
           </Button>
         </ModalFooter>
       </Modal>
