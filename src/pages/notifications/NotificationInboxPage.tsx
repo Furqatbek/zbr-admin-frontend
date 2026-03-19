@@ -36,6 +36,7 @@ import {
   useDismissNotification,
   useDeleteNotification,
   useDeleteAllForUser,
+  useUnreadNotifications,
 } from '@/hooks/useNotifications'
 import { useAuthStore } from '@/store/auth.store'
 import type { NotificationRole, NotificationCategory } from '@/types'
@@ -78,6 +79,7 @@ export function NotificationInboxPage() {
 
   const { data: unreadCountData } = useUnreadCount(userId)
   const { data: countsData } = useNotificationCounts(userId)
+  const { data: unreadNotificationsData } = useUnreadNotifications(userId, { pageSize: 5 })
   const { data: detailData, isLoading: detailLoading } = useNotification(detailId || 0)
 
   // Search query (only when search term is set)
@@ -103,6 +105,7 @@ export function NotificationInboxPage() {
 
   const unreadCount = unreadCountData?.data?.unreadCount || 0
   const counts = countsData?.data
+  const recentUnread = unreadNotificationsData?.data?.content || []
 
   const handleMarkAllAsRead = async () => {
     await markAllAsRead.mutateAsync({ userId })
@@ -230,6 +233,38 @@ export function NotificationInboxPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Recent Unread Quick View */}
+      {recentUnread.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Mail className="h-4 w-4 text-[hsl(var(--destructive))]" />
+              Последние непрочитанные ({recentUnread.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {recentUnread.slice(0, 5).map((n) => (
+                <div
+                  key={n.id}
+                  className="flex items-center gap-3 rounded-lg bg-[hsl(var(--destructive))]/5 p-2 cursor-pointer hover:bg-[hsl(var(--destructive))]/10"
+                  onClick={() => { setDetailId(n.id); markAsRead.mutate(n.id) }}
+                >
+                  <div className="h-2 w-2 rounded-full bg-[hsl(var(--destructive))]" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{n.title}</p>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] truncate">{n.message}</p>
+                  </div>
+                  <span className="text-xs text-[hsl(var(--muted-foreground))] whitespace-nowrap">
+                    {formatDateTime(n.createdAt)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Search & Filters */}
       <Card>
