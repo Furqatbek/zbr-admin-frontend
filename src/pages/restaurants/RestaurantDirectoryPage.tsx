@@ -11,6 +11,11 @@ import {
   Store,
   Navigation,
   Crown,
+  Clock,
+  Phone,
+  Mail,
+  Truck,
+  ShoppingBag,
 } from 'lucide-react'
 import {
   Card,
@@ -23,6 +28,7 @@ import {
   Select,
   Modal,
   ModalFooter,
+  Textarea,
 } from '@/components/ui'
 import { formatNumber, formatCurrency } from '@/lib/utils'
 import {
@@ -56,6 +62,30 @@ const statusColors: Record<RestaurantStatus, 'default' | 'secondary' | 'destruct
   REJECTED: 'destructive',
 }
 
+const emptyForm = {
+  name: '',
+  description: '',
+  phone: '',
+  email: '',
+  addressLine1: '',
+  addressLine2: '',
+  city: '',
+  state: '',
+  postalCode: '',
+  country: '',
+  latitude: '',
+  longitude: '',
+  acceptsDelivery: true,
+  acceptsTakeaway: true,
+  acceptsDineIn: false,
+  minimumOrder: '',
+  deliveryFee: '',
+  deliveryRadiusKm: '',
+  averagePrepTimeMinutes: '',
+  opensAt: '',
+  closesAt: '',
+}
+
 export function RestaurantDirectoryPage() {
   const [activeTab, setActiveTab] = useState<ViewTab>('active')
   const [searchQuery, setSearchQuery] = useState('')
@@ -70,13 +100,7 @@ export function RestaurantDirectoryPage() {
   const [createModal, setCreateModal] = useState(false)
   const [editModal, setEditModal] = useState(false)
   const [editId, setEditId] = useState(0)
-  const [form, setForm] = useState({
-    name: '',
-    phone: '',
-    addressLine1: '',
-    city: '',
-    description: '',
-  })
+  const [form, setForm] = useState({ ...emptyForm })
 
   // Role lookup for admin context
   const { data: roleData } = useRole(1)
@@ -109,30 +133,44 @@ export function RestaurantDirectoryPage() {
     { key: 'orders', label: 'Заказы', icon: <Store className="h-4 w-4" /> },
   ]
 
+  const buildRequestData = () => ({
+    name: form.name,
+    description: form.description || undefined,
+    phone: form.phone,
+    email: form.email || undefined,
+    addressLine1: form.addressLine1,
+    addressLine2: form.addressLine2 || undefined,
+    city: form.city,
+    state: form.state || undefined,
+    postalCode: form.postalCode || undefined,
+    country: form.country || undefined,
+    latitude: form.latitude ? parseFloat(form.latitude) : undefined,
+    longitude: form.longitude ? parseFloat(form.longitude) : undefined,
+    acceptsDelivery: form.acceptsDelivery,
+    acceptsTakeaway: form.acceptsTakeaway,
+    acceptsDineIn: form.acceptsDineIn,
+    minimumOrder: form.minimumOrder ? parseFloat(form.minimumOrder) : undefined,
+    deliveryFee: form.deliveryFee ? parseFloat(form.deliveryFee) : undefined,
+    deliveryRadiusKm: form.deliveryRadiusKm ? parseFloat(form.deliveryRadiusKm) : undefined,
+    averagePrepTimeMinutes: form.averagePrepTimeMinutes ? parseInt(form.averagePrepTimeMinutes) : undefined,
+    opensAt: form.opensAt || undefined,
+    closesAt: form.closesAt || undefined,
+  })
+
   const handleCreate = async () => {
-    await createRestaurant.mutateAsync({
-      name: form.name,
-      phone: form.phone,
-      addressLine1: form.addressLine1,
-      city: form.city,
-      description: form.description || undefined,
-    })
+    await createRestaurant.mutateAsync(buildRequestData())
     setCreateModal(false)
-    setForm({ name: '', phone: '', addressLine1: '', city: '', description: '' })
+    setForm({ ...emptyForm })
   }
 
   const handleUpdate = async () => {
     if (!editId) return
-    await updateRestaurant.mutateAsync({
-      id: editId,
-      data: {
-        name: form.name || undefined,
-        phone: form.phone || undefined,
-        addressLine1: form.addressLine1 || undefined,
-        city: form.city || undefined,
-        description: form.description || undefined,
-      },
-    })
+    const data = buildRequestData()
+    // For update, only send fields that have values
+    const filtered = Object.fromEntries(
+      Object.entries(data).filter(([, v]) => v !== undefined && v !== '')
+    )
+    await updateRestaurant.mutateAsync({ id: editId, data: filtered })
     setEditModal(false)
   }
 
@@ -140,10 +178,26 @@ export function RestaurantDirectoryPage() {
     setEditId(r.id)
     setForm({
       name: r.name,
-      phone: r.phone,
-      addressLine1: r.addressLine1 || '',
-      city: r.city || '',
       description: r.description || '',
+      phone: r.phone,
+      email: r.email || '',
+      addressLine1: r.addressLine1 || '',
+      addressLine2: r.addressLine2 || '',
+      city: r.city || '',
+      state: r.state || '',
+      postalCode: r.postalCode || '',
+      country: r.country || '',
+      latitude: r.latitude != null ? String(r.latitude) : '',
+      longitude: r.longitude != null ? String(r.longitude) : '',
+      acceptsDelivery: r.acceptsDelivery,
+      acceptsTakeaway: r.acceptsTakeaway,
+      acceptsDineIn: r.acceptsDineIn,
+      minimumOrder: r.minimumOrder != null ? String(r.minimumOrder) : '',
+      deliveryFee: r.deliveryFee != null ? String(r.deliveryFee) : '',
+      deliveryRadiusKm: r.deliveryRadiusKm != null ? String(r.deliveryRadiusKm) : '',
+      averagePrepTimeMinutes: r.averagePrepTimeMinutes != null ? String(r.averagePrepTimeMinutes) : '',
+      opensAt: r.opensAt || '',
+      closesAt: r.closesAt || '',
     })
     setEditModal(true)
   }
@@ -164,10 +218,13 @@ export function RestaurantDirectoryPage() {
                   <Link to={`/restaurants/${r.id}`} className="text-lg font-semibold hover:underline">
                     {r.name}
                   </Link>
-                  <div className="mt-1 flex items-center gap-2">
+                  <div className="mt-1 flex items-center gap-2 flex-wrap">
                     <Badge variant={statusColors[r.status]}>{statusLabels[r.status]}</Badge>
                     {r.featured && <Badge variant="warning">Featured</Badge>}
                     {r.isCurrentlyOpen && <Badge variant="success">Открыт</Badge>}
+                    {r.acceptsDelivery && <Badge variant="outline">Доставка</Badge>}
+                    {r.acceptsTakeaway && <Badge variant="outline">Самовывоз</Badge>}
+                    {r.acceptsDineIn && <Badge variant="outline">В зале</Badge>}
                   </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => openEdit(r)}>
@@ -179,17 +236,25 @@ export function RestaurantDirectoryPage() {
                 <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))] line-clamp-2">{r.description}</p>
               )}
 
-              <div className="mt-3 flex items-center gap-4 text-sm text-[hsl(var(--muted-foreground))]">
+              <div className="mt-3 flex items-center gap-4 text-sm text-[hsl(var(--muted-foreground))] flex-wrap">
                 {r.averageRating != null && r.averageRating > 0 && (
                   <span className="flex items-center gap-1">
                     <Star className="h-3 w-3 text-[hsl(var(--warning))]" />
-                    {r.averageRating.toFixed(1)}
+                    {r.averageRating.toFixed(1)} ({r.totalRatings || 0})
                   </span>
                 )}
                 {r.totalOrders != null && (
-                  <span>{formatNumber(r.totalOrders)} заказов</span>
+                  <span className="flex items-center gap-1">
+                    <ShoppingBag className="h-3 w-3" />
+                    {formatNumber(r.totalOrders)} заказов
+                  </span>
                 )}
-                {r.city && (
+                {r.fullAddress ? (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {r.fullAddress}
+                  </span>
+                ) : r.city && (
                   <span className="flex items-center gap-1">
                     <MapPin className="h-3 w-3" />
                     {r.city}
@@ -197,11 +262,41 @@ export function RestaurantDirectoryPage() {
                 )}
               </div>
 
-              {r.minimumOrder != null && (
-                <p className="mt-2 text-xs text-[hsl(var(--muted-foreground))]">
-                  Мин. заказ: {formatCurrency(r.minimumOrder)} | Доставка: {formatCurrency(r.deliveryFee || 0)}
-                </p>
-              )}
+              <div className="mt-2 flex items-center gap-4 text-xs text-[hsl(var(--muted-foreground))] flex-wrap">
+                {r.phone && (
+                  <span className="flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    {r.phone}
+                  </span>
+                )}
+                {r.email && (
+                  <span className="flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    {r.email}
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-2 flex items-center gap-4 text-xs text-[hsl(var(--muted-foreground))] flex-wrap">
+                {r.minimumOrder != null && (
+                  <span>Мин. заказ: {formatCurrency(r.minimumOrder)}</span>
+                )}
+                {r.deliveryFee != null && (
+                  <span className="flex items-center gap-1">
+                    <Truck className="h-3 w-3" />
+                    Доставка: {formatCurrency(r.deliveryFee)}
+                  </span>
+                )}
+                {r.deliveryRadiusKm != null && (
+                  <span>Радиус: {r.deliveryRadiusKm} км</span>
+                )}
+                {r.averagePrepTimeMinutes != null && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    ~{r.averagePrepTimeMinutes} мин
+                  </span>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -219,6 +314,140 @@ export function RestaurantDirectoryPage() {
     return undefined
   }
 
+  const renderFormFields = () => (
+    <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+      {/* Basic Info */}
+      <p className="text-sm font-medium text-[hsl(var(--muted-foreground))]">Основная информация</p>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm font-medium">Название *</label>
+          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium">Телефон *</label>
+          <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        </div>
+      </div>
+      <div>
+        <label className="mb-2 block text-sm font-medium">Email</label>
+        <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+      </div>
+      <div>
+        <label className="mb-2 block text-sm font-medium">Описание</label>
+        <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
+      </div>
+
+      {/* Address */}
+      <p className="text-sm font-medium text-[hsl(var(--muted-foreground))] pt-2">Адрес</p>
+      <div>
+        <label className="mb-2 block text-sm font-medium">Адрес (строка 1) *</label>
+        <Input value={form.addressLine1} onChange={(e) => setForm({ ...form, addressLine1: e.target.value })} />
+      </div>
+      <div>
+        <label className="mb-2 block text-sm font-medium">Адрес (строка 2)</label>
+        <Input value={form.addressLine2} onChange={(e) => setForm({ ...form, addressLine2: e.target.value })} />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm font-medium">Город *</label>
+          <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium">Область/Штат</label>
+          <Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
+        </div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm font-medium">Почтовый индекс</label>
+          <Input value={form.postalCode} onChange={(e) => setForm({ ...form, postalCode: e.target.value })} />
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium">Страна</label>
+          <Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} placeholder="US" />
+        </div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm font-medium">Широта</label>
+          <Input type="number" step="any" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} />
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium">Долгота</label>
+          <Input type="number" step="any" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} />
+        </div>
+      </div>
+
+      {/* Service Options */}
+      <p className="text-sm font-medium text-[hsl(var(--muted-foreground))] pt-2">Опции обслуживания</p>
+      <div className="flex flex-wrap gap-4">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.acceptsDelivery}
+            onChange={(e) => setForm({ ...form, acceptsDelivery: e.target.checked })}
+            className="rounded border-[hsl(var(--input))]"
+          />
+          Доставка
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.acceptsTakeaway}
+            onChange={(e) => setForm({ ...form, acceptsTakeaway: e.target.checked })}
+            className="rounded border-[hsl(var(--input))]"
+          />
+          Самовывоз
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.acceptsDineIn}
+            onChange={(e) => setForm({ ...form, acceptsDineIn: e.target.checked })}
+            className="rounded border-[hsl(var(--input))]"
+          />
+          В зале
+        </label>
+      </div>
+
+      {/* Delivery & Order Settings */}
+      <p className="text-sm font-medium text-[hsl(var(--muted-foreground))] pt-2">Доставка и заказы</p>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm font-medium">Минимальный заказ</label>
+          <Input type="number" step="0.01" value={form.minimumOrder} onChange={(e) => setForm({ ...form, minimumOrder: e.target.value })} />
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium">Стоимость доставки</label>
+          <Input type="number" step="0.01" value={form.deliveryFee} onChange={(e) => setForm({ ...form, deliveryFee: e.target.value })} />
+        </div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm font-medium">Радиус доставки (км)</label>
+          <Input type="number" value={form.deliveryRadiusKm} onChange={(e) => setForm({ ...form, deliveryRadiusKm: e.target.value })} />
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium">Среднее время подготовки (мин)</label>
+          <Input type="number" value={form.averagePrepTimeMinutes} onChange={(e) => setForm({ ...form, averagePrepTimeMinutes: e.target.value })} />
+        </div>
+      </div>
+
+      {/* Working Hours */}
+      <p className="text-sm font-medium text-[hsl(var(--muted-foreground))] pt-2">Часы работы</p>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm font-medium">Открытие</label>
+          <Input type="time" value={form.opensAt} onChange={(e) => setForm({ ...form, opensAt: e.target.value })} />
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium">Закрытие</label>
+          <Input type="time" value={form.closesAt} onChange={(e) => setForm({ ...form, closesAt: e.target.value })} />
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -232,7 +461,7 @@ export function RestaurantDirectoryPage() {
             <Badge variant="outline" className="mt-1">Роль: {roleData.data.name || 'Admin'}</Badge>
           )}
         </div>
-        <Button onClick={() => setCreateModal(true)}>
+        <Button onClick={() => { setForm({ ...emptyForm }); setCreateModal(true) }}>
           <Plus className="mr-2 h-4 w-4" />
           Новый ресторан
         </Button>
@@ -355,31 +584,10 @@ export function RestaurantDirectoryPage() {
 
       {/* Create Modal */}
       <Modal isOpen={createModal} onClose={() => setCreateModal(false)} title="Новый ресторан">
-        <div className="space-y-4">
-          <div>
-            <label className="mb-2 block text-sm font-medium">Название</label>
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">Телефон</label>
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">Адрес</label>
-            <Input value={form.addressLine1} onChange={(e) => setForm({ ...form, addressLine1: e.target.value })} />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">Город</label>
-            <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">Описание</label>
-            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          </div>
-        </div>
+        {renderFormFields()}
         <ModalFooter>
           <Button variant="outline" onClick={() => setCreateModal(false)}>Отмена</Button>
-          <Button onClick={handleCreate} disabled={createRestaurant.isPending || !form.name || !form.phone}>
+          <Button onClick={handleCreate} disabled={createRestaurant.isPending || !form.name || !form.phone || !form.addressLine1 || !form.city}>
             {createRestaurant.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Создать
           </Button>
@@ -388,28 +596,7 @@ export function RestaurantDirectoryPage() {
 
       {/* Edit Modal */}
       <Modal isOpen={editModal} onClose={() => setEditModal(false)} title="Редактирование ресторана">
-        <div className="space-y-4">
-          <div>
-            <label className="mb-2 block text-sm font-medium">Название</label>
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">Телефон</label>
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">Адрес</label>
-            <Input value={form.addressLine1} onChange={(e) => setForm({ ...form, addressLine1: e.target.value })} />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">Город</label>
-            <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">Описание</label>
-            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          </div>
-        </div>
+        {renderFormFields()}
         <ModalFooter>
           <Button variant="outline" onClick={() => setEditModal(false)}>Отмена</Button>
           <Button onClick={handleUpdate} disabled={updateRestaurant.isPending}>
