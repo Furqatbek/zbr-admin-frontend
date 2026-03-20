@@ -3,12 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import { Bell, LogOut, User, ChevronDown, Search } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
 import { Avatar, Badge, Button, Input, ThemeToggle } from '@/components/ui'
+import { useUnreadCount } from '@/hooks/useNotifications'
 
 export function Header() {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const userId = user?.id || 0
+  const { data: unreadData } = useUnreadCount(userId)
+  const unreadCount = unreadData?.unreadCount || 0
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -65,6 +69,11 @@ export function Header() {
           title="Уведомления"
         >
           <Bell className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[hsl(var(--destructive))] px-1 text-[10px] font-bold text-white">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
         </Button>
 
         {/* User dropdown */}
