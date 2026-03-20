@@ -175,8 +175,8 @@ export const ordersApi = {
    */
   getProblematicOrders: async (
     params: ProblematicOrdersQueryParams = {}
-  ): Promise<ApiResponse<ProblematicOrder[]>> => {
-    const response = await api.get<ApiResponse<ProblematicOrder[]>>('/orders/problematic', {
+  ): Promise<ApiResponse<PaginatedResponse<ProblematicOrder>>> => {
+    const response = await api.get<ApiResponse<PaginatedResponse<ProblematicOrder>>>('/orders/problematic', {
       params,
     })
     return response.data

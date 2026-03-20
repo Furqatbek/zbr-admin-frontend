@@ -427,31 +427,49 @@ export type SystemHealthStatus = 'HEALTHY' | 'DEGRADED' | 'UNHEALTHY'
 export type StuckOrderPriority = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
 
 export interface OrderComparison {
-  previousPeriodOrders: number
-  changePercent: number
-  percentageChange: number
+  ordersYesterday: number
+  revenueYesterday: number
+  orderChangePercent: number
+  revenueChangePercent: number
   trend: TrendDirection
 }
 
 export interface SystemStatus {
-  status: SystemHealthStatus
-  overallHealth: SystemHealthStatus
-  activeComponents: number
-  totalComponents: number
-  apiLatencyMs: number
-  dbLoadPercent: number
-  redisLatencyMs: number
-  errorRate: number
-  healthScore: number
+  apiLatencyP50: number
+  apiLatencyP90: number
+  dbLoad: number
+  dbIdleConnections: number
+  redisLatency: number
+  queueBacklog: number
+  errorRatePercent: number
+  cpuUsagePercent: number
+  memoryUsagePercent: number
+  overallStatus: SystemHealthStatus
 }
 
 export interface DashboardOverview {
   ordersToday: number
+  ordersPendingAcceptance: number
+  ordersInPreparation: number
+  ordersInDelivery: number
+  ordersCompletedToday: number
+  ordersCancelledToday: number
   revenueToday: number
+  averageOrderValue: number
+  totalTipsToday: number
+  totalDiscountsToday: number
   activeCouriers: number
+  totalCouriersOnline: number
+  availableCouriers: number
+  busyCouriers: number
   activeRestaurants: number
-  avgDeliveryTimeMinutes: number
-  orderComparison: OrderComparison
+  totalRestaurantsOnline: number
+  restaurantsAcceptingOrders: number
+  avgDeliveryTimeToday: number
+  avgPrepTimeToday: number
+  avgAcceptanceTimeToday: number
+  orderFulfillmentRate: number
+  comparison: OrderComparison
   systemStatus: SystemStatus
   generatedAt: string
 }
@@ -482,38 +500,32 @@ export interface ActiveOrdersResponse {
 
 export interface StuckOrderItem {
   orderId: number
-  orderNumber: string
+  externalOrderNo: string
   status: string
-  currentStatus: string
-  minutesInCurrentStatus: number
-  stuckMinutes: number
-  thresholdMinutes: number
-  priority: StuckOrderPriority
-  priorityScore: number
-  suggestedAction: string
+  stuckStage: string
   restaurantId: number
   restaurantName: string
-  orderTotal: number
+  customerId: number
+  customerName: string
+  customerPhone: string
+  deliveryAddress: string
   createdAt: string
-}
-
-export interface StuckOrdersSummary {
-  critical: number
-  high: number
-  medium: number
-  low: number
+  lastStatusChange: string
+  minutesStuck: number
+  expectedTimeMinutes: number
+  total: number
+  priority: StuckOrderPriority
+  suggestedAction: string
 }
 
 export interface StuckOrdersResponse {
   totalStuckOrders: number
-  criticalCount: number
-  highCount: number
-  mediumCount: number
-  thresholds: Record<string, number>
+  stuckPending: number
+  stuckAccepted: number
+  stuckPreparing: number
+  stuckReady: number
+  stuckInTransit: number
   orders: StuckOrderItem[]
-  summary: StuckOrdersSummary
-  statusBreakdown: Record<string, number>
-  generatedAt: string
 }
 
 export interface CancelledOrderItem {
@@ -1175,15 +1187,13 @@ export interface ChurnMetrics {
 
 // Analytics Summary (quick overview)
 export interface AnalyticsSummary {
-  dau: number
-  wau: number
-  mau: number
+  dailyActiveUsers: number
   ordersToday: number
-  aov: number
-  conversionRate: number
+  averageOrderValue: number
   userChurnRate: number
-  activationRate: number
-  calculatedAt: string
+  restaurantChurnRate: number
+  courierChurnRate: number
+  generatedAt: string
 }
 
 // ============ CX Analytics Types (from cx-analytics.md) ============
@@ -1461,42 +1471,100 @@ export interface CxSummary {
 // SMS Provider Types
 export type SmsProvider = 'ESKIZ' | 'DEVSMS'
 
-export interface SmsProviderConfig {
-  provider: SmsProvider
-  enabled: boolean
-  baseUrl?: string
-  email?: string
-  tokenExpiry?: string
+export interface SmsProviderInfo {
+  type: SmsProvider
+  configured: boolean
+  available: boolean
+  statusMessage: string
 }
 
 export interface SmsStatus {
-  activeProvider: SmsProvider
   enabled: boolean
-  primaryProvider: SmsProviderConfig
-  fallbackProvider?: SmsProviderConfig
-  totalSentToday?: number
-  failedToday?: number
-  lastSentAt?: string
+  currentProvider: SmsProvider
+  fallbackEnabled: boolean
+  fallbackProvider: SmsProvider
+  activeProviderName: SmsProvider
+  providers: SmsProviderInfo[]
 }
 
 export interface SmsConfigUpdate {
-  activeProvider?: SmsProvider
+  provider?: SmsProvider
+  fallbackEnabled?: boolean
   fallbackProvider?: SmsProvider
   enabled?: boolean
-  retryAttempts?: number
-  retryDelayMs?: number
-}
-
-export interface SmsTestRequest {
-  phoneNumber: string
-  message: string
 }
 
 export interface SmsTestResponse {
   success: boolean
+  message: string
+  data: string
+}
+
+export interface SmsProviderDetails {
   provider: SmsProvider
-  messageId?: string
-  error?: string
+  enabled: boolean
+  baseUrl: string
+  from: string
+  hasToken: boolean
+  callbackUrl: string | null
+  available: boolean
+}
+
+export interface SmsProviderCredentials {
+  provider: SmsProvider
+  enabled?: boolean
+  from?: string
+  // Eskiz-specific
+  email?: string
+  password?: string
+  // DevSMS-specific
+  token?: string
+}
+
+// SMS Template Types
+export type SmsTemplateStatus = 'DRAFT' | 'PENDING' | 'APPROVED'
+export type SmsTemplateType = 'OTP' | 'NOTIFICATION' | 'MARKETING' | 'TRANSACTIONAL' | 'WELCOME'
+
+export interface SmsTemplate {
+  id: number
+  templateCode: string
+  name: string
+  content: string
+  templateType: SmsTemplateType
+  provider: SmsProvider
+  status: SmsTemplateStatus
+  active: boolean
+  variables: string[]
+  language: string
+  description: string
+  createdAt: string
+}
+
+export interface SmsTemplateRequest {
+  templateCode: string
+  name: string
+  content: string
+  templateType: SmsTemplateType
+  provider: SmsProvider
+  variables?: string[]
+  language?: string
+  description?: string
+}
+
+export interface SmsTemplateSyncResponse {
+  templateId: number
+  provider: SmsProvider
+  success: boolean
+  providerTemplateId?: string
+  message: string
+}
+
+export interface SmsTemplateStats {
+  total: number
+  draft: number
+  pending: number
+  approved: number
+  byProvider: Record<string, number>
 }
 
 // CX Analytics Query Params

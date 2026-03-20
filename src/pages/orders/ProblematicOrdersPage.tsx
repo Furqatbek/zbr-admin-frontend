@@ -59,7 +59,7 @@ export function ProblematicOrdersPage() {
   )
   const resolveOrderProblem = useResolveOrderProblem()
 
-  const orders = ordersResponse?.data || []
+  const orders = ordersResponse?.data?.content || []
 
   const [selectedOrder, setSelectedOrder] = useState<ProblematicOrder | null>(null)
   const [actionModal, setActionModal] = useState<{

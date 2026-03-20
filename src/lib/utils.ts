@@ -5,8 +5,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number, currency = 'RUB'): string {
-  return new Intl.NumberFormat('ru-RU', {
+export function formatCurrency(amount: number, currency = 'UZS'): string {
+  return new Intl.NumberFormat('uz-UZ', {
     style: 'currency',
     currency,
     minimumFractionDigits: 0,
@@ -19,7 +19,7 @@ export function formatNumber(num: number): string {
 }
 
 export function formatPercent(value: number, decimals = 1): string {
-  return `${value.toFixed(decimals)}%`
+  return `${(value ?? 0).toFixed(decimals)}%`
 }
 
 export function formatDate(date: string | Date | null | undefined, options?: Intl.DateTimeFormatOptions): string {

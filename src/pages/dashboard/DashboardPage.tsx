@@ -9,11 +9,9 @@ import {
   AlertTriangle,
   RefreshCw,
   Loader2,
-  Activity,
   ShoppingCart,
   BarChart3,
   Users,
-  Target,
   UserMinus,
   Zap,
 } from 'lucide-react'
@@ -143,7 +141,7 @@ export function DashboardPage() {
 
   const systemStatusBadge = () => {
     if (!overview?.systemStatus) return null
-    const status = overview.systemStatus.overallHealth
+    const status = overview.systemStatus.overallStatus
     switch (status) {
       case 'HEALTHY':
         return <Badge variant="success">Система работает</Badge>
@@ -190,10 +188,10 @@ export function DashboardPage() {
           value={formatNumber(overview?.ordersToday ?? 0)}
           icon={<Package className="h-4 w-4" />}
           trend={
-            overview?.orderComparison
+            overview?.comparison
               ? {
-                  value: overview.orderComparison.percentageChange,
-                  direction: overview.orderComparison.trend,
+                  value: overview.comparison.orderChangePercent,
+                  direction: overview.comparison.trend,
                 }
               : undefined
           }
@@ -203,32 +201,40 @@ export function DashboardPage() {
           title="Выручка сегодня"
           value={formatCurrency(overview?.revenueToday ?? 0)}
           icon={<DollarSign className="h-4 w-4" />}
+          trend={
+            overview?.comparison
+              ? {
+                  value: overview.comparison.revenueChangePercent,
+                  direction: overview.comparison.trend,
+                }
+              : undefined
+          }
+          isLoading={overviewLoading}
+        />
+        <StatCard
+          title="Средний чек"
+          value={formatCurrency(overview?.averageOrderValue ?? 0)}
+          icon={<TrendingUp className="h-4 w-4" />}
           isLoading={overviewLoading}
         />
         <StatCard
           title="Среднее время доставки"
-          value={overview?.avgDeliveryTimeMinutes ? `${overview.avgDeliveryTimeMinutes} мин` : '—'}
+          value={overview?.avgDeliveryTimeToday ? `${overview.avgDeliveryTimeToday.toFixed(0)} мин` : '—'}
           icon={<Clock className="h-4 w-4" />}
           isLoading={overviewLoading}
         />
         <StatCard
-          title="Активные рестораны"
-          value={formatNumber(overview?.activeRestaurants ?? 0)}
+          title="Рестораны онлайн"
+          value={formatNumber(overview?.totalRestaurantsOnline ?? 0)}
           icon={<UtensilsCrossed className="h-4 w-4" />}
+          description={`Принимают заказы: ${overview?.restaurantsAcceptingOrders ?? 0}`}
           isLoading={overviewLoading}
         />
         <StatCard
-          title="Активные курьеры"
-          value={formatNumber(overview?.activeCouriers ?? 0)}
+          title="Курьеры онлайн"
+          value={formatNumber(overview?.totalCouriersOnline ?? 0)}
           icon={<Bike className="h-4 w-4" />}
-          description="Онлайн сейчас"
-          isLoading={overviewLoading}
-        />
-        <StatCard
-          title="Активные компоненты"
-          value={overview?.systemStatus?.activeComponents ?? '—'}
-          icon={<Activity className="h-4 w-4" />}
-          description={`из ${overview?.systemStatus?.totalComponents ?? 0}`}
+          description={`Свободных: ${overview?.availableCouriers ?? 0}, Занятых: ${overview?.busyCouriers ?? 0}`}
           isLoading={overviewLoading}
         />
       </div>
@@ -323,16 +329,8 @@ export function DashboardPage() {
                 </div>
                 <div className="mt-3 space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-xs text-[hsl(var(--muted-foreground))]">DAU</span>
-                    <span className="text-sm font-bold">{formatNumber(analyticsSummary.dau)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-[hsl(var(--muted-foreground))]">WAU</span>
-                    <span className="text-sm font-bold">{formatNumber(analyticsSummary.wau)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-[hsl(var(--muted-foreground))]">MAU</span>
-                    <span className="text-sm font-bold">{formatNumber(analyticsSummary.mau)}</span>
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">Активные пользователи</span>
+                    <span className="text-sm font-bold">{formatNumber(analyticsSummary.dailyActiveUsers)}</span>
                   </div>
                 </div>
               </div>
@@ -350,25 +348,7 @@ export function DashboardPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-xs text-[hsl(var(--muted-foreground))]">Ср. чек</span>
-                    <span className="text-sm font-bold">{formatCurrency(analyticsSummary.aov)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Conversion */}
-              <div className="rounded-lg bg-[hsl(var(--warning))]/10 p-4">
-                <div className="flex items-center gap-2 text-[hsl(var(--warning))]">
-                  <Target className="h-4 w-4" />
-                  <span className="text-sm font-medium">Конверсия</span>
-                </div>
-                <div className="mt-3 space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-xs text-[hsl(var(--muted-foreground))]">Общая</span>
-                    <span className="text-sm font-bold">{formatPercent(analyticsSummary.conversionRate)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-[hsl(var(--muted-foreground))]">Активация</span>
-                    <span className="text-sm font-bold">{formatPercent(analyticsSummary.activationRate)}</span>
+                    <span className="text-sm font-bold">{formatCurrency(analyticsSummary.averageOrderValue)}</span>
                   </div>
                 </div>
               </div>
@@ -384,14 +364,25 @@ export function DashboardPage() {
                     <span className="text-xs text-[hsl(var(--muted-foreground))]">Пользователей</span>
                     <span className="text-sm font-bold">{formatPercent(analyticsSummary.userChurnRate)}</span>
                   </div>
-                  <div className="mt-2">
-                    <div className="h-2 w-full rounded-full bg-[hsl(var(--muted))]">
-                      <div
-                        className="h-full rounded-full bg-[hsl(var(--destructive))]"
-                        style={{ width: `${Math.min(analyticsSummary.userChurnRate, 100)}%` }}
-                      />
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">Ресторанов</span>
+                    <span className="text-sm font-bold">{formatPercent(analyticsSummary.restaurantChurnRate)}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">Курьеров</span>
+                    <span className="text-sm font-bold">{formatPercent(analyticsSummary.courierChurnRate)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Generated At */}
+              <div className="rounded-lg bg-[hsl(var(--muted))]/50 p-4">
+                <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
+                  <Clock className="h-4 w-4" />
+                  <span className="text-sm font-medium">Обновлено</span>
+                </div>
+                <div className="mt-3">
+                  <span className="text-sm">{formatDateTime(analyticsSummary.generatedAt)}</span>
                 </div>
               </div>
             </div>
@@ -411,12 +402,7 @@ export function DashboardPage() {
             <CardTitle>Застрявшие заказы</CardTitle>
           </div>
           <div className="flex items-center gap-2">
-            {stuckOrdersData?.data?.summary && (
-              <span className="text-sm text-[hsl(var(--muted-foreground))]">
-                Критических: {stuckOrdersData.data.summary.critical}
-              </span>
-            )}
-            <Badge variant="warning">{stuckOrders.length} заказов</Badge>
+            <Badge variant="warning">{stuckOrdersData?.data?.totalStuckOrders ?? stuckOrders.length} заказов</Badge>
           </div>
         </CardHeader>
         <CardContent>
@@ -463,13 +449,13 @@ export function DashboardPage() {
                       <td className="py-3 px-4 text-sm">{order.restaurantName}</td>
                       <td className="py-3 px-4">
                         <Badge variant="secondary">
-                          {statusLabels[order.currentStatus] || order.currentStatus}
+                          {statusLabels[order.stuckStage] || order.stuckStage}
                         </Badge>
                       </td>
                       <td className="py-3 px-4">{getPriorityBadge(order.priority)}</td>
                       <td className="py-3 px-4">
                         <span className="text-sm text-[hsl(var(--destructive))] font-medium">
-                          {order.stuckMinutes} мин
+                          {order.minutesStuck} мин
                         </span>
                       </td>
                       <td className="py-3 px-4 text-sm text-[hsl(var(--muted-foreground))]">
@@ -484,18 +470,16 @@ export function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Summary cards */}
-      {stuckOrdersData?.data?.summary && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Stuck orders by stage */}
+      {stuckOrdersData?.data && stuckOrdersData.data.totalStuckOrders > 0 && (
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
                 <div className="text-3xl font-bold text-[hsl(var(--destructive))]">
-                  {stuckOrdersData.data.summary.critical}
+                  {stuckOrdersData.data.stuckPending}
                 </div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-                  Критических заказов
-                </p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Ожидают</p>
               </div>
             </CardContent>
           </Card>
@@ -503,11 +487,9 @@ export function DashboardPage() {
             <CardContent className="pt-6">
               <div className="text-center">
                 <div className="text-3xl font-bold text-[hsl(var(--warning))]">
-                  {stuckOrdersData.data.summary.high}
+                  {stuckOrdersData.data.stuckAccepted}
                 </div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-                  Высокий приоритет
-                </p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Приняты</p>
               </div>
             </CardContent>
           </Card>
@@ -515,23 +497,29 @@ export function DashboardPage() {
             <CardContent className="pt-6">
               <div className="text-center">
                 <div className="text-3xl font-bold">
-                  {stuckOrdersData.data.summary.medium}
+                  {stuckOrdersData.data.stuckPreparing}
                 </div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-                  Средний приоритет
-                </p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Готовятся</p>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
-                <div className="text-3xl font-bold text-[hsl(var(--muted-foreground))]">
-                  {stuckOrdersData.data.summary.low}
+                <div className="text-3xl font-bold">
+                  {stuckOrdersData.data.stuckReady}
                 </div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-                  Низкий приоритет
-                </p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Готовы</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="text-3xl font-bold">
+                  {stuckOrdersData.data.stuckInTransit}
+                </div>
+                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">В пути</p>
               </div>
             </CardContent>
           </Card>
