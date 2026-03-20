@@ -23,6 +23,15 @@ import type {
 // Response type for notification list endpoints
 export interface NotificationListResponse {
   notifications: Notification[]
+  page: number
+  pageSize: number
+  totalElements: number
+  totalPages: number
+  hasNext: boolean
+  hasPrevious: boolean
+  unreadCount: number
+  categoryBreakdown: Record<string, number>
+  priorityBreakdown: Record<string, number>
 }
 
 export const notificationsApi = {

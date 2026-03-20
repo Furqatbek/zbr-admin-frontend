@@ -96,10 +96,9 @@ export function NotificationInboxPage() {
   const deleteNotification = useDeleteNotification()
   const deleteAllForUser = useDeleteAllForUser()
 
-  const notifications = searchTerm
-    ? (searchData?.notifications || [])
-    : (notificationsData?.notifications || [])
-  const totalElements = notifications.length
+  const activeData = searchTerm ? searchData : notificationsData
+  const notifications = activeData?.notifications || []
+  const totalElements = activeData?.totalElements || 0
 
   const unreadCount = unreadCountData?.unreadCount || 0
   const counts = countsData
@@ -417,15 +416,15 @@ export function NotificationInboxPage() {
       </Card>
 
       {/* Pagination */}
-      {totalElements > 20 && (
+      {(activeData?.totalPages || 0) > 1 && (
         <div className="flex justify-center gap-2">
-          <Button variant="outline" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+          <Button variant="outline" disabled={!activeData?.hasPrevious} onClick={() => setPage(p => p - 1)}>
             Назад
           </Button>
           <span className="flex items-center px-4 text-sm text-[hsl(var(--muted-foreground))]">
-            Страница {page + 1}
+            Страница {page + 1} из {activeData?.totalPages}
           </span>
-          <Button variant="outline" onClick={() => setPage(p => p + 1)}>
+          <Button variant="outline" disabled={!activeData?.hasNext} onClick={() => setPage(p => p + 1)}>
             Вперёд
           </Button>
         </div>

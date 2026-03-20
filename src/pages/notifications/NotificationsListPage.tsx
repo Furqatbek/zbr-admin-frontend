@@ -77,7 +77,8 @@ export function NotificationsListPage() {
   const bulkAction = useBulkAction()
 
   const notifications = data?.notifications || []
-  const totalElements = notifications.length
+  const totalElements = data?.totalElements || 0
+  const totalPages = data?.totalPages || 0
 
   const categories = referenceData?.categories || []
   const roles = referenceData?.roles || []
@@ -373,17 +374,17 @@ export function NotificationsListPage() {
       </Card>
 
       {/* Pagination */}
-      {notifications.length >= 20 && (
+      {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
-            Страница {page + 1}
+            Страница {page + 1} из {totalPages}
           </p>
           <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
+              disabled={!data?.hasPrevious}
             >
               Назад
             </Button>
@@ -391,7 +392,7 @@ export function NotificationsListPage() {
               variant="outline"
               size="sm"
               onClick={() => setPage((p) => p + 1)}
-              disabled={notifications.length < 20}
+              disabled={!data?.hasNext}
             >
               Вперёд
             </Button>
