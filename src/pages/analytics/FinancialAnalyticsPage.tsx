@@ -8,8 +8,11 @@ import {
   Clock,
   Calendar,
   TrendingUp,
+  TrendingDown,
   Loader2,
   AlertCircle,
+  ArrowUpRight,
+  ArrowDownRight,
 } from 'lucide-react'
 import {
   Card,
@@ -60,7 +63,7 @@ export function FinancialAnalyticsPage() {
   const { data: generalData, isLoading: generalLoading } = useFinanceMetrics()
 
   const isLoading = filteredLoading || generalLoading
-  const data = filteredData?.data || generalData?.data
+  const data = filteredData || generalData
   const error = filteredError
 
   if (isLoading) {
@@ -186,6 +189,50 @@ export function FinancialAnalyticsPage() {
         </Card>
       </div>
 
+      {/* Period Comparison */}
+      {data.periodComparison && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Сравнение с предыдущим периодом
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="flex items-center justify-between rounded-lg border border-[hsl(var(--border))] p-4">
+                <div>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">Изменение GMV</p>
+                  <p className="text-2xl font-bold">{data.periodComparison.gmvChangePercent.toFixed(1)}%</p>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                    Предыдущий: {formatCurrency(data.periodComparison.previousGmv)}
+                  </p>
+                </div>
+                {data.periodComparison.gmvTrend === 'UP' ? (
+                  <ArrowUpRight className="h-8 w-8 text-[hsl(var(--success))]" />
+                ) : data.periodComparison.gmvTrend === 'DOWN' ? (
+                  <ArrowDownRight className="h-8 w-8 text-[hsl(var(--destructive))]" />
+                ) : null}
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-[hsl(var(--border))] p-4">
+                <div>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">Изменение заказов</p>
+                  <p className="text-2xl font-bold">{data.periodComparison.ordersChangePercent.toFixed(1)}%</p>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                    Предыдущий: {data.periodComparison.previousOrders}
+                  </p>
+                </div>
+                {data.periodComparison.ordersTrend === 'UP' ? (
+                  <ArrowUpRight className="h-8 w-8 text-[hsl(var(--success))]" />
+                ) : data.periodComparison.ordersTrend === 'DOWN' ? (
+                  <ArrowDownRight className="h-8 w-8 text-[hsl(var(--destructive))]" />
+                ) : null}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Revenue Breakdown */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -193,7 +240,7 @@ export function FinancialAnalyticsPage() {
             <p className="text-sm text-[hsl(var(--muted-foreground))]">Комиссия</p>
             <p className="text-2xl font-bold">{formatCurrency(data.commissionRevenue)}</p>
             <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-              Ставка: {(data.commissionRate * 100).toFixed(1)}%
+              Ставка: {data.commissionRate.toFixed(1)}%
             </p>
           </CardContent>
         </Card>
@@ -332,7 +379,7 @@ export function FinancialAnalyticsPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Частота использования</p>
-                <p className="text-xl font-bold">{(data.discountSummary.discountUsageRate * 100).toFixed(1)}%</p>
+                <p className="text-xl font-bold">{data.discountSummary.discountUsageRate.toFixed(1)}%</p>
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Средняя скидка</p>
@@ -385,7 +432,7 @@ export function FinancialAnalyticsPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Процент одобрения</p>
-                <p className="text-xl font-bold">{(data.refundSummary.approvalRate * 100).toFixed(1)}%</p>
+                <p className="text-xl font-bold">{data.refundSummary.approvalRate.toFixed(1)}%</p>
               </div>
             </div>
             {/* Refund by reason breakdown */}

@@ -174,14 +174,14 @@ export const dashboardApi = {
   // ============ Finance Metrics ============
 
   // Get finance metrics
-  getFinanceMetrics: async (): Promise<ApiResponse<FinanceMetricsResponse>> => {
-    const response = await api.get<ApiResponse<FinanceMetricsResponse>>('/admin/dashboard/finance')
+  getFinanceMetrics: async (): Promise<FinanceMetricsResponse> => {
+    const response = await api.get<FinanceMetricsResponse>('/admin/dashboard/finance')
     return response.data
   },
 
   // Get finance metrics with date range
-  getFinanceMetricsFiltered: async (data: FinanceMetricsFilterRequest): Promise<ApiResponse<FinanceMetricsResponse>> => {
-    const response = await api.post<ApiResponse<FinanceMetricsResponse>>('/admin/dashboard/finance', data)
+  getFinanceMetricsFiltered: async (data: FinanceMetricsFilterRequest): Promise<FinanceMetricsResponse> => {
+    const response = await api.post<FinanceMetricsResponse>('/admin/dashboard/finance', data)
     return response.data
   },
 

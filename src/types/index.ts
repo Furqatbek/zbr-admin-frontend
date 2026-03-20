@@ -686,6 +686,8 @@ export interface PayoutSummary {
   totalCourierPayouts: number
   pendingRestaurantPayouts: number
   pendingCourierPayouts: number
+  unsettledRestaurantAmount: number
+  unsettledCourierAmount: number
   completedPayoutsCount: number
   avgSettlementTimeHours: number
 }
@@ -694,6 +696,7 @@ export interface DiscountSummary {
   totalDiscounts: number
   ordersWithDiscount: number
   discountUsageRate: number
+  topPromoCodes: Array<{ code: string; usageCount: number; totalDiscount: number }>
   avgDiscountPerOrder: number
   discountByType: Record<string, number>
 }
@@ -703,8 +706,21 @@ export interface RefundSummary {
   refundCount: number
   approvedRefunds: number
   pendingRefunds: number
+  rejectedRefunds: number
+  avgRefundAmount: number
   approvalRate: number
   refundByReason: Record<string, number>
+}
+
+export interface PeriodComparison {
+  previousPeriodStart: string
+  previousPeriodEnd: string
+  previousGmv: number
+  previousOrders: number
+  gmvChangePercent: number
+  ordersChangePercent: number
+  gmvTrend: 'UP' | 'DOWN' | 'STABLE'
+  ordersTrend: 'UP' | 'DOWN' | 'STABLE'
 }
 
 export interface FinanceMetricsResponse {
@@ -727,6 +743,7 @@ export interface FinanceMetricsResponse {
   refundSummary: RefundSummary
   dailyRevenue: DailyRevenueItem[]
   paymentMethodBreakdown: Record<string, number>
+  periodComparison: PeriodComparison
   generatedAt: string
 }
 
