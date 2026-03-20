@@ -1,6 +1,5 @@
 import { api as apiClient } from './axios'
 import type {
-  ApiResponse,
   Notification,
   CreateNotificationRequest,
   NotificationSearchRequest,
@@ -21,13 +20,9 @@ import type {
   UpdateTemplateRequest,
 } from '@/types'
 
-// Paginated response type for notifications
-interface NotificationPage {
-  content: Notification[]
-  page: number
-  pageSize: number
-  totalElements: number
-  totalPages: number
+// Response type for notification list endpoints
+export interface NotificationListResponse {
+  notifications: Notification[]
 }
 
 export const notificationsApi = {
@@ -36,8 +31,8 @@ export const notificationsApi = {
   /**
    * Create a new notification
    */
-  create: async (data: CreateNotificationRequest): Promise<ApiResponse<Notification>> => {
-    const response = await apiClient.post<ApiResponse<Notification>>('/notifications', data)
+  create: async (data: CreateNotificationRequest): Promise<Notification> => {
+    const response = await apiClient.post<Notification>('/notifications', data)
     return response.data
   },
 
@@ -46,8 +41,8 @@ export const notificationsApi = {
   /**
    * Get notification by ID
    */
-  getById: async (id: number): Promise<ApiResponse<Notification>> => {
-    const response = await apiClient.get<ApiResponse<Notification>>(`/notifications/${id}`)
+  getById: async (id: number): Promise<Notification> => {
+    const response = await apiClient.get<Notification>(`/notifications/${id}`)
     return response.data
   },
 
@@ -68,16 +63,16 @@ export const notificationsApi = {
     pageSize?: number
     sortBy?: string
     sortDirection?: 'ASC' | 'DESC'
-  }): Promise<ApiResponse<NotificationPage>> => {
-    const response = await apiClient.get<ApiResponse<NotificationPage>>('/notifications', { params })
+  }): Promise<NotificationListResponse> => {
+    const response = await apiClient.get<NotificationListResponse>('/notifications', { params })
     return response.data
   },
 
   /**
    * Search notifications with advanced filters (POST)
    */
-  search: async (request: NotificationSearchRequest): Promise<ApiResponse<NotificationPage>> => {
-    const response = await apiClient.post<ApiResponse<NotificationPage>>('/notifications/search', request)
+  search: async (request: NotificationSearchRequest): Promise<NotificationListResponse> => {
+    const response = await apiClient.post<NotificationListResponse>('/notifications/search', request)
     return response.data
   },
 
@@ -90,8 +85,8 @@ export const notificationsApi = {
     category?: NotificationCategory
     page?: number
     pageSize?: number
-  }): Promise<ApiResponse<NotificationPage>> => {
-    const response = await apiClient.get<ApiResponse<NotificationPage>>('/notifications/me', { params })
+  }): Promise<NotificationListResponse> => {
+    const response = await apiClient.get<NotificationListResponse>('/notifications/me', { params })
     return response.data
   },
 
@@ -105,8 +100,8 @@ export const notificationsApi = {
       page?: number
       pageSize?: number
     }
-  ): Promise<ApiResponse<NotificationPage>> => {
-    const response = await apiClient.get<ApiResponse<NotificationPage>>(
+  ): Promise<NotificationListResponse> => {
+    const response = await apiClient.get<NotificationListResponse>(
       `/notifications/user/${userId}/unread`,
       { params }
     )
@@ -116,8 +111,8 @@ export const notificationsApi = {
   /**
    * Get notification counts for a user
    */
-  getCounts: async (userId: number): Promise<ApiResponse<NotificationCounts>> => {
-    const response = await apiClient.get<ApiResponse<NotificationCounts>>(
+  getCounts: async (userId: number): Promise<NotificationCounts> => {
+    const response = await apiClient.get<NotificationCounts>(
       `/notifications/user/${userId}/counts`
     )
     return response.data
@@ -129,8 +124,8 @@ export const notificationsApi = {
   getUnreadCount: async (
     userId: number,
     role?: NotificationRole
-  ): Promise<ApiResponse<{ unreadCount: number }>> => {
-    const response = await apiClient.get<ApiResponse<{ unreadCount: number }>>(
+  ): Promise<{ unreadCount: number }> => {
+    const response = await apiClient.get<{ unreadCount: number }>(
       `/notifications/user/${userId}/unread-count`,
       { params: role ? { role } : undefined }
     )
@@ -142,8 +137,8 @@ export const notificationsApi = {
   /**
    * Mark notification as read
    */
-  markAsRead: async (id: number): Promise<ApiResponse<Notification>> => {
-    const response = await apiClient.patch<ApiResponse<Notification>>(`/notifications/${id}/read`)
+  markAsRead: async (id: number): Promise<Notification> => {
+    const response = await apiClient.patch<Notification>(`/notifications/${id}/read`)
     return response.data
   },
 
@@ -153,8 +148,8 @@ export const notificationsApi = {
   markAllAsRead: async (
     userId: number,
     role?: NotificationRole
-  ): Promise<ApiResponse<MarkReadResponse>> => {
-    const response = await apiClient.patch<ApiResponse<MarkReadResponse>>(
+  ): Promise<MarkReadResponse> => {
+    const response = await apiClient.patch<MarkReadResponse>(
       '/notifications/read-all',
       null,
       { params: { userId, ...(role && { role }) } }
@@ -165,8 +160,8 @@ export const notificationsApi = {
   /**
    * Mark batch of notifications as read
    */
-  markBatchAsRead: async (ids: number[]): Promise<ApiResponse<MarkReadResponse>> => {
-    const response = await apiClient.patch<ApiResponse<MarkReadResponse>>(
+  markBatchAsRead: async (ids: number[]): Promise<MarkReadResponse> => {
+    const response = await apiClient.patch<MarkReadResponse>(
       '/notifications/read-batch',
       ids
     )
@@ -176,16 +171,16 @@ export const notificationsApi = {
   /**
    * Dismiss notification
    */
-  dismiss: async (id: number): Promise<ApiResponse<Notification>> => {
-    const response = await apiClient.patch<ApiResponse<Notification>>(`/notifications/${id}/dismiss`)
+  dismiss: async (id: number): Promise<Notification> => {
+    const response = await apiClient.patch<Notification>(`/notifications/${id}/dismiss`)
     return response.data
   },
 
   /**
    * Bulk action on notifications
    */
-  bulkAction: async (request: BulkActionRequest): Promise<ApiResponse<BulkActionResponse>> => {
-    const response = await apiClient.post<ApiResponse<BulkActionResponse>>(
+  bulkAction: async (request: BulkActionRequest): Promise<BulkActionResponse> => {
+    const response = await apiClient.post<BulkActionResponse>(
       '/notifications/bulk-action',
       request
     )
@@ -204,8 +199,8 @@ export const notificationsApi = {
   /**
    * Delete all notifications for a user
    */
-  deleteAllForUser: async (userId: number): Promise<ApiResponse<{ deletedCount: number }>> => {
-    const response = await apiClient.delete<ApiResponse<{ deletedCount: number }>>(
+  deleteAllForUser: async (userId: number): Promise<{ deletedCount: number }> => {
+    const response = await apiClient.delete<{ deletedCount: number }>(
       `/notifications/user/${userId}`
     )
     return response.data
@@ -216,8 +211,8 @@ export const notificationsApi = {
   /**
    * Cleanup expired notifications
    */
-  cleanupExpired: async (): Promise<ApiResponse<CleanupResponse>> => {
-    const response = await apiClient.post<ApiResponse<CleanupResponse>>(
+  cleanupExpired: async (): Promise<CleanupResponse> => {
+    const response = await apiClient.post<CleanupResponse>(
       '/notifications/admin/cleanup/expired'
     )
     return response.data
@@ -226,8 +221,8 @@ export const notificationsApi = {
   /**
    * Cleanup dismissed notifications
    */
-  cleanupDismissed: async (daysOld = 7): Promise<ApiResponse<CleanupResponse>> => {
-    const response = await apiClient.post<ApiResponse<CleanupResponse>>(
+  cleanupDismissed: async (daysOld = 7): Promise<CleanupResponse> => {
+    const response = await apiClient.post<CleanupResponse>(
       '/notifications/admin/cleanup/dismissed',
       null,
       { params: { daysOld } }
@@ -238,8 +233,8 @@ export const notificationsApi = {
   /**
    * Cleanup old read notifications
    */
-  cleanupRead: async (daysOld = 90): Promise<ApiResponse<CleanupResponse>> => {
-    const response = await apiClient.post<ApiResponse<CleanupResponse>>(
+  cleanupRead: async (daysOld = 90): Promise<CleanupResponse> => {
+    const response = await apiClient.post<CleanupResponse>(
       '/notifications/admin/cleanup/read',
       null,
       { params: { daysOld } }

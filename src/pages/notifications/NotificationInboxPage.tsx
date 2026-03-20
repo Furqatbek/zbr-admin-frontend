@@ -97,15 +97,13 @@ export function NotificationInboxPage() {
   const deleteAllForUser = useDeleteAllForUser()
 
   const notifications = searchTerm
-    ? (searchData?.data?.content || [])
-    : (notificationsData?.data?.content || [])
-  const totalElements = searchTerm
-    ? (searchData?.data?.totalElements || 0)
-    : (notificationsData?.data?.totalElements || 0)
+    ? (searchData?.notifications || [])
+    : (notificationsData?.notifications || [])
+  const totalElements = notifications.length
 
-  const unreadCount = unreadCountData?.data?.unreadCount || 0
-  const counts = countsData?.data
-  const recentUnread = unreadNotificationsData?.data?.content || []
+  const unreadCount = unreadCountData?.unreadCount || 0
+  const counts = countsData
+  const recentUnread = unreadNotificationsData?.notifications || []
 
   const handleMarkAllAsRead = async () => {
     await markAllAsRead.mutateAsync({ userId })
@@ -214,7 +212,7 @@ export function NotificationInboxPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Прочитанных</p>
-                <p className="text-2xl font-bold">{counts?.readCount || 0}</p>
+                <p className="text-2xl font-bold">{counts ? counts.total - counts.unread : 0}</p>
               </div>
             </div>
           </CardContent>
@@ -226,8 +224,8 @@ export function NotificationInboxPage() {
                 <Trash2 className="h-6 w-6 text-[hsl(var(--warning))]" />
               </div>
               <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">Скрытых</p>
-                <p className="text-2xl font-bold">{counts?.dismissedCount || 0}</p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">Всего</p>
+                <p className="text-2xl font-bold">{counts?.total || 0}</p>
               </div>
             </div>
           </CardContent>
@@ -344,7 +342,7 @@ export function NotificationInboxPage() {
                 <span className="text-sm text-[hsl(var(--muted-foreground))]">Выбрать все</span>
               </div>
 
-              {notifications.map((notification: { id: number; title: string; body?: string; type: string; category?: string; priority?: string; isRead?: boolean; createdAt: string }) => (
+              {notifications.map((notification) => (
                 <div
                   key={notification.id}
                   className={`flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[hsl(var(--muted))]/50 ${
@@ -374,23 +372,23 @@ export function NotificationInboxPage() {
                         {notification.title}
                       </p>
                     </div>
-                    {notification.body && (
+                    {notification.message && (
                       <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))] truncate">
-                        {notification.body}
+                        {notification.message}
                       </p>
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {notification.category && (
-                      <Badge variant="secondary">{categoryLabels[notification.category] || notification.category}</Badge>
+                    {notification.categoryDisplayName && (
+                      <Badge variant="secondary">{notification.categoryDisplayName}</Badge>
                     )}
                     {notification.priority && notification.priority !== 'NORMAL' && (
                       <Badge variant={priorityColors[notification.priority] || 'default'}>
-                        {notification.priority}
+                        {notification.priorityDisplayName || notification.priority}
                       </Badge>
                     )}
                     <span className="text-sm text-[hsl(var(--muted-foreground))] whitespace-nowrap">
-                      {formatDateTime(notification.createdAt)}
+                      {notification.timeAgo || formatDateTime(notification.createdAt)}
                     </span>
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
@@ -443,20 +441,44 @@ export function NotificationInboxPage() {
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
-        ) : detailData?.data ? (
+        ) : detailData ? (
           <div className="space-y-4">
             <div>
-              <h3 className="font-semibold text-lg">{detailData.data.title}</h3>
+              <h3 className="font-semibold text-lg">{detailData.title}</h3>
               <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                {formatDateTime(detailData.data.createdAt)}
+                {detailData.timeAgo || formatDateTime(detailData.createdAt)}
               </p>
             </div>
-            <p className="text-[hsl(var(--foreground))]">{detailData.data.body}</p>
-            <div className="flex gap-2">
-              {detailData.data.type && <Badge variant="default">{detailData.data.type}</Badge>}
-              {detailData.data.category && <Badge variant="secondary">{detailData.data.category}</Badge>}
-              {detailData.data.priority && <Badge variant={priorityColors[detailData.data.priority] || 'default'}>{detailData.data.priority}</Badge>}
+            <p className="text-[hsl(var(--foreground))]">{detailData.message}</p>
+            <div className="flex gap-2 flex-wrap">
+              {detailData.notificationTypeDisplayName && (
+                <Badge variant="default">{detailData.notificationTypeDisplayName}</Badge>
+              )}
+              {detailData.categoryDisplayName && (
+                <Badge variant="secondary">{detailData.categoryDisplayName}</Badge>
+              )}
+              {detailData.priority && (
+                <Badge variant={priorityColors[detailData.priority] || 'default'}>
+                  {detailData.priorityDisplayName || detailData.priority}
+                </Badge>
+              )}
+              {detailData.roleDisplayName && (
+                <Badge variant="outline">{detailData.roleDisplayName}</Badge>
+              )}
             </div>
+            {detailData.orderId && (
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Заказ: #{detailData.orderId}
+              </p>
+            )}
+            {detailData.actionUrl && (
+              <a
+                href={detailData.actionUrl}
+                className="text-sm text-[hsl(var(--primary))] hover:underline"
+              >
+                Перейти к деталям
+              </a>
+            )}
           </div>
         ) : (
           <p className="text-[hsl(var(--muted-foreground))]">Уведомление не найдено</p>

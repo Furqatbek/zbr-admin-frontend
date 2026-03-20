@@ -949,7 +949,11 @@ export interface Notification {
   id: number
   userId?: number
   role?: NotificationRole
+  roleDisplayName?: string
   category: NotificationCategory
+  categoryDisplayName?: string
+  notificationType?: string
+  notificationTypeDisplayName?: string
   title: string
   message: string
   icon?: string
@@ -958,11 +962,15 @@ export interface Notification {
   relatedEntityId?: number
   orderId?: number
   priority?: NotificationPriority
+  priorityDisplayName?: string
   isRead: boolean
-  isDismissed: boolean
+  dismissed: boolean
+  isExpired?: boolean
   readAt?: string
   createdAt: string
   expiresAt?: string
+  metadata?: Record<string, string>
+  timeAgo?: string
 }
 
 export interface CreateNotificationRequest {

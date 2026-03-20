@@ -76,9 +76,8 @@ export function NotificationsListPage() {
   const deleteNotification = useDeleteNotification()
   const bulkAction = useBulkAction()
 
-  const notifications = data?.data?.content || []
-  const totalPages = data?.data?.totalPages || 0
-  const totalElements = data?.data?.totalElements || 0
+  const notifications = data?.notifications || []
+  const totalElements = notifications.length
 
   const categories = referenceData?.categories || []
   const roles = referenceData?.roles || []
@@ -307,12 +306,16 @@ export function NotificationsListPage() {
                         </div>
                       </div>
 
-                      <div className="mt-2 flex items-center gap-4 text-xs text-[hsl(var(--muted-foreground))]">
+                      <div className="mt-2 flex items-center gap-4 text-xs text-[hsl(var(--muted-foreground))] flex-wrap">
                         <span>
-                          {format(new Date(notification.createdAt), 'dd.MM.yyyy HH:mm')}
+                          {notification.timeAgo || format(new Date(notification.createdAt), 'dd.MM.yyyy HH:mm')}
                         </span>
-                        {notification.role && <span>Роль: {notification.role}</span>}
+                        {notification.roleDisplayName && <span>Роль: {notification.roleDisplayName}</span>}
+                        {notification.notificationTypeDisplayName && (
+                          <Badge variant="outline">{notification.notificationTypeDisplayName}</Badge>
+                        )}
                         {notification.userId && <span>User ID: {notification.userId}</span>}
+                        {notification.orderId && <span>Заказ #{notification.orderId}</span>}
                         {notification.priority && notification.priority !== 'NORMAL' && (
                           <Badge
                             variant={
@@ -323,7 +326,7 @@ export function NotificationsListPage() {
                                 : 'secondary'
                             }
                           >
-                            {notification.priority}
+                            {notification.priorityDisplayName || notification.priority}
                           </Badge>
                         )}
                       </div>
@@ -370,10 +373,10 @@ export function NotificationsListPage() {
       </Card>
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {notifications.length >= 20 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
-            Страница {page + 1} из {totalPages}
+            Страница {page + 1}
           </p>
           <div className="flex gap-2">
             <Button
@@ -387,8 +390,8 @@ export function NotificationsListPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
+              onClick={() => setPage((p) => p + 1)}
+              disabled={notifications.length < 20}
             >
               Вперёд
             </Button>
