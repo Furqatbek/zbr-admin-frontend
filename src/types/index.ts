@@ -1144,11 +1144,27 @@ export interface ConversionMetrics {
 
 // Average Order Value Metrics
 export interface AOVMetrics {
-  averageOrderValue: number
-  medianOrderValue: number
+  aovToday: number
+  aovWeek: number
+  aovMonth: number
+  totalRevenueToday: number
+  totalRevenueWeek: number
+  totalRevenueMonth: number
+  completedOrdersToday: number
+  completedOrdersWeek: number
+  completedOrdersMonth: number
+  medianOrderValueToday: number
+  minOrderValueToday: number
+  maxOrderValueToday: number
   averageItemsPerOrder: number
-  totalCompletedOrders: number
-  totalRevenue: number
+  averageDeliveryFee: number
+  averageTipAmount: number
+  dailyTrend: Array<{
+    date: string
+    aov: number
+    totalRevenue: number
+    orderCount: number
+  }>
   currency: string
   referenceDate: string
   calculatedAt: string

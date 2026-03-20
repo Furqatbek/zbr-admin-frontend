@@ -6,6 +6,8 @@ import {
   Calculator,
   RefreshCw,
   Loader2,
+  Truck,
+  Heart,
 } from 'lucide-react'
 import {
   Card,
@@ -71,16 +73,16 @@ export function RevenueAnalyticsPage() {
 
       {aov ? (
         <>
-          {/* KPI Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {/* Revenue KPI Cards - Today / Week / Month */}
+          <div className="grid gap-4 md:grid-cols-3">
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Общая выручка</p>
-                    <p className="text-2xl font-bold">{formatCurrency(aov.totalRevenue, aov.currency)}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Выручка сегодня</p>
+                    <p className="text-2xl font-bold">{formatCurrency(aov.totalRevenueToday, aov.currency)}</p>
                     <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-                      {formatNumber(aov.totalCompletedOrders)} заказов
+                      {formatNumber(aov.completedOrdersToday)} заказов
                     </p>
                   </div>
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--primary))]/10">
@@ -94,10 +96,10 @@ export function RevenueAnalyticsPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Средний чек (AOV)</p>
-                    <p className="text-2xl font-bold">{formatCurrency(aov.averageOrderValue, aov.currency)}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Выручка за неделю</p>
+                    <p className="text-2xl font-bold">{formatCurrency(aov.totalRevenueWeek, aov.currency)}</p>
                     <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-                      Среднее значение
+                      {formatNumber(aov.completedOrdersWeek)} заказов
                     </p>
                   </div>
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--success))]/10">
@@ -111,14 +113,31 @@ export function RevenueAnalyticsPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Медианный чек</p>
-                    <p className="text-2xl font-bold">{formatCurrency(aov.medianOrderValue, aov.currency)}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Выручка за месяц</p>
+                    <p className="text-2xl font-bold">{formatCurrency(aov.totalRevenueMonth, aov.currency)}</p>
                     <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-                      50-й перцентиль
+                      {formatNumber(aov.completedOrdersMonth)} заказов
                     </p>
                   </div>
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--warning))]/10">
-                    <Calculator className="h-6 w-6 text-[hsl(var(--warning))]" />
+                    <ShoppingCart className="h-6 w-6 text-[hsl(var(--warning))]" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* AOV Cards - Today / Week / Month */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Средний чек сегодня</p>
+                    <p className="text-2xl font-bold">{formatCurrency(aov.aovToday, aov.currency)}</p>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--primary))]/10">
+                    <Calculator className="h-6 w-6 text-[hsl(var(--primary))]" />
                   </div>
                 </div>
               </CardContent>
@@ -128,58 +147,66 @@ export function RevenueAnalyticsPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Позиций в заказе</p>
-                    <p className="text-2xl font-bold">{aov.averageItemsPerOrder.toFixed(1)}</p>
-                    <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-                      В среднем
-                    </p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Средний чек за неделю</p>
+                    <p className="text-2xl font-bold">{formatCurrency(aov.aovWeek, aov.currency)}</p>
                   </div>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--secondary))]/50">
-                    <Package className="h-6 w-6 text-[hsl(var(--secondary-foreground))]" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--success))]/10">
+                    <Calculator className="h-6 w-6 text-[hsl(var(--success))]" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Средний чек за месяц</p>
+                    <p className="text-2xl font-bold">{formatCurrency(aov.aovMonth, aov.currency)}</p>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--warning))]/10">
+                    <Calculator className="h-6 w-6 text-[hsl(var(--warning))]" />
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Detailed Metrics */}
           <div className="grid gap-6 lg:grid-cols-2">
-            {/* AOV Analysis */}
+            {/* Order Value Analysis */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5" />
-                  Анализ среднего чека
+                  Анализ стоимости заказов (сегодня)
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="rounded-lg bg-[hsl(var(--muted))] p-6">
                   <div className="text-center">
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Средний чек (AOV)</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Медианный чек</p>
                     <p className="text-5xl font-bold text-[hsl(var(--primary))]">
-                      {formatCurrency(aov.averageOrderValue, aov.currency)}
+                      {formatCurrency(aov.medianOrderValueToday, aov.currency)}
                     </p>
                   </div>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-lg border border-[hsl(var(--border))] p-4 text-center">
-                    <p className="text-2xl font-bold">{formatCurrency(aov.medianOrderValue, aov.currency)}</p>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Медианный чек</p>
-                    <Badge variant="secondary" className="mt-2">50-й перцентиль</Badge>
+                    <p className="text-2xl font-bold">{formatCurrency(aov.minOrderValueToday, aov.currency)}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Минимальный заказ</p>
                   </div>
                   <div className="rounded-lg border border-[hsl(var(--border))] p-4 text-center">
-                    <p className="text-2xl font-bold">{aov.averageItemsPerOrder.toFixed(2)}</p>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Позиций в заказе</p>
-                    <Badge variant="secondary" className="mt-2">В среднем</Badge>
+                    <p className="text-2xl font-bold">{formatCurrency(aov.maxOrderValueToday, aov.currency)}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Максимальный заказ</p>
                   </div>
                 </div>
 
-                {aov.averageOrderValue > aov.medianOrderValue && (
+                {aov.aovToday > aov.medianOrderValueToday && aov.medianOrderValueToday > 0 && (
                   <div className="rounded-lg bg-[hsl(var(--warning))]/10 p-4">
                     <p className="text-sm">
                       <strong>Примечание:</strong> Средний чек выше медианного на{' '}
-                      {formatCurrency(aov.averageOrderValue - aov.medianOrderValue, aov.currency)}.
+                      {formatCurrency(aov.aovToday - aov.medianOrderValueToday, aov.currency)}.
                       Это указывает на наличие крупных заказов, которые повышают среднее значение.
                     </p>
                   </div>
@@ -187,55 +214,75 @@ export function RevenueAnalyticsPage() {
               </CardContent>
             </Card>
 
-            {/* Revenue Summary */}
+            {/* Additional Metrics */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <DollarSign className="h-5 w-5" />
-                  Сводка по выручке
+                  Дополнительные показатели
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="rounded-lg bg-[hsl(var(--success))]/10 p-6">
-                  <div className="text-center">
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Общая выручка</p>
-                    <p className="text-5xl font-bold text-[hsl(var(--success))]">
-                      {formatCurrency(aov.totalRevenue, aov.currency)}
-                    </p>
-                  </div>
-                </div>
-
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <ShoppingCart className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                      <span>Завершённых заказов</span>
-                    </div>
-                    <span className="font-bold">{formatNumber(aov.totalCompletedOrders)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                      <span>Средний чек</span>
-                    </div>
-                    <span className="font-bold">{formatCurrency(aov.averageOrderValue, aov.currency)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
                       <Package className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                      <span>Позиций в заказе</span>
+                      <span>Позиций в заказе (среднее)</span>
                     </div>
-                    <span className="font-bold">{aov.averageItemsPerOrder.toFixed(1)}</span>
+                    <span className="font-bold">{(aov.averageItemsPerOrder ?? 0).toFixed(1)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+                      <span>Средняя стоимость доставки</span>
+                    </div>
+                    <span className="font-bold">{formatCurrency(aov.averageDeliveryFee, aov.currency)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Heart className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+                      <span>Средние чаевые</span>
+                    </div>
+                    <span className="font-bold">{formatCurrency(aov.averageTipAmount, aov.currency)}</span>
                   </div>
                 </div>
 
+                {/* Daily Trend */}
+                {aov.dailyTrend && aov.dailyTrend.length > 0 && (
+                  <div>
+                    <p className="mb-3 text-sm font-medium">Динамика по дням</p>
+                    <div className="space-y-2">
+                      {aov.dailyTrend.map((day) => (
+                        <div
+                          key={day.date}
+                          className="flex items-center justify-between rounded-lg border border-[hsl(var(--border))] p-3"
+                        >
+                          <div>
+                            <p className="text-sm font-medium">{day.date}</p>
+                            <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                              {formatNumber(day.orderCount)} заказов
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold">{formatCurrency(day.totalRevenue, aov.currency)}</p>
+                            <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                              AOV: {formatCurrency(day.aov, aov.currency)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="rounded-lg border border-[hsl(var(--border))] p-4">
                   <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                    Формула: Общая выручка = Количество заказов × Средний чек
+                    Формула: Выручка = Количество заказов × Средний чек
                   </p>
                   <p className="mt-2 font-mono text-sm">
-                    {formatNumber(aov.totalCompletedOrders)} × {formatCurrency(aov.averageOrderValue, aov.currency)} = {formatCurrency(aov.totalRevenue, aov.currency)}
+                    {formatNumber(aov.completedOrdersMonth)} × {formatCurrency(aov.aovMonth, aov.currency)} = {formatCurrency(aov.totalRevenueMonth, aov.currency)}
                   </p>
+                  <Badge variant="secondary" className="mt-2">За месяц</Badge>
                 </div>
               </CardContent>
             </Card>
