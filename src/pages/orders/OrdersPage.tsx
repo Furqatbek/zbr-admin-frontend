@@ -8,6 +8,9 @@ import {
   Filter,
   RefreshCw,
   Calendar,
+  Loader2,
+  Hash,
+  ArrowRight,
 } from 'lucide-react'
 import {
   Card,
@@ -33,127 +36,50 @@ import {
 } from '@/components/ui'
 import { formatDateTime, formatCurrency } from '@/lib/utils'
 import type { Order, OrderStatus } from '@/types'
-
-// Mock data - will be replaced with API calls
-const mockOrders: Order[] = [
-  {
-    id: 1001,
-    consumerId: 5,
-    consumerName: 'Анна Новикова',
-    restaurantId: 1,
-    restaurantName: 'Пицца Хат',
-    courierId: 4,
-    courierName: 'Игорь Козлов',
-    status: 'DELIVERED',
-    items: [
-      { id: 1, name: 'Пицца Маргарита', quantity: 2, price: 599 },
-      { id: 2, name: 'Кола 0.5л', quantity: 2, price: 99 },
-    ],
-    subtotal: 1396,
-    deliveryFee: 149,
-    total: 1545,
-    deliveryAddress: 'ул. Пушкина, д. 10, кв. 25',
-    createdAt: '2024-01-15T10:30:00Z',
-    updatedAt: '2024-01-15T11:15:00Z',
-  },
-  {
-    id: 1002,
-    consumerId: 6,
-    consumerName: 'Михаил Сергеев',
-    restaurantId: 2,
-    restaurantName: 'Суши Мастер',
-    status: 'PREPARING',
-    items: [
-      { id: 3, name: 'Сет Филадельфия', quantity: 1, price: 1299 },
-    ],
-    subtotal: 1299,
-    deliveryFee: 199,
-    total: 1498,
-    deliveryAddress: 'ул. Ленина, д. 5',
-    createdAt: '2024-01-15T11:00:00Z',
-    updatedAt: '2024-01-15T11:05:00Z',
-  },
-  {
-    id: 1003,
-    consumerId: 7,
-    consumerName: 'Елена Васильева',
-    restaurantId: 3,
-    restaurantName: 'Бургер Кинг',
-    courierId: 8,
-    courierName: 'Дмитрий Павлов',
-    status: 'DELIVERING',
-    items: [
-      { id: 4, name: 'Воппер', quantity: 2, price: 349 },
-      { id: 5, name: 'Картофель фри', quantity: 2, price: 129 },
-    ],
-    subtotal: 956,
-    deliveryFee: 99,
-    total: 1055,
-    deliveryAddress: 'пр. Мира, д. 15, кв. 42',
-    createdAt: '2024-01-15T10:45:00Z',
-    updatedAt: '2024-01-15T11:20:00Z',
-    estimatedDeliveryTime: '2024-01-15T11:45:00Z',
-  },
-  {
-    id: 1004,
-    consumerId: 8,
-    consumerName: 'Павел Орлов',
-    restaurantId: 1,
-    restaurantName: 'Пицца Хат',
-    status: 'CANCELLED',
-    items: [
-      { id: 6, name: 'Пицца Пепперони', quantity: 1, price: 649 },
-    ],
-    subtotal: 649,
-    deliveryFee: 149,
-    total: 798,
-    deliveryAddress: 'ул. Гагарина, д. 20',
-    notes: 'Отменён клиентом',
-    createdAt: '2024-01-15T09:30:00Z',
-    updatedAt: '2024-01-15T09:45:00Z',
-  },
-  {
-    id: 1005,
-    consumerId: 9,
-    consumerName: 'Ольга Кузнецова',
-    restaurantId: 4,
-    restaurantName: 'KFC',
-    status: 'CONFIRMED',
-    items: [
-      { id: 7, name: 'Баскет Дуэт', quantity: 1, price: 599 },
-    ],
-    subtotal: 599,
-    deliveryFee: 129,
-    total: 728,
-    deliveryAddress: 'ул. Советская, д. 8',
-    createdAt: '2024-01-15T11:30:00Z',
-    updatedAt: '2024-01-15T11:32:00Z',
-  },
-]
+import { useOrders, useCancelOrder, useOrderByNumber } from '@/hooks'
 
 const statusLabels: Record<OrderStatus, string> = {
+  CREATED: 'Создан',
   PENDING: 'Ожидает',
   CONFIRMED: 'Подтверждён',
+  ACCEPTED: 'Принят',
   PREPARING: 'Готовится',
+  READY: 'Готов',
   READY_FOR_PICKUP: 'Готов к выдаче',
   PICKED_UP: 'Забран',
+  IN_TRANSIT: 'В пути',
   DELIVERING: 'Доставляется',
   DELIVERED: 'Доставлен',
+  COMPLETED: 'Завершён',
   CANCELLED: 'Отменён',
+  REFUNDED: 'Возврат',
 }
 
 const statusColors: Record<OrderStatus, 'default' | 'secondary' | 'destructive' | 'success' | 'warning'> = {
+  CREATED: 'secondary',
   PENDING: 'secondary',
   CONFIRMED: 'default',
+  ACCEPTED: 'default',
   PREPARING: 'warning',
+  READY: 'warning',
   READY_FOR_PICKUP: 'warning',
   PICKED_UP: 'default',
+  IN_TRANSIT: 'default',
   DELIVERING: 'default',
   DELIVERED: 'success',
+  COMPLETED: 'success',
   CANCELLED: 'destructive',
+  REFUNDED: 'destructive',
 }
 
+// Orders that can be cancelled according to API
+const cancellableStatuses: OrderStatus[] = ['CREATED', 'ACCEPTED', 'PREPARING', 'READY']
+
 export function OrdersPage() {
+  // Order number search state
+  const [orderNoSearch, setOrderNoSearch] = useState('')
+  const [searchedOrderNo, setSearchedOrderNo] = useState('')
+
   // Filters state
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
@@ -171,28 +97,76 @@ export function OrdersPage() {
   })
   const [cancelReason, setCancelReason] = useState('')
 
-  // Filter orders
-  const filteredOrders = mockOrders.filter((order) => {
-    const matchesSearch =
-      !search ||
-      order.id.toString().includes(search) ||
-      order.consumerName.toLowerCase().includes(search.toLowerCase()) ||
-      order.restaurantName.toLowerCase().includes(search.toLowerCase()) ||
-      order.courierName?.toLowerCase().includes(search.toLowerCase())
+  // Order number search hook
+  const {
+    data: orderByNoData,
+    isLoading: orderByNoLoading,
+    error: orderByNoError,
+  } = useOrderByNumber(searchedOrderNo)
 
-    const matchesStatus = !statusFilter || order.status === statusFilter
+  const foundOrder = orderByNoData?.data
 
-    return matchesSearch && matchesStatus
+  // Handle order number search
+  const handleOrderNoSearch = () => {
+    if (orderNoSearch.trim()) {
+      setSearchedOrderNo(orderNoSearch.trim())
+    }
+  }
+
+  const handleOrderNoKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleOrderNoSearch()
+    }
+  }
+
+  const clearOrderNoSearch = () => {
+    setOrderNoSearch('')
+    setSearchedOrderNo('')
+  }
+
+  // API hooks
+  const { data: ordersData, isLoading, refetch } = useOrders({
+    page,
+    size: pageSize,
+    status: statusFilter as OrderStatus || undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
   })
 
-  const totalItems = filteredOrders.length
-  const totalPages = Math.ceil(totalItems / pageSize)
-  const paginatedOrders = filteredOrders.slice(page * pageSize, (page + 1) * pageSize)
+  const cancelOrderMutation = useCancelOrder()
+
+  const orders = ordersData?.data?.content ?? []
+  const totalItems = ordersData?.data?.totalElements ?? 0
+  const totalPages = ordersData?.data?.totalPages ?? 0
+
+  // Client-side search filter (for now)
+  const filteredOrders = orders.filter((order) => {
+    if (!search) return true
+    const searchLower = search.toLowerCase()
+    return (
+      order.id.toString().includes(search) ||
+      (order.externalOrderNo?.toLowerCase().includes(searchLower)) ||
+      order.consumerName.toLowerCase().includes(searchLower) ||
+      order.restaurantName.toLowerCase().includes(searchLower) ||
+      order.courierName?.toLowerCase().includes(searchLower)
+    )
+  })
 
   const handleCancel = () => {
-    console.log('Cancelling order:', cancelModal.order?.id, cancelReason)
-    setCancelModal({ isOpen: false, order: null })
-    setCancelReason('')
+    if (cancelModal.order) {
+      cancelOrderMutation.mutate(
+        {
+          id: cancelModal.order.id,
+          data: { reason: cancelReason, requestRefund: true },
+        },
+        {
+          onSuccess: () => {
+            setCancelModal({ isOpen: false, order: null })
+            setCancelReason('')
+          },
+        }
+      )
+    }
   }
 
   return (
@@ -205,11 +179,93 @@ export function OrdersPage() {
             Управление заказами системы
           </p>
         </div>
-        <Button variant="outline" size="sm">
-          <RefreshCw className="mr-2 h-4 w-4" />
+        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           Обновить
         </Button>
       </div>
+
+      {/* Quick Order Number Search */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Hash className="h-4 w-4" />
+            Быстрый поиск по номеру заказа
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" />
+              <Input
+                placeholder="Введите номер заказа (ORD-2024-001)..."
+                value={orderNoSearch}
+                onChange={(e) => setOrderNoSearch(e.target.value)}
+                onKeyDown={handleOrderNoKeyDown}
+                className="pl-10"
+              />
+            </div>
+            <Button onClick={handleOrderNoSearch} disabled={orderByNoLoading || !orderNoSearch.trim()}>
+              {orderByNoLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="mr-2 h-4 w-4" />
+              )}
+              Найти
+            </Button>
+            {searchedOrderNo && (
+              <Button variant="outline" onClick={clearOrderNoSearch}>
+                Очистить
+              </Button>
+            )}
+          </div>
+
+          {/* Search Result */}
+          {searchedOrderNo && (
+            <div className="mt-4">
+              {orderByNoLoading ? (
+                <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Поиск заказа...</span>
+                </div>
+              ) : orderByNoError || !foundOrder ? (
+                <div className="rounded-lg border border-[hsl(var(--destructive))]/20 bg-[hsl(var(--destructive))]/10 p-4">
+                  <p className="text-[hsl(var(--destructive))]">
+                    Заказ с номером "{searchedOrderNo}" не найден
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-3">
+                        <span className="font-semibold text-lg">
+                          {foundOrder.externalOrderNo || `#${foundOrder.id}`}
+                        </span>
+                        <Badge variant={statusColors[foundOrder.status]}>
+                          {statusLabels[foundOrder.status]}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-[hsl(var(--muted-foreground))]">
+                        <span>Клиент: {foundOrder.consumerName}</span>
+                        <span>Ресторан: {foundOrder.restaurantName}</span>
+                        <span>Сумма: {formatCurrency(foundOrder.total)}</span>
+                        <span>{formatDateTime(foundOrder.createdAt)}</span>
+                      </div>
+                    </div>
+                    <Link to={`/orders/${foundOrder.id}`}>
+                      <Button>
+                        Открыть заказ
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <Card>
@@ -230,16 +286,24 @@ export function OrdersPage() {
                 className="pl-10"
               />
             </div>
-            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <Select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value)
+                setPage(0)
+              }}
+            >
               <option value="">Все статусы</option>
-              <option value="PENDING">Ожидает</option>
-              <option value="CONFIRMED">Подтверждён</option>
+              <option value="CREATED">Создан</option>
+              <option value="ACCEPTED">Принят</option>
               <option value="PREPARING">Готовится</option>
-              <option value="READY_FOR_PICKUP">Готов к выдаче</option>
+              <option value="READY">Готов</option>
               <option value="PICKED_UP">Забран</option>
-              <option value="DELIVERING">Доставляется</option>
+              <option value="IN_TRANSIT">В пути</option>
               <option value="DELIVERED">Доставлен</option>
+              <option value="COMPLETED">Завершён</option>
               <option value="CANCELLED">Отменён</option>
+              <option value="REFUNDED">Возврат</option>
             </Select>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" />
@@ -247,7 +311,10 @@ export function OrdersPage() {
                 type="date"
                 placeholder="С"
                 value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
+                onChange={(e) => {
+                  setDateFrom(e.target.value)
+                  setPage(0)
+                }}
                 className="pl-10"
               />
             </div>
@@ -257,7 +324,10 @@ export function OrdersPage() {
                 type="date"
                 placeholder="По"
                 value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
+                onChange={(e) => {
+                  setDateTo(e.target.value)
+                  setPage(0)
+                }}
                 className="pl-10"
               />
             </div>
@@ -270,6 +340,7 @@ export function OrdersPage() {
                 setStatusFilter('')
                 setDateFrom('')
                 setDateTo('')
+                setPage(0)
               }}
             >
               Сбросить
@@ -281,79 +352,87 @@ export function OrdersPage() {
       {/* Orders table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Клиент</TableHead>
-                <TableHead>Ресторан</TableHead>
-                <TableHead>Курьер</TableHead>
-                <TableHead>Сумма</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead>Создан</TableHead>
-                <TableHead className="w-[70px]">Действия</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedOrders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium">#{order.id}</TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{order.consumerName}</div>
-                      <div className="text-sm text-[hsl(var(--muted-foreground))] truncate max-w-[200px]">
-                        {order.deliveryAddress}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{order.restaurantName}</TableCell>
-                  <TableCell>
-                    {order.courierName || (
-                      <span className="text-[hsl(var(--muted-foreground))]">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {formatCurrency(order.total)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={statusColors[order.status]}>
-                      {statusLabels[order.status]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-[hsl(var(--muted-foreground))]">
-                    {formatDateTime(order.createdAt)}
-                  </TableCell>
-                  <TableCell>
-                    <Dropdown
-                      trigger={
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      }
-                    >
-                      <Link to={`/orders/${order.id}`}>
-                        <DropdownItem>
-                          <Eye className="h-4 w-4" />
-                          Просмотр
-                        </DropdownItem>
-                      </Link>
-                      {order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && (
-                        <DropdownItem
-                          variant="destructive"
-                          onClick={() => setCancelModal({ isOpen: true, order })}
-                        >
-                          <X className="h-4 w-4" />
-                          Отменить
-                        </DropdownItem>
-                      )}
-                    </Dropdown>
-                  </TableCell>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Клиент</TableHead>
+                  <TableHead>Ресторан</TableHead>
+                  <TableHead>Курьер</TableHead>
+                  <TableHead>Сумма</TableHead>
+                  <TableHead>Статус</TableHead>
+                  <TableHead>Создан</TableHead>
+                  <TableHead className="w-[70px]">Действия</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredOrders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">
+                      {order.externalOrderNo || `#${order.id}`}
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{order.consumerName}</div>
+                        <div className="text-sm text-[hsl(var(--muted-foreground))] truncate max-w-[200px]">
+                          {order.deliveryAddress}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{order.restaurantName}</TableCell>
+                    <TableCell>
+                      {order.courierName || (
+                        <span className="text-[hsl(var(--muted-foreground))]">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {formatCurrency(order.total)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={statusColors[order.status]}>
+                        {statusLabels[order.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-[hsl(var(--muted-foreground))]">
+                      {formatDateTime(order.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      <Dropdown
+                        trigger={
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        }
+                      >
+                        <Link to={`/orders/${order.id}`}>
+                          <DropdownItem>
+                            <Eye className="h-4 w-4" />
+                            Просмотр
+                          </DropdownItem>
+                        </Link>
+                        {cancellableStatuses.includes(order.status) && (
+                          <DropdownItem
+                            variant="destructive"
+                            onClick={() => setCancelModal({ isOpen: true, order })}
+                          >
+                            <X className="h-4 w-4" />
+                            Отменить
+                          </DropdownItem>
+                        )}
+                      </Dropdown>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
 
-          {paginatedOrders.length === 0 && (
+          {!isLoading && filteredOrders.length === 0 && (
             <div className="py-12 text-center text-[hsl(var(--muted-foreground))]">
               Заказы не найдены
             </div>
@@ -395,8 +474,19 @@ export function OrdersPage() {
           <Button variant="outline" onClick={() => setCancelModal({ isOpen: false, order: null })}>
             Назад
           </Button>
-          <Button variant="destructive" onClick={handleCancel}>
-            Отменить заказ
+          <Button
+            variant="destructive"
+            onClick={handleCancel}
+            disabled={cancelOrderMutation.isPending}
+          >
+            {cancelOrderMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Отмена...
+              </>
+            ) : (
+              'Отменить заказ'
+            )}
           </Button>
         </ModalFooter>
       </Modal>

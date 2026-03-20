@@ -57,91 +57,749 @@ export interface AuthTokens {
 }
 
 // Courier types
-export type CourierStatus = 'PENDING_APPROVAL' | 'AVAILABLE' | 'BUSY' | 'OFFLINE'
+export type CourierStatus = 'PENDING_APPROVAL' | 'AVAILABLE' | 'BUSY' | 'OFFLINE' | 'ON_BREAK' | 'SUSPENDED'
+
+export type VehicleType = 'WALKING' | 'BICYCLE' | 'E_BIKE' | 'MOTORCYCLE' | 'CAR' | 'VAN'
 
 export interface Courier {
   id: number
   userId: number
-  userName: string
+  userName?: string
+  vehicleType?: VehicleType
+  vehicleNumber?: string
+  licenseNumber?: string
   status: CourierStatus
-  verified: boolean
+  isVerified: boolean
   verifiedAt?: string
-  rating?: number
-  totalDeliveries?: number
+  rating: number
+  totalDeliveries: number
+  currentLatitude?: number
+  currentLongitude?: number
+  currentOrderCount?: number
+  maxConcurrentOrders?: number
+  preferredRadiusKm?: number
+  lastLocationUpdate?: string
+  createdAt: string
+  // Legacy fields for backward compatibility
+  verified?: boolean
   currentLocation?: {
     lat: number
     lng: number
   }
 }
 
+export interface CourierRegistrationRequest {
+  vehicleType: VehicleType
+  vehicleNumber?: string
+  licenseNumber?: string
+  preferredRadiusKm?: number
+}
+
+export interface AvailableCourier {
+  id: number
+  userId: number
+  vehicleType: VehicleType
+  status: CourierStatus
+  rating: number
+  currentLatitude: number
+  currentLongitude: number
+  distanceKm: number
+}
+
+export interface CourierStatistics {
+  totalCouriers: number
+  pendingApproval: number
+  online: number
+  offline: number
+  suspended: number
+  verified: number
+  available: number
+  busy: number
+  onBreak: number
+}
+
+export interface CourierUpdateRequest {
+  vehicleType?: VehicleType
+  vehicleNumber?: string
+  licenseNumber?: string
+  preferredRadiusKm?: number
+  maxConcurrentOrders?: number
+}
+
 // Restaurant types
-export type RestaurantStatus = 'PENDING' | 'APPROVED' | 'SUSPENDED' | 'REJECTED'
+export type RestaurantStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'CLOSED' | 'REJECTED'
 
 export interface Restaurant {
   id: number
-  name: string
-  description?: string
-  address: string
-  phone: string
-  email?: string
-  status: RestaurantStatus
-  isOpen: boolean
-  rating?: number
-  totalOrders?: number
   ownerId: number
   ownerName?: string
+  name: string
+  slug: string
+  description?: string
+  logoUrl?: string
+  coverImageUrl?: string
+  phone: string
+  email?: string
+  fullAddress: string
+  addressLine1?: string
+  addressLine2?: string
+  city?: string
+  state?: string
+  postalCode?: string
+  country?: string
+  latitude?: number
+  longitude?: number
+  status: RestaurantStatus
+  featured: boolean
+  acceptsDelivery: boolean
+  acceptsTakeaway: boolean
+  acceptsDineIn: boolean
+  minimumOrder?: number
+  deliveryFee?: number
+  deliveryRadiusKm?: number
+  averagePrepTimeMinutes?: number
+  opensAt?: string
+  closesAt?: string
+  isOpen: boolean
+  isCurrentlyOpen: boolean
+  averageRating?: number
+  totalRatings?: number
+  totalOrders?: number
   createdAt: string
-  updatedAt: string
+  updatedAt?: string
+}
+
+export interface CreateRestaurantRequest {
+  name: string
+  description?: string
+  phone: string
+  email?: string
+  addressLine1: string
+  addressLine2?: string
+  city: string
+  state?: string
+  postalCode?: string
+  country?: string
+  latitude?: number
+  longitude?: number
+  acceptsDelivery?: boolean
+  acceptsTakeaway?: boolean
+  acceptsDineIn?: boolean
+  minimumOrder?: number
+  deliveryFee?: number
+  deliveryRadiusKm?: number
+  averagePrepTimeMinutes?: number
+  opensAt?: string
+  closesAt?: string
+}
+
+export interface UpdateRestaurantRequest extends Partial<CreateRestaurantRequest> {}
+
+// Menu types
+export interface MenuCategory {
+  id: number
+  restaurantId: number
+  name: string
+  description?: string
+  imageUrl?: string
+  sortOrder: number
+  active: boolean
+  items?: MenuItem[]
+}
+
+export interface CreateMenuCategoryRequest {
+  name: string
+  description?: string
+  imageUrl?: string
+  sortOrder?: number
+}
+
+export interface MenuItem {
+  id: number
+  categoryId: number
+  categoryName?: string
+  name: string
+  description?: string
+  price: number
+  priceWithMargin?: number
+  originalPrice?: number
+  effectivePrice?: number
+  onSale?: boolean
+  discountPercentage?: number
+  imageUrl?: string
+  inStock: boolean
+  featured: boolean
+  prepTimeMinutes?: number
+  calories?: number
+  vegetarian?: boolean
+  vegan?: boolean
+  glutenFree?: boolean
+  spicy?: boolean
+  allergens?: string
+  sortOrder?: number
+  variants?: ItemVariant[]
+  options?: ItemOption[]
+}
+
+export interface ItemVariant {
+  id: number
+  name: string
+  priceDelta: number
+  totalPrice?: number
+  inStock: boolean
+  sortOrder?: number
+}
+
+export interface ItemOption {
+  id: number
+  groupName?: string
+  name: string
+  priceDelta: number
+  isDefault: boolean
+  maxSelections?: number
+  required: boolean
+  inStock: boolean
+}
+
+export interface CreateMenuItemRequest {
+  categoryId: number
+  name: string
+  description?: string
+  price: number
+  originalPrice?: number
+  imageUrl?: string
+  prepTimeMinutes?: number
+  calories?: number
+  vegetarian?: boolean
+  vegan?: boolean
+  glutenFree?: boolean
+  spicy?: boolean
+  allergens?: string
+  featured?: boolean
+  sortOrder?: number
+  variants?: Omit<ItemVariant, 'id' | 'totalPrice' | 'inStock'>[]
+  options?: Omit<ItemOption, 'id' | 'inStock'>[]
 }
 
 // Order types
 export type OrderStatus =
+  | 'CREATED'
   | 'PENDING'
   | 'CONFIRMED'
+  | 'ACCEPTED'
   | 'PREPARING'
+  | 'READY'
   | 'READY_FOR_PICKUP'
   | 'PICKED_UP'
+  | 'IN_TRANSIT'
   | 'DELIVERING'
   | 'DELIVERED'
+  | 'COMPLETED'
   | 'CANCELLED'
+  | 'REFUNDED'
+
+export type OrderType = 'DELIVERY' | 'TAKEAWAY' | 'PICKUP' | 'DINE_IN'
+
+export type PaymentStatus =
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'CONFIRMED'
+  | 'FAILED'
+  | 'REFUNDED'
+  | 'CANCELLED'
+
+export interface OrderItemModifier {
+  id: number
+  name: string
+  price: number
+}
 
 export interface OrderItem {
   id: number
+  menuItemId?: number
   name: string
+  itemName?: string
   quantity: number
   price: number
+  unitPrice?: number
+  totalPrice?: number
+  variantName?: string
+  variantPriceDelta?: number
+  modifiers?: OrderItemModifier[]
+  modifiersTotal?: number
+  specialInstructions?: string
 }
 
 export interface Order {
   id: number
+  externalOrderNo?: string
   consumerId: number
   consumerName: string
   restaurantId: number
   restaurantName: string
   courierId?: number
   courierName?: string
+  orderType?: OrderType
   status: OrderStatus
+  paymentStatus?: PaymentStatus
   items: OrderItem[]
   subtotal: number
+  tax?: number
   deliveryFee: number
+  discount?: number
+  tipAmount?: number
   total: number
   deliveryAddress: string
+  deliveryLatitude?: number
+  deliveryLongitude?: number
+  deliveryInstructions?: string
+  tableId?: string
+  customerName?: string
+  customerPhone?: string
   notes?: string
+  cancellationReason?: string
+  estimatedPrepTimeMinutes?: number
+  estimatedDeliveryTime?: string
   createdAt: string
   updatedAt: string
-  estimatedDeliveryTime?: string
+  acceptedAt?: string
+  readyAt?: string
+  deliveredAt?: string
+}
+
+// Order creation types
+export interface CreateOrderItemRequest {
+  menuItemId: number
+  quantity: number
+  variantId?: number
+  optionIds?: number[]
+  specialInstructions?: string
+}
+
+export interface CreateOrderRequest {
+  restaurantId: number
+  orderType: OrderType
+  items: CreateOrderItemRequest[]
+  deliveryAddress?: string
+  deliveryLatitude?: number
+  deliveryLongitude?: number
+  deliveryInstructions?: string
+  tableId?: string
+  customerName?: string
+  customerPhone?: string
+  notes?: string
+  tipAmount?: number
+  discountCode?: string
+}
+
+// Payment types
+export interface Payment {
+  id: number
+  orderId: number
+  provider: string
+  providerPaymentId?: string
+  paymentIntentId?: string
+  clientSecret?: string
+  paymentMethod: string
+  amount: number
+  currency: string
+  status: PaymentStatus
+  refundAmount?: number
+  createdAt: string
+  confirmedAt?: string
+  refundedAt?: string
+}
+
+export interface CreatePaymentRequest {
+  paymentMethod: string
+  returnUrl?: string
+  metadata?: string
+}
+
+export interface CancelOrderRequest {
+  reason: string
+  requestRefund?: boolean
 }
 
 // Dashboard types
-export interface DashboardOverview {
-  totalOrders: number
-  totalRevenue: number
-  activeUsers: number
-  activeRestaurants: number
-  activeCouriers: number
-  pendingApprovals: number
+export type TrendDirection = 'UP' | 'DOWN' | 'STABLE'
+export type SystemHealthStatus = 'HEALTHY' | 'DEGRADED' | 'UNHEALTHY'
+export type StuckOrderPriority = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+
+export interface OrderComparison {
+  ordersYesterday: number
+  revenueYesterday: number
+  orderChangePercent: number
+  revenueChangePercent: number
+  trend: TrendDirection
 }
 
+export interface SystemStatus {
+  apiLatencyP50: number
+  apiLatencyP90: number
+  dbLoad: number
+  dbIdleConnections: number
+  redisLatency: number
+  queueBacklog: number
+  errorRatePercent: number
+  cpuUsagePercent: number
+  memoryUsagePercent: number
+  overallStatus: SystemHealthStatus
+}
+
+export interface DashboardOverview {
+  ordersToday: number
+  ordersPendingAcceptance: number
+  ordersInPreparation: number
+  ordersInDelivery: number
+  ordersCompletedToday: number
+  ordersCancelledToday: number
+  revenueToday: number
+  averageOrderValue: number
+  totalTipsToday: number
+  totalDiscountsToday: number
+  activeCouriers: number
+  totalCouriersOnline: number
+  availableCouriers: number
+  busyCouriers: number
+  activeRestaurants: number
+  totalRestaurantsOnline: number
+  restaurantsAcceptingOrders: number
+  avgDeliveryTimeToday: number
+  avgPrepTimeToday: number
+  avgAcceptanceTimeToday: number
+  orderFulfillmentRate: number
+  comparison: OrderComparison
+  systemStatus: SystemStatus
+  generatedAt: string
+}
+
+export interface ActiveOrderItem {
+  orderId: number
+  orderNumber: string
+  customerId: number
+  customerName: string
+  restaurantId: number
+  restaurantName: string
+  courierId?: number
+  courierName?: string
+  status: string
+  orderStatus: string
+  orderTotal: number
+  createdAt: string
+  estimatedDeliveryAt?: string
+  deliveryAddress: string
+}
+
+export interface ActiveOrdersResponse {
+  totalActiveOrders: number
+  orders: ActiveOrderItem[]
+  statusBreakdown: Record<string, number>
+  generatedAt: string
+}
+
+export interface StuckOrderItem {
+  orderId: number
+  externalOrderNo: string
+  status: string
+  stuckStage: string
+  restaurantId: number
+  restaurantName: string
+  customerId: number
+  customerName: string
+  customerPhone: string
+  deliveryAddress: string
+  createdAt: string
+  lastStatusChange: string
+  minutesStuck: number
+  expectedTimeMinutes: number
+  total: number
+  priority: StuckOrderPriority
+  suggestedAction: string
+}
+
+export interface StuckOrdersResponse {
+  totalStuckOrders: number
+  stuckPending: number
+  stuckAccepted: number
+  stuckPreparing: number
+  stuckReady: number
+  stuckInTransit: number
+  orders: StuckOrderItem[]
+}
+
+export interface CancelledOrderItem {
+  orderId: number
+  orderNumber: string
+  customerId: number
+  customerName: string
+  restaurantId: number
+  restaurantName: string
+  orderStatus: string
+  cancelledAt: string
+  cancellationReason: string
+  cancelledBy: string
+  refundAmount: number
+  refundStatus: string
+  orderTotal: number
+  createdAt: string
+}
+
+export interface CancelledOrdersResponse {
+  totalCancelledOrders: number
+  cancelledByCustomer: number
+  cancelledByRestaurant: number
+  cancelledBySystem: number
+  totalRefundAmount: number
+  orders: CancelledOrderItem[]
+  reasonBreakdown: Record<string, number>
+  hourlyDistribution: Record<string, number>
+  generatedAt: string
+}
+
+export interface RejectedOrderItem {
+  orderId: number
+  orderNumber: string
+  customerId: number
+  customerName: string
+  restaurantId: number
+  restaurantName: string
+  rejectedAt: string
+  rejectionReason: string
+  orderTotal: number
+  createdAt: string
+}
+
+export interface RejectedOrdersResponse {
+  totalRejectedOrders: number
+  totalLostRevenue: number
+  orders: RejectedOrderItem[]
+  restaurantBreakdown: Record<string, number>
+  reasonBreakdown: Record<string, number>
+  hourlyDistribution: Record<string, number>
+  generatedAt: string
+}
+
+export interface RestaurantMetricItem {
+  restaurantId: number
+  name: string
+  status: string
+  isOnline: boolean
+  rating: number
+  totalOrdersToday: number
+  avgPreparationTimeMinutes: number
+  orderAcceptanceLatencySeconds: number
+  acceptanceRate: number
+  rejectedOrdersToday: number
+  cuisineType?: string
+  city?: string
+  performanceScore: number
+}
+
+export interface RestaurantPerformanceSummary {
+  avgPreparationTimeMinutes: number
+  avgAcceptanceLatencySeconds: number
+  avgRating: number
+  avgAcceptanceRate: number
+  totalOrdersProcessed: number
+  rejectionRate: number
+}
+
+export interface RestaurantMetricsResponse {
+  totalRestaurants: number
+  onlineRestaurants: number
+  offlineRestaurants: number
+  busyRestaurants: number
+  onlinePercentage: number
+  performanceSummary: RestaurantPerformanceSummary
+  restaurants: RestaurantMetricItem[]
+  statusBreakdown: Record<string, number>
+  cuisineDistribution: Record<string, number>
+  generatedAt: string
+}
+
+export interface CourierMetricItem {
+  courierId: number
+  name: string
+  status: string
+  isActive: boolean
+  rating: number
+  deliveriesToday: number
+  avgDeliveryTimeMinutes: number
+  onTimeDeliveryRate: number
+  vehicleType: string
+  currentLatitude?: number
+  currentLongitude?: number
+  currentOrderId?: number
+  performanceScore: number
+}
+
+export interface CourierLocation {
+  courierId: number
+  courierName: string
+  latitude: number
+  longitude: number
+  status: string
+  currentOrderId?: number
+  lastPingAt: string
+}
+
+export interface CourierPerformanceSummary {
+  avgDeliveryTimeMinutes: number
+  avgRating: number
+  totalDeliveriesToday: number
+  onTimeDeliveryRate: number
+  avgDeliveriesPerCourier: number
+  avgDistancePerDeliveryKm: number
+}
+
+export interface CourierMetricsResponse {
+  totalCouriers: number
+  activeCouriers: number
+  onDeliveryCouriers: number
+  availableCouriers: number
+  offlineCouriers: number
+  activePercentage: number
+  utilizationRate: number
+  performanceSummary: CourierPerformanceSummary
+  couriers: CourierMetricItem[]
+  courierLocations: CourierLocation[]
+  statusBreakdown: Record<string, number>
+  vehicleDistribution: Record<string, number>
+  generatedAt: string
+}
+
+export interface DailyRevenueItem {
+  date: string
+  gmv: number
+  commissionRevenue: number
+  deliveryFeeRevenue: number
+  discounts: number
+  orderCount: number
+  avgOrderValue: number
+}
+
+export interface PayoutSummary {
+  totalRestaurantPayouts: number
+  totalCourierPayouts: number
+  pendingRestaurantPayouts: number
+  pendingCourierPayouts: number
+  completedPayoutsCount: number
+  avgSettlementTimeHours: number
+}
+
+export interface DiscountSummary {
+  totalDiscounts: number
+  ordersWithDiscount: number
+  discountUsageRate: number
+  avgDiscountPerOrder: number
+  discountByType: Record<string, number>
+}
+
+export interface RefundSummary {
+  totalRefundAmount: number
+  refundCount: number
+  approvedRefunds: number
+  pendingRefunds: number
+  approvalRate: number
+  refundByReason: Record<string, number>
+}
+
+export interface FinanceMetricsResponse {
+  gmv: number
+  commissionRevenue: number
+  deliveryFeeRevenue: number
+  totalRevenue: number
+  netRevenue: number
+  restaurantPayouts: number
+  courierPayouts: number
+  discountsUsed: number
+  refundsPaid: number
+  unsettledRestaurantPayouts: number
+  unsettledCourierPayouts: number
+  totalOrders: number
+  avgOrderValue: number
+  commissionRate: number
+  payoutSummary: PayoutSummary
+  discountSummary: DiscountSummary
+  refundSummary: RefundSummary
+  dailyRevenue: DailyRevenueItem[]
+  paymentMethodBreakdown: Record<string, number>
+  generatedAt: string
+}
+
+export interface SupportTicketItem {
+  ticketId: number
+  ticketNumber: string
+  customerId: number
+  customerName: string
+  orderId?: number
+  category: string
+  priority: string
+  status: string
+  subject: string
+  createdAt: string
+  assignedAgentId?: number
+  assignedAgentName?: string
+  waitTimeMinutes: number
+  waitTimeFormatted: string
+  slaBreached: boolean
+}
+
+export interface AgentPerformance {
+  agentId: number
+  agentName: string
+  ticketsHandled: number
+  ticketsResolved: number
+  resolutionRate: number
+  avgResolutionTimeMinutes: number
+  avgSatisfactionScore: number
+  performanceScore: number
+}
+
+export interface CommonIssue {
+  category: string
+  subcategory: string
+  count: number
+  percentage: number
+  avgResolutionTimeMinutes: number
+  trend: TrendDirection
+}
+
+export interface SlaMetrics {
+  totalTickets: number
+  slaMetTickets: number
+  slaBreachedTickets: number
+  slaComplianceRate: number
+}
+
+export interface SupportMetricsResponse {
+  totalTickets: number
+  openTickets: number
+  inProgressTickets: number
+  resolvedTickets: number
+  closedTickets: number
+  escalatedTickets: number
+  complaintCount: number
+  refundRequestCount: number
+  inquiryCount: number
+  feedbackCount: number
+  avgResolutionTimeMinutes: number
+  avgResolutionTimeFormatted: string
+  avgFirstResponseTimeMinutes: number
+  avgFirstResponseTimeFormatted: string
+  customerSatisfactionScore: number
+  resolutionRate: number
+  tickets: SupportTicketItem[]
+  statusBreakdown: Record<string, number>
+  priorityBreakdown: Record<string, number>
+  agentPerformance: AgentPerformance[]
+  commonIssues: CommonIssue[]
+  slaMetrics: SlaMetrics
+  generatedAt: string
+}
+
+// Legacy types for backward compatibility
 export interface StuckOrder {
   id: number
   restaurantName: string
@@ -166,8 +824,187 @@ export interface PerformanceData {
 }
 
 // Notification types
-export type NotificationPriority = 'LOW' | 'MEDIUM' | 'HIGH'
+export type NotificationCategory =
+  | 'ORDER'
+  | 'FINANCE'
+  | 'SUPPORT'
+  | 'SYSTEM'
+  | 'PROMOTION'
+  | 'ACCOUNT'
+  | 'DELIVERY'
+  | 'RESTAURANT_OPS'
+  | 'ALERT'
 
+export type NotificationRole =
+  | 'CUSTOMER'
+  | 'COURIER'
+  | 'RESTAURANT'
+  | 'ADMIN'
+  | 'SUPPORT'
+  | 'FINANCE'
+  | 'OPERATIONS'
+  | 'ALL'
+
+export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
+
+// Notification enum option types (from backend API)
+export interface NotificationTypeOption {
+  value: string
+  displayName: string
+  code: string
+  description?: string
+}
+
+export interface NotificationRoleOption {
+  value: NotificationRole
+  displayName: string
+  code: string
+  description?: string
+}
+
+export interface NotificationCategoryOption {
+  value: NotificationCategory
+  displayName: string
+  code: string
+  description?: string
+}
+
+export interface NotificationPriorityOption {
+  value: NotificationPriority
+  displayName: string
+  code: string
+}
+
+export interface NotificationReferenceData {
+  types: NotificationTypeOption[]
+  roles: NotificationRoleOption[]
+  categories: NotificationCategoryOption[]
+  priorities: NotificationPriorityOption[]
+}
+
+// Notification template types
+export interface NotificationTemplate {
+  id: number
+  type: string
+  role: NotificationRole
+  category: NotificationCategory
+  title: string
+  messageTemplate: string
+  icon?: string
+  defaultPriority: NotificationPriority
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateTemplateRequest {
+  type: string
+  role: NotificationRole
+  category: NotificationCategory
+  title: string
+  messageTemplate: string
+  icon?: string
+  defaultPriority?: NotificationPriority
+}
+
+export interface UpdateTemplateRequest {
+  title?: string
+  messageTemplate?: string
+  icon?: string
+  defaultPriority?: NotificationPriority
+  category?: NotificationCategory
+}
+
+export type BulkAction = 'MARK_READ' | 'DISMISS' | 'DELETE'
+
+export type RelatedEntityType =
+  | 'ORDER'
+  | 'RESTAURANT'
+  | 'COURIER'
+  | 'CUSTOMER'
+  | 'SUPPORT_TICKET'
+  | 'PAYMENT'
+  | 'PAYOUT'
+
+export interface Notification {
+  id: number
+  userId?: number
+  role?: NotificationRole
+  category: NotificationCategory
+  title: string
+  message: string
+  icon?: string
+  actionUrl?: string
+  relatedEntityType?: RelatedEntityType
+  relatedEntityId?: number
+  orderId?: number
+  priority?: NotificationPriority
+  isRead: boolean
+  isDismissed: boolean
+  readAt?: string
+  createdAt: string
+  expiresAt?: string
+}
+
+export interface CreateNotificationRequest {
+  userId?: number
+  role?: NotificationRole
+  notificationType?: string
+  category: NotificationCategory
+  title: string
+  message: string
+  icon?: string
+  actionUrl?: string
+  relatedEntityType?: RelatedEntityType
+  relatedEntityId?: number
+  orderId?: number
+  priority?: NotificationPriority
+  expiresAt?: string
+}
+
+export interface NotificationSearchRequest {
+  userId?: number
+  role?: NotificationRole
+  isRead?: boolean
+  category?: NotificationCategory
+  orderId?: number
+  createdFrom?: string
+  createdTo?: string
+  searchTerm?: string
+  includeDismissed?: boolean
+  page?: number
+  pageSize?: number
+  sortBy?: string
+  sortDirection?: 'ASC' | 'DESC'
+}
+
+export interface NotificationCounts {
+  total: number
+  unread: number
+  byCategory: Record<NotificationCategory, number>
+}
+
+export interface BulkActionRequest {
+  notificationIds: number[]
+  action: BulkAction
+}
+
+export interface CleanupResponse {
+  status: string
+  deletedCount: number
+}
+
+export interface BulkActionResponse {
+  status: string
+  affectedCount: number
+}
+
+export interface MarkReadResponse {
+  status: string
+  markedCount: number
+}
+
+// Legacy - keeping for backward compatibility
 export interface BroadcastNotification {
   title: string
   message: string
@@ -195,4 +1032,552 @@ export interface ExportRequest {
   startDate: string
   endDate: string
   format: ExportFormat
+}
+
+// Image types
+export type ImageCategory = 'restaurants' | 'menu-items' | 'profiles' | 'documents'
+
+export interface ImageUploadResponse {
+  filename: string
+  originalFilename: string
+  url: string
+  size: number
+  contentType: string
+}
+
+export interface ImageDeleteResponse {
+  success: boolean
+  message: string
+}
+
+// Referral types
+export type ReferralStatus = 'PENDING' | 'USED' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED'
+
+export interface Referral {
+  id: number
+  code: string
+  referrerId: number
+  referrerName: string
+  referredId?: number
+  referredName?: string
+  status: ReferralStatus
+  rewardAmount: number
+  currency: string
+  referrerRewarded: boolean
+  referredRewarded: boolean
+  expiresAt?: string
+  completedAt?: string
+  createdAt: string
+}
+
+export interface ReferralStats {
+  userId: number
+  completedReferrals: number
+  totalRewards: number
+  rewardPerReferral: number
+}
+
+// Admin Analytics types
+export interface OrderAnalytics {
+  periodDays: number
+  totalOrders: number
+  gmv: number
+  averageOrderValue: number
+  currency: string
+}
+
+// Analytics Module types (from ANALYTICS.md)
+
+// User Activity Metrics (DAU/WAU/MAU)
+export interface UserActivityMetrics {
+  dailyActiveUsers: number
+  weeklyActiveUsers: number
+  monthlyActiveUsers: number
+  dauMauRatio: number
+  dauWauRatio: number
+  wauMauRatio: number
+  referenceDate: string
+  newUsersToday: number
+  newUsersThisWeek: number
+  newUsersThisMonth: number
+  calculatedAt: string
+}
+
+// Order Volume Metrics
+export interface OrderVolumeMetrics {
+  ordersToday: number
+  ordersThisWeek: number
+  ordersThisMonth: number
+  firstOrdersToday: number
+  repeatOrdersToday: number
+  successRate: number
+  cancellationRate: number
+  ordersPerHour: Record<string, number>
+  referenceDate: string
+  calculatedAt: string
+}
+
+// Conversion Funnel Step
+export interface FunnelStep {
+  stepNumber: number
+  stepName: string
+  count: number
+  conversionFromPrevious: number
+  dropOffFromPrevious: number
+}
+
+// Conversion Metrics
+export interface ConversionMetrics {
+  restaurantViews: number
+  addToCartEvents: number
+  checkoutStartEvents: number
+  paymentCompletedEvents: number
+  overallConversionRate: number
+  viewToCartRate: number
+  cartToCheckoutRate: number
+  checkoutToPaymentRate: number
+  funnelSteps: FunnelStep[]
+  periodDays: number
+  referenceDate: string
+  calculatedAt: string
+}
+
+// Average Order Value Metrics
+export interface AOVMetrics {
+  averageOrderValue: number
+  medianOrderValue: number
+  averageItemsPerOrder: number
+  totalCompletedOrders: number
+  totalRevenue: number
+  currency: string
+  referenceDate: string
+  calculatedAt: string
+}
+
+// User Activation Metrics
+export interface ActivationMetrics {
+  firstDeliveryCount: number
+  avgActivationTimeHours: number
+  medianActivationTimeHours: number
+  referralUsageRate: number
+  newUsersActivated: number
+  totalNewUsers: number
+  activationRate: number
+  referenceDate: string
+  calculatedAt: string
+}
+
+// Churn Metrics
+export interface ChurnMetrics {
+  userChurnRate: number
+  userChurnCount: number
+  activeUsersCount: number
+  restaurantChurnRate: number
+  restaurantChurnCount: number
+  activeRestaurantsCount: number
+  courierChurnRate: number
+  courierChurnCount: number
+  activeCouriersCount: number
+  userChurnPeriodDays: number
+  restaurantChurnPeriodDays: number
+  courierChurnPeriodDays: number
+  referenceDate: string
+  calculatedAt: string
+}
+
+// Analytics Summary (quick overview)
+export interface AnalyticsSummary {
+  dailyActiveUsers: number
+  ordersToday: number
+  averageOrderValue: number
+  userChurnRate: number
+  restaurantChurnRate: number
+  courierChurnRate: number
+  generatedAt: string
+}
+
+// ============ CX Analytics Types (from cx-analytics.md) ============
+
+// NPS Score Categories
+export type NpsCategory = 'PROMOTER' | 'PASSIVE' | 'DETRACTOR'
+
+// NPS Score Interpretation
+export type NpsInterpretation = 'EXCELLENT' | 'GREAT' | 'GOOD' | 'NEEDS_IMPROVEMENT'
+
+// NPS Metrics
+export interface NpsScoreDistribution {
+  score: number
+  count: number
+  percentage: number
+}
+
+export interface NpsBySegment {
+  segment: string
+  npsScore: number
+  responseCount: number
+}
+
+export interface NpsByChannel {
+  channel: string
+  npsScore: number
+  responseCount: number
+}
+
+export interface NpsTrendItem {
+  date: string
+  npsScore: number
+  responseCount: number
+}
+
+export interface NpsMetrics {
+  npsScore: number
+  totalResponses: number
+  promotersCount: number
+  promotersPercentage: number
+  passivesCount: number
+  passivesPercentage: number
+  detractorsCount: number
+  detractorsPercentage: number
+  scoreDistribution?: NpsScoreDistribution[]
+  npsBySegment?: NpsBySegment[]
+  npsByChannel?: NpsByChannel[]
+  npsTrend?: NpsTrendItem[]
+  interpretation: NpsInterpretation
+  startDate: string
+  endDate: string
+  calculatedAt: string
+}
+
+// Restaurant Rating Metrics
+export interface RatingDistribution {
+  rating: number
+  count: number
+  percentage: number
+}
+
+export interface RatingTrendItem {
+  date: string
+  averageRating: number
+  count: number
+}
+
+export interface TopRatedRestaurant {
+  restaurantId: number
+  restaurantName: string
+  averageRating: number
+  ratingCount: number
+}
+
+export interface RestaurantRatingMetrics {
+  averageRating: number
+  ratingCount: number
+  distribution?: RatingDistribution[]
+  foodQualityAvg: number
+  portionSizeAvg: number
+  valueForMoneyAvg: number
+  topRatedRestaurants?: TopRatedRestaurant[]
+  lowestRatedRestaurants?: TopRatedRestaurant[]
+  ratingTrend?: RatingTrendItem[]
+  startDate: string
+  endDate: string
+  calculatedAt: string
+}
+
+// Courier Rating Metrics
+export interface TopRatedCourier {
+  courierId: number
+  courierName: string
+  averageRating: number
+  ratingCount: number
+}
+
+export interface CourierRatingMetrics {
+  averageRating: number
+  ratingCount: number
+  distribution?: RatingDistribution[]
+  professionalismAvg: number
+  communicationAvg: number
+  timelinessAvg: number
+  avgTipAmount: number
+  tipRate: number
+  topRatedCouriers?: TopRatedCourier[]
+  ratingTrend?: RatingTrendItem[]
+  startDate: string
+  endDate: string
+  calculatedAt: string
+}
+
+// App Store Rating Metrics
+export interface PlatformRatings {
+  averageRating: number
+  ratingCount: number
+  distribution: RatingDistribution[]
+}
+
+export interface RatingByVersion {
+  version: string
+  averageRating: number
+  ratingCount: number
+}
+
+export interface RatingByCountry {
+  country: string
+  averageRating: number
+  ratingCount: number
+}
+
+export interface SentimentSummary {
+  positive: number
+  neutral: number
+  negative: number
+}
+
+export interface AppStoreRatingMetrics {
+  overallAverageRating: number
+  totalReviewCount: number
+  iosPlatform: PlatformRatings
+  androidPlatform: PlatformRatings
+  ratingsByVersion?: RatingByVersion[]
+  ratingsByCountry?: RatingByCountry[]
+  sentimentSummary?: SentimentSummary
+  ratingTrend?: RatingTrendItem[]
+  startDate: string
+  endDate: string
+  calculatedAt: string
+}
+
+// Support Ticket Types
+export type SupportTicketType =
+  | 'LATE_DELIVERY'
+  | 'MISSING_ITEMS'
+  | 'WRONG_ORDER'
+  | 'COLD_FOOD'
+  | 'REFUND_REQUEST'
+  | 'PAYMENT_ISSUE'
+  | 'ACCOUNT_ISSUE'
+  | 'PROMO_CODE_ISSUE'
+  | 'APP_BUG'
+  | 'RESTAURANT_COMPLAINT'
+  | 'COURIER_COMPLAINT'
+  | 'OTHER'
+
+export type SupportTicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED'
+export type SupportTicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+export type SupportTicketChannel = 'APP' | 'EMAIL' | 'PHONE' | 'CHAT' | 'SOCIAL'
+
+// Support Ticket Volume Metrics
+export interface TicketVolumeMetrics {
+  totalTickets: number
+  openTickets: number
+  inProgressTickets: number
+  resolvedTickets: number
+  closedTickets: number
+  ticketsPerDay: number
+  ticketsPerWeek: number
+  ticketsPerMonth: number
+  ticketsByType: Record<string, number>
+  ticketsByStatus: Record<string, number>
+  ticketsByPriority: Record<string, number>
+  ticketsByChannel: Record<string, number>
+}
+
+// Support Ticket Performance Metrics
+export interface TicketPerformanceMetrics {
+  avgResolutionTimeHours: number
+  medianResolutionTimeHours: number
+  p90ResolutionTimeHours: number
+  avgFirstResponseTimeMinutes: number
+  resolutionRate: number
+  reopenRate: number
+  escalationRate: number
+}
+
+// Support Ticket SLA Metrics
+export interface TicketSlaMetrics {
+  slaHours: number
+  ticketsWithinSla: number
+  ticketsBreachedSla: number
+  slaComplianceRate: number
+  currentlyBreached: number
+  atRiskOfBreach: number
+  slaBreachesByType: Record<string, number>
+  slaBreachesByPriority: Record<string, number>
+}
+
+// Support Ticket CSAT Metrics
+export interface TicketCsatMetrics {
+  avgCsatScore: number
+  csatResponseCount: number
+  csatResponseRate: number
+  csatDistribution: Record<string, number>
+  satisfiedRate: number
+  dissatisfiedRate: number
+}
+
+// Support Ticket Agent Performance
+export interface CxAgentPerformance {
+  agentId: number
+  agentName?: string
+  ticketsHandled: number
+  ticketsResolved: number
+  avgResolutionTimeHours: number
+  avgFirstResponseMinutes: number
+  csatScore: number
+  slaBreaches: number
+  resolutionRate: number
+}
+
+// Support Ticket Trend Item
+export interface TicketTrendItem {
+  date: string
+  ticketCount: number
+  resolvedCount: number
+  avgResolutionTimeHours: number
+}
+
+// Support Ticket Metrics (combined)
+export interface SupportTicketMetricsResponse {
+  volumeMetrics: TicketVolumeMetrics
+  performanceMetrics: TicketPerformanceMetrics
+  slaMetrics: TicketSlaMetrics
+  csatMetrics: TicketCsatMetrics
+  agentPerformance?: CxAgentPerformance[]
+  ticketTrend?: TicketTrendItem[]
+  startDate: string
+  endDate: string
+  calculatedAt: string
+}
+
+// CX Status Levels
+export type CxStatus = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' | 'CRITICAL'
+
+// CX Summary
+export interface CxSummary {
+  overallScore: number
+  status: CxStatus
+  npsScore: number
+  npsInterpretation: NpsInterpretation
+  restaurantRatingAvg: number
+  courierRatingAvg: number
+  appStoreRatingAvg: number
+  slaComplianceRate: number
+  csatScore: number
+  openTickets: number
+  startDate: string
+  endDate: string
+  calculatedAt: string
+}
+
+// SMS Provider Types
+export type SmsProvider = 'ESKIZ' | 'DEVSMS'
+
+export interface SmsProviderInfo {
+  type: SmsProvider
+  configured: boolean
+  available: boolean
+  statusMessage: string
+}
+
+export interface SmsStatus {
+  enabled: boolean
+  currentProvider: SmsProvider
+  fallbackEnabled: boolean
+  fallbackProvider: SmsProvider
+  activeProviderName: SmsProvider
+  providers: SmsProviderInfo[]
+}
+
+export interface SmsConfigUpdate {
+  provider?: SmsProvider
+  fallbackEnabled?: boolean
+  fallbackProvider?: SmsProvider
+  enabled?: boolean
+}
+
+export interface SmsTestResponse {
+  success: boolean
+  message: string
+  data: string
+}
+
+export interface SmsProviderDetails {
+  provider: SmsProvider
+  enabled: boolean
+  baseUrl: string
+  from: string
+  hasToken: boolean
+  callbackUrl: string | null
+  available: boolean
+}
+
+export interface SmsProviderCredentials {
+  provider: SmsProvider
+  enabled?: boolean
+  from?: string
+  // Eskiz-specific
+  email?: string
+  password?: string
+  // DevSMS-specific
+  token?: string
+}
+
+// SMS Template Types
+export type SmsTemplateStatus = 'DRAFT' | 'PENDING' | 'APPROVED'
+export type SmsTemplateType = 'OTP' | 'NOTIFICATION' | 'MARKETING' | 'TRANSACTIONAL' | 'WELCOME'
+
+export interface SmsTemplate {
+  id: number
+  templateCode: string
+  name: string
+  content: string
+  templateType: SmsTemplateType
+  provider: SmsProvider
+  status: SmsTemplateStatus
+  active: boolean
+  variables: string[]
+  language: string
+  description: string
+  createdAt: string
+}
+
+export interface SmsTemplateRequest {
+  templateCode: string
+  name: string
+  content: string
+  templateType: SmsTemplateType
+  provider: SmsProvider
+  variables?: string[]
+  language?: string
+  description?: string
+}
+
+export interface SmsTemplateSyncResponse {
+  templateId: number
+  provider: SmsProvider
+  success: boolean
+  providerTemplateId?: string
+  message: string
+}
+
+export interface SmsTemplateStats {
+  total: number
+  draft: number
+  pending: number
+  approved: number
+  byProvider: Record<string, number>
+}
+
+// CX Analytics Query Params
+export interface CxAnalyticsQueryParams {
+  startDate: string
+  endDate: string
+  includeDistribution?: boolean
+  includeTrend?: boolean
+  includeSegments?: boolean
+  includeTopRestaurants?: boolean
+  includeTopCouriers?: boolean
+  includeVersionBreakdown?: boolean
+  includeCountryBreakdown?: boolean
+  includeAgentPerformance?: boolean
+  slaHours?: number
 }

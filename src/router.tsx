@@ -18,15 +18,20 @@ const UserRolesPage = lazy(() => import('@/pages/users/UserRolesPage').then(m =>
 const OrdersPage = lazy(() => import('@/pages/orders/OrdersPage').then(m => ({ default: m.OrdersPage })))
 const OrderDetailsPage = lazy(() => import('@/pages/orders/OrderDetailsPage').then(m => ({ default: m.OrderDetailsPage })))
 const ProblematicOrdersPage = lazy(() => import('@/pages/orders/ProblematicOrdersPage').then(m => ({ default: m.ProblematicOrdersPage })))
+const LiveOrdersPage = lazy(() => import('@/pages/orders/LiveOrdersPage').then(m => ({ default: m.LiveOrdersPage })))
+const OrderCreatePage = lazy(() => import('@/pages/orders/OrderCreatePage').then(m => ({ default: m.OrderCreatePage })))
 
 const CouriersPage = lazy(() => import('@/pages/couriers/CouriersPage').then(m => ({ default: m.CouriersPage })))
 const CourierDetailsPage = lazy(() => import('@/pages/couriers/CourierDetailsPage').then(m => ({ default: m.CourierDetailsPage })))
 const CourierVerificationPage = lazy(() => import('@/pages/couriers/CourierVerificationPage').then(m => ({ default: m.CourierVerificationPage })))
 const CouriersMapPage = lazy(() => import('@/pages/couriers/CouriersMapPage').then(m => ({ default: m.CouriersMapPage })))
+const CourierOperationsPage = lazy(() => import('@/pages/couriers/CourierOperationsPage').then(m => ({ default: m.CourierOperationsPage })))
 
 const RestaurantsPage = lazy(() => import('@/pages/restaurants/RestaurantsPage').then(m => ({ default: m.RestaurantsPage })))
 const RestaurantDetailsPage = lazy(() => import('@/pages/restaurants/RestaurantDetailsPage').then(m => ({ default: m.RestaurantDetailsPage })))
 const RestaurantModerationPage = lazy(() => import('@/pages/restaurants/RestaurantModerationPage').then(m => ({ default: m.RestaurantModerationPage })))
+const RestaurantMenuPage = lazy(() => import('@/pages/restaurants/RestaurantMenuPage').then(m => ({ default: m.RestaurantMenuPage })))
+const RestaurantDirectoryPage = lazy(() => import('@/pages/restaurants/RestaurantDirectoryPage').then(m => ({ default: m.RestaurantDirectoryPage })))
 
 const RevenueAnalyticsPage = lazy(() => import('@/pages/analytics/RevenueAnalyticsPage').then(m => ({ default: m.RevenueAnalyticsPage })))
 const OrdersAnalyticsPage = lazy(() => import('@/pages/analytics/OrdersAnalyticsPage').then(m => ({ default: m.OrdersAnalyticsPage })))
@@ -35,12 +40,27 @@ const FinancialAnalyticsPage = lazy(() => import('@/pages/analytics/FinancialAna
 const CustomerExperienceAnalyticsPage = lazy(() => import('@/pages/analytics/CustomerExperienceAnalyticsPage').then(m => ({ default: m.CustomerExperienceAnalyticsPage })))
 const FraudAnalyticsPage = lazy(() => import('@/pages/analytics/FraudAnalyticsPage').then(m => ({ default: m.FraudAnalyticsPage })))
 const TechnicalMetricsPage = lazy(() => import('@/pages/analytics/TechnicalMetricsPage').then(m => ({ default: m.TechnicalMetricsPage })))
+const RestaurantMetricsPage = lazy(() => import('@/pages/analytics/RestaurantMetricsPage').then(m => ({ default: m.RestaurantMetricsPage })))
+const SupportMetricsPage = lazy(() => import('@/pages/analytics/SupportMetricsPage').then(m => ({ default: m.SupportMetricsPage })))
+const UserAnalyticsPage = lazy(() => import('@/pages/analytics/UserAnalyticsPage').then(m => ({ default: m.UserAnalyticsPage })))
+const LegacyAnalyticsDashboardPage = lazy(() => import('@/pages/analytics/LegacyAnalyticsDashboardPage').then(m => ({ default: m.LegacyAnalyticsDashboardPage })))
+const CxRatingsPage = lazy(() => import('@/pages/analytics/CxRatingsPage').then(m => ({ default: m.CxRatingsPage })))
 
+const NotificationsListPage = lazy(() => import('@/pages/notifications/NotificationsListPage').then(m => ({ default: m.NotificationsListPage })))
 const NotificationBroadcastPage = lazy(() => import('@/pages/notifications/NotificationBroadcastPage').then(m => ({ default: m.NotificationBroadcastPage })))
 const NotificationCleanupPage = lazy(() => import('@/pages/notifications/NotificationCleanupPage').then(m => ({ default: m.NotificationCleanupPage })))
+const NotificationTemplatesPage = lazy(() => import('@/pages/notifications/NotificationTemplatesPage').then(m => ({ default: m.NotificationTemplatesPage })))
+const NotificationInboxPage = lazy(() => import('@/pages/notifications/NotificationInboxPage').then(m => ({ default: m.NotificationInboxPage })))
 
 const PlatformSettingsPage = lazy(() => import('@/pages/settings/PlatformSettingsPage').then(m => ({ default: m.PlatformSettingsPage })))
 const DataExportPage = lazy(() => import('@/pages/settings/DataExportPage').then(m => ({ default: m.DataExportPage })))
+const ReferralsPage = lazy(() => import('@/pages/settings/ReferralsPage').then(m => ({ default: m.ReferralsPage })))
+const ApiSettingsPage = lazy(() => import('@/pages/settings/ApiSettingsPage').then(m => ({ default: m.ApiSettingsPage })))
+const ImageManagementPage = lazy(() => import('@/pages/settings/ImageManagementPage').then(m => ({ default: m.ImageManagementPage })))
+const ReferralManagementPage = lazy(() => import('@/pages/settings/ReferralManagementPage').then(m => ({ default: m.ReferralManagementPage })))
+
+const FilteredOrdersPage = lazy(() => import('@/pages/dashboard/FilteredOrdersPage').then(m => ({ default: m.FilteredOrdersPage })))
+const RealtimeMonitorPage = lazy(() => import('@/pages/dashboard/RealtimeMonitorPage').then(m => ({ default: m.RealtimeMonitorPage })))
 
 // Wrapper for lazy loaded components
 function LazyPage({ children }: { children: React.ReactNode }) {
@@ -67,6 +87,15 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <DashboardPage />,
+      },
+      // Dashboard
+      {
+        path: 'dashboard/filtered-orders',
+        element: <LazyPage><FilteredOrdersPage /></LazyPage>,
+      },
+      {
+        path: 'dashboard/realtime',
+        element: <LazyPage><RealtimeMonitorPage /></LazyPage>,
       },
       // Users
       {
@@ -98,6 +127,10 @@ export const router = createBrowserRouter([
         path: 'couriers/map',
         element: <LazyPage><CouriersMapPage /></LazyPage>,
       },
+      {
+        path: 'couriers/operations',
+        element: <LazyPage><CourierOperationsPage /></LazyPage>,
+      },
       // Restaurants
       {
         path: 'restaurants',
@@ -111,6 +144,14 @@ export const router = createBrowserRouter([
         path: 'restaurants/moderation',
         element: <LazyPage><RestaurantModerationPage /></LazyPage>,
       },
+      {
+        path: 'restaurants/:id/menu',
+        element: <LazyPage><RestaurantMenuPage /></LazyPage>,
+      },
+      {
+        path: 'restaurants/directory',
+        element: <LazyPage><RestaurantDirectoryPage /></LazyPage>,
+      },
       // Orders
       {
         path: 'orders',
@@ -121,10 +162,22 @@ export const router = createBrowserRouter([
         element: <LazyPage><OrderDetailsPage /></LazyPage>,
       },
       {
+        path: 'orders/live',
+        element: <LazyPage><LiveOrdersPage /></LazyPage>,
+      },
+      {
         path: 'orders/issues',
         element: <LazyPage><ProblematicOrdersPage /></LazyPage>,
       },
+      {
+        path: 'orders/create',
+        element: <LazyPage><OrderCreatePage /></LazyPage>,
+      },
       // Analytics
+      {
+        path: 'analytics/users',
+        element: <LazyPage><UserAnalyticsPage /></LazyPage>,
+      },
       {
         path: 'analytics/revenue',
         element: <LazyPage><RevenueAnalyticsPage /></LazyPage>,
@@ -157,14 +210,54 @@ export const router = createBrowserRouter([
         path: 'analytics/technical',
         element: <LazyPage><TechnicalMetricsPage /></LazyPage>,
       },
+      {
+        path: 'analytics/restaurants',
+        element: <LazyPage><RestaurantMetricsPage /></LazyPage>,
+      },
+      {
+        path: 'analytics/support',
+        element: <LazyPage><SupportMetricsPage /></LazyPage>,
+      },
+      {
+        path: 'analytics/legacy',
+        element: (
+          <AuthGuard requiredRoles={['ADMIN']}>
+            <LazyPage><LegacyAnalyticsDashboardPage /></LazyPage>
+          </AuthGuard>
+        ),
+      },
+      {
+        path: 'analytics/cx-ratings',
+        element: <LazyPage><CxRatingsPage /></LazyPage>,
+      },
       // Notifications
+      {
+        path: 'notifications',
+        element: <LazyPage><NotificationsListPage /></LazyPage>,
+      },
       {
         path: 'notifications/broadcast',
         element: <LazyPage><NotificationBroadcastPage /></LazyPage>,
       },
       {
         path: 'notifications/cleanup',
-        element: <LazyPage><NotificationCleanupPage /></LazyPage>,
+        element: (
+          <AuthGuard requiredRoles={['ADMIN']}>
+            <LazyPage><NotificationCleanupPage /></LazyPage>
+          </AuthGuard>
+        ),
+      },
+      {
+        path: 'notifications/templates',
+        element: (
+          <AuthGuard requiredRoles={['ADMIN']}>
+            <LazyPage><NotificationTemplatesPage /></LazyPage>
+          </AuthGuard>
+        ),
+      },
+      {
+        path: 'notifications/inbox',
+        element: <LazyPage><NotificationInboxPage /></LazyPage>,
       },
       // Settings (Admin only)
       {
@@ -182,6 +275,34 @@ export const router = createBrowserRouter([
             <LazyPage><DataExportPage /></LazyPage>
           </AuthGuard>
         ),
+      },
+      {
+        path: 'settings/referrals',
+        element: (
+          <AuthGuard requiredRoles={['ADMIN', 'PLATFORM']}>
+            <LazyPage><ReferralsPage /></LazyPage>
+          </AuthGuard>
+        ),
+      },
+      {
+        path: 'settings/api',
+        element: (
+          <AuthGuard requiredRoles={['ADMIN']}>
+            <LazyPage><ApiSettingsPage /></LazyPage>
+          </AuthGuard>
+        ),
+      },
+      {
+        path: 'settings/images',
+        element: (
+          <AuthGuard requiredRoles={['ADMIN']}>
+            <LazyPage><ImageManagementPage /></LazyPage>
+          </AuthGuard>
+        ),
+      },
+      {
+        path: 'settings/my-referrals',
+        element: <LazyPage><ReferralManagementPage /></LazyPage>,
       },
     ],
   },

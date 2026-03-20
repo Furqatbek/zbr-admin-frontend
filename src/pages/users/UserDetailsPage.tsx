@@ -12,6 +12,7 @@ import {
   UserCog,
   Plus,
   X,
+  Loader2,
 } from 'lucide-react'
 import {
   Card,
@@ -27,23 +28,18 @@ import {
   Textarea,
 } from '@/components/ui'
 import { formatDateTime } from '@/lib/utils'
-import type { User, UserRole, UserStatus } from '@/types'
+import type { UserRole, UserStatus } from '@/types'
 import { useAuthStore } from '@/store/auth.store'
-import { useState } from 'react'
-
-// Mock user data - will be replaced with API call
-const mockUser: User = {
-  id: 1,
-  email: 'admin@fooddelivery.com',
-  phone: '+7 999 123 45 67',
-  firstName: 'Алексей',
-  lastName: 'Петров',
-  roles: ['ADMIN', 'PLATFORM'],
-  status: 'ACTIVE',
-  createdAt: '2024-01-01T10:00:00Z',
-  updatedAt: '2024-01-15T10:00:00Z',
-  lastLoginAt: '2024-01-15T09:30:00Z',
-}
+import { useState, useEffect } from 'react'
+import {
+  useUser,
+  useUpdateUserStatus,
+  useLockUser,
+  useUnlockUser,
+  useDeleteUser,
+  useAssignRole,
+  useRemoveRole,
+} from '@/hooks'
 
 const roleLabels: Record<UserRole, string> = {
   ADMIN: 'Администратор',
@@ -81,46 +77,121 @@ export function UserDetailsPage() {
   const { hasRole } = useAuthStore()
   const isAdmin = hasRole('ADMIN')
 
-  // In real app, fetch user by id
-  const user = mockUser
+  const userId = parseInt(id || '0', 10)
+  const { data: userData, isLoading } = useUser(userId)
+  const user = userData?.data
+
+  // Mutations
+  const updateStatusMutation = useUpdateUserStatus()
+  const lockUserMutation = useLockUser()
+  const unlockUserMutation = useUnlockUser()
+  const deleteUserMutation = useDeleteUser()
+  const assignRoleMutation = useAssignRole()
+  const removeRoleMutation = useRemoveRole()
 
   // Modal states
   const [statusModal, setStatusModal] = useState(false)
   const [roleModal, setRoleModal] = useState(false)
   const [deleteModal, setDeleteModal] = useState(false)
 
-  const [newStatus, setNewStatus] = useState<UserStatus>(user.status)
+  const [newStatus, setNewStatus] = useState<UserStatus>('ACTIVE')
   const [statusReason, setStatusReason] = useState('')
   const [selectedRole, setSelectedRole] = useState<UserRole>('CONSUMER')
 
-  const availableRoles = allRoles.filter((role) => !user.roles.includes(role))
+  useEffect(() => {
+    if (user) {
+      setNewStatus(user.status)
+    }
+  }, [user])
+
+  const availableRoles = user ? allRoles.filter((role) => !user.roles.includes(role)) : []
+
+  useEffect(() => {
+    if (availableRoles.length > 0 && !availableRoles.includes(selectedRole)) {
+      setSelectedRole(availableRoles[0])
+    }
+  }, [availableRoles, selectedRole])
 
   const handleStatusChange = () => {
-    console.log('Changing status:', id, newStatus, statusReason)
-    setStatusModal(false)
+    if (user) {
+      updateStatusMutation.mutate(
+        { id: user.id, data: { status: newStatus, reason: statusReason } },
+        {
+          onSuccess: () => {
+            setStatusModal(false)
+            setStatusReason('')
+          },
+        }
+      )
+    }
   }
 
   const handleAddRole = () => {
-    console.log('Adding role:', id, selectedRole)
-    setRoleModal(false)
+    if (user) {
+      assignRoleMutation.mutate(
+        { id: user.id, data: { role: selectedRole } },
+        {
+          onSuccess: () => {
+            setRoleModal(false)
+          },
+        }
+      )
+    }
   }
 
   const handleRemoveRole = (role: UserRole) => {
-    console.log('Removing role:', id, role)
+    if (user) {
+      removeRoleMutation.mutate({ id: user.id, role })
+    }
   }
 
   const handleDelete = () => {
-    console.log('Deleting user:', id)
-    setDeleteModal(false)
-    navigate('/users')
+    if (user) {
+      deleteUserMutation.mutate(user.id, {
+        onSuccess: () => {
+          setDeleteModal(false)
+          navigate('/users')
+        },
+      })
+    }
   }
 
   const handleLock = () => {
-    console.log('Locking user:', id)
+    if (user) {
+      lockUserMutation.mutate(user.id)
+    }
   }
 
   const handleUnlock = () => {
-    console.log('Unlocking user:', id)
+    if (user) {
+      unlockUserMutation.mutate(user.id)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Link to="/users">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold">Пользователь не найден</h1>
+            <p className="text-[hsl(var(--muted-foreground))]">ID: {id}</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -138,13 +209,29 @@ export function UserDetailsPage() {
         </div>
         <div className="flex gap-2">
           {user.status === 'ACTIVE' ? (
-            <Button variant="outline" onClick={handleLock}>
-              <Lock className="mr-2 h-4 w-4" />
+            <Button
+              variant="outline"
+              onClick={handleLock}
+              disabled={lockUserMutation.isPending}
+            >
+              {lockUserMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Lock className="mr-2 h-4 w-4" />
+              )}
               Заблокировать
             </Button>
           ) : (
-            <Button variant="outline" onClick={handleUnlock}>
-              <Unlock className="mr-2 h-4 w-4" />
+            <Button
+              variant="outline"
+              onClick={handleUnlock}
+              disabled={unlockUserMutation.isPending}
+            >
+              {unlockUserMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Unlock className="mr-2 h-4 w-4" />
+              )}
               Разблокировать
             </Button>
           )}
@@ -275,6 +362,7 @@ export function UserDetailsPage() {
                       <button
                         onClick={() => handleRemoveRole(role)}
                         className="ml-1 rounded-full p-0.5 hover:bg-black/10"
+                        disabled={removeRoleMutation.isPending}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -315,7 +403,16 @@ export function UserDetailsPage() {
           <Button variant="outline" onClick={() => setStatusModal(false)}>
             Отмена
           </Button>
-          <Button onClick={handleStatusChange}>Сохранить</Button>
+          <Button onClick={handleStatusChange} disabled={updateStatusMutation.isPending}>
+            {updateStatusMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Сохранение...
+              </>
+            ) : (
+              'Сохранить'
+            )}
+          </Button>
         </ModalFooter>
       </Modal>
 
@@ -340,7 +437,16 @@ export function UserDetailsPage() {
           <Button variant="outline" onClick={() => setRoleModal(false)}>
             Отмена
           </Button>
-          <Button onClick={handleAddRole}>Добавить</Button>
+          <Button onClick={handleAddRole} disabled={assignRoleMutation.isPending}>
+            {assignRoleMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Добавление...
+              </>
+            ) : (
+              'Добавить'
+            )}
+          </Button>
         </ModalFooter>
       </Modal>
 
@@ -363,8 +469,19 @@ export function UserDetailsPage() {
           <Button variant="outline" onClick={() => setDeleteModal(false)}>
             Отмена
           </Button>
-          <Button variant="destructive" onClick={handleDelete}>
-            Удалить
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={deleteUserMutation.isPending}
+          >
+            {deleteUserMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Удаление...
+              </>
+            ) : (
+              'Удалить'
+            )}
           </Button>
         </ModalFooter>
       </Modal>

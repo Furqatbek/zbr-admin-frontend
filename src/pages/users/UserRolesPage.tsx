@@ -1,209 +1,112 @@
 import { useState } from 'react'
 import {
   Shield,
-  Users,
+  Loader2,
   Plus,
   Edit,
   Trash2,
-  Key,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Lock,
-  Unlock,
+  RefreshCw,
 } from 'lucide-react'
 import {
   Card,
   CardContent,
-  Button,
-  Input,
   Badge,
+  Button,
+  Modal,
+  ModalFooter,
+  Input,
+  Textarea,
   Table,
   TableHeader,
   TableBody,
   TableRow,
   TableHead,
   TableCell,
-  Modal,
-  ModalFooter,
-  Label,
 } from '@/components/ui'
-import { formatNumber } from '@/lib/utils'
+import { useRoles, useCreateRole, useUpdateRole, useDeleteRole } from '@/hooks/useUsers'
 
-// Mock data
-const mockRoles = [
-  {
-    id: 1,
-    name: 'ADMIN',
-    displayName: 'Администратор',
-    description: 'Полный доступ ко всем функциям системы',
-    usersCount: 3,
-    isSystem: true,
-    permissions: [
-      'users.read', 'users.write', 'users.delete',
-      'orders.read', 'orders.write', 'orders.cancel',
-      'restaurants.read', 'restaurants.write', 'restaurants.moderate',
-      'couriers.read', 'couriers.write', 'couriers.verify',
-      'analytics.read', 'analytics.export',
-      'settings.read', 'settings.write',
-      'notifications.send', 'notifications.cleanup',
-    ],
-  },
-  {
-    id: 2,
-    name: 'PLATFORM',
-    displayName: 'Оператор платформы',
-    description: 'Управление заказами, пользователями и поддержка',
-    usersCount: 12,
-    isSystem: true,
-    permissions: [
-      'users.read', 'users.write',
-      'orders.read', 'orders.write',
-      'restaurants.read', 'restaurants.moderate',
-      'couriers.read', 'couriers.verify',
-      'analytics.read',
-      'notifications.send',
-    ],
-  },
-  {
-    id: 3,
-    name: 'SUPPORT',
-    displayName: 'Поддержка',
-    description: 'Только просмотр и работа с обращениями',
-    usersCount: 8,
-    isSystem: false,
-    permissions: [
-      'users.read',
-      'orders.read',
-      'restaurants.read',
-      'couriers.read',
-    ],
-  },
-  {
-    id: 4,
-    name: 'ANALYST',
-    displayName: 'Аналитик',
-    description: 'Доступ к аналитике и отчётам',
-    usersCount: 5,
-    isSystem: false,
-    permissions: [
-      'analytics.read',
-      'analytics.export',
-      'orders.read',
-      'users.read',
-    ],
-  },
-]
-
-const allPermissions = {
-  users: {
-    label: 'Пользователи',
-    permissions: [
-      { id: 'users.read', label: 'Просмотр' },
-      { id: 'users.write', label: 'Редактирование' },
-      { id: 'users.delete', label: 'Удаление' },
-    ],
-  },
-  orders: {
-    label: 'Заказы',
-    permissions: [
-      { id: 'orders.read', label: 'Просмотр' },
-      { id: 'orders.write', label: 'Редактирование' },
-      { id: 'orders.cancel', label: 'Отмена' },
-    ],
-  },
-  restaurants: {
-    label: 'Рестораны',
-    permissions: [
-      { id: 'restaurants.read', label: 'Просмотр' },
-      { id: 'restaurants.write', label: 'Редактирование' },
-      { id: 'restaurants.moderate', label: 'Модерация' },
-    ],
-  },
-  couriers: {
-    label: 'Курьеры',
-    permissions: [
-      { id: 'couriers.read', label: 'Просмотр' },
-      { id: 'couriers.write', label: 'Редактирование' },
-      { id: 'couriers.verify', label: 'Верификация' },
-    ],
-  },
-  analytics: {
-    label: 'Аналитика',
-    permissions: [
-      { id: 'analytics.read', label: 'Просмотр' },
-      { id: 'analytics.export', label: 'Экспорт' },
-    ],
-  },
-  settings: {
-    label: 'Настройки',
-    permissions: [
-      { id: 'settings.read', label: 'Просмотр' },
-      { id: 'settings.write', label: 'Редактирование' },
-    ],
-  },
-  notifications: {
-    label: 'Уведомления',
-    permissions: [
-      { id: 'notifications.send', label: 'Отправка' },
-      { id: 'notifications.cleanup', label: 'Очистка' },
-    ],
-  },
-}
+const SYSTEM_ROLES = ['ADMIN', 'SYSTEM', 'PLATFORM']
 
 export function UserRolesPage() {
-  const [selectedRole, setSelectedRole] = useState<typeof mockRoles[0] | null>(null)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [editForm, setEditForm] = useState({
-    displayName: '',
-    description: '',
-    permissions: [] as string[],
-  })
+  const { data: rolesResponse, isLoading, error, refetch } = useRoles()
+  const createRole = useCreateRole()
+  const updateRole = useUpdateRole()
+  const deleteRole = useDeleteRole()
 
-  const handleEditRole = (role: typeof mockRoles[0]) => {
-    setSelectedRole(role)
-    setEditForm({
+  const roles = rolesResponse?.data || []
+
+  // Form state
+  const [formModal, setFormModal] = useState(false)
+  const [editingRole, setEditingRole] = useState<{ value: string; displayName: string } | null>(null)
+  const [form, setForm] = useState({ name: '', displayName: '', description: '', permissions: '' })
+
+  // Delete state
+  const [deleteModal, setDeleteModal] = useState<{ id: number; name: string } | null>(null)
+
+  const openCreate = () => {
+    setEditingRole(null)
+    setForm({ name: '', displayName: '', description: '', permissions: '' })
+    setFormModal(true)
+  }
+
+  const openEdit = (role: { value: string; displayName: string }) => {
+    setEditingRole(role)
+    setForm({
+      name: role.value,
       displayName: role.displayName,
-      description: role.description,
-      permissions: [...role.permissions],
-    })
-    setIsEditModalOpen(true)
-  }
-
-  const handleCreateRole = () => {
-    setSelectedRole(null)
-    setEditForm({
-      displayName: '',
       description: '',
-      permissions: [],
+      permissions: '',
     })
-    setIsEditModalOpen(true)
+    setFormModal(true)
   }
 
-  const togglePermission = (permissionId: string) => {
-    if (editForm.permissions.includes(permissionId)) {
-      setEditForm({
-        ...editForm,
-        permissions: editForm.permissions.filter((p) => p !== permissionId),
-      })
+  const handleSave = async () => {
+    if (editingRole) {
+      // For update we need the role ID - use value as lookup
+      const roleIndex = roles.findIndex(r => r.value === editingRole.value)
+      if (roleIndex >= 0) {
+        await updateRole.mutateAsync({
+          id: roleIndex + 1,
+          data: {
+            displayName: form.displayName,
+            description: form.description || undefined,
+            permissions: form.permissions ? form.permissions.split(',').map(p => p.trim()) : undefined,
+          },
+        })
+      }
     } else {
-      setEditForm({
-        ...editForm,
-        permissions: [...editForm.permissions, permissionId],
+      await createRole.mutateAsync({
+        name: form.name,
+        displayName: form.displayName,
+        description: form.description,
+        permissions: form.permissions ? form.permissions.split(',').map(p => p.trim()) : [],
       })
     }
+    setFormModal(false)
+    refetch()
   }
 
-  const handleSave = () => {
-    console.log('Saving role:', selectedRole?.id, editForm)
-    setIsEditModalOpen(false)
+  const handleDelete = async () => {
+    if (!deleteModal) return
+    await deleteRole.mutateAsync(deleteModal.id)
+    setDeleteModal(null)
+    refetch()
   }
 
-  const handleDelete = () => {
-    console.log('Deleting role:', selectedRole?.id)
-    setIsDeleteModalOpen(false)
-    setSelectedRole(null)
+  if (isLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--primary))]" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <p className="text-[hsl(var(--destructive))]">Ошибка загрузки ролей</p>
+      </div>
+    )
   }
 
   return (
@@ -216,14 +119,20 @@ export function UserRolesPage() {
             Управление ролями и разрешениями пользователей
           </p>
         </div>
-        <Button onClick={handleCreateRole}>
-          <Plus className="mr-2 h-4 w-4" />
-          Создать роль
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => refetch()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Обновить
+          </Button>
+          <Button onClick={openCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            Новая роль
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
@@ -232,22 +141,7 @@ export function UserRolesPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Всего ролей</p>
-                <p className="text-2xl font-bold">{mockRoles.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--success))]/10">
-                <Users className="h-6 w-6 text-[hsl(var(--success))]" />
-              </div>
-              <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">Пользователей с ролями</p>
-                <p className="text-2xl font-bold">
-                  {formatNumber(mockRoles.reduce((sum, r) => sum + r.usersCount, 0))}
-                </p>
+                <p className="text-2xl font-bold">{roles.length}</p>
               </div>
             </div>
           </CardContent>
@@ -256,13 +150,24 @@ export function UserRolesPage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--warning))]/10">
-                <Key className="h-6 w-6 text-[hsl(var(--warning))]" />
+                <Shield className="h-6 w-6 text-[hsl(var(--warning))]" />
               </div>
               <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">Всего разрешений</p>
-                <p className="text-2xl font-bold">
-                  {Object.values(allPermissions).reduce((sum, g) => sum + g.permissions.length, 0)}
-                </p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">Системных</p>
+                <p className="text-2xl font-bold">{roles.filter(r => SYSTEM_ROLES.includes(r.value)).length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--success))]/10">
+                <Shield className="h-6 w-6 text-[hsl(var(--success))]" />
+              </div>
+              <div>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">Пользовательских</p>
+                <p className="text-2xl font-bold">{roles.filter(r => !SYSTEM_ROLES.includes(r.value)).length}</p>
               </div>
             </div>
           </CardContent>
@@ -276,71 +181,46 @@ export function UserRolesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Роль</TableHead>
-                <TableHead>Описание</TableHead>
-                <TableHead>Пользователей</TableHead>
-                <TableHead>Разрешений</TableHead>
+                <TableHead>Код</TableHead>
                 <TableHead>Тип</TableHead>
-                <TableHead className="w-[100px]">Действия</TableHead>
+                <TableHead className="w-[120px]">Действия</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockRoles.map((role) => (
-                <TableRow key={role.id}>
+              {roles.map((role, index) => (
+                <TableRow key={role.value}>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Shield className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                      <div>
-                        <p className="font-medium">{role.displayName}</p>
-                        <p className="text-xs text-[hsl(var(--muted-foreground))]">{role.name}</p>
-                      </div>
+                      <p className="font-medium">{role.displayName}</p>
                     </div>
                   </TableCell>
-                  <TableCell className="max-w-xs">
-                    <p className="text-sm text-[hsl(var(--muted-foreground))] truncate">
-                      {role.description}
-                    </p>
+                  <TableCell>
+                    <code className="text-sm text-[hsl(var(--muted-foreground))]">{role.value}</code>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{role.usersCount}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{role.permissions.length}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {role.isSystem ? (
-                      <Badge variant="default">
-                        <Lock className="mr-1 h-3 w-3" />
-                        Системная
-                      </Badge>
+                    {SYSTEM_ROLES.includes(role.value) ? (
+                      <Badge variant="default">Системная</Badge>
                     ) : (
-                      <Badge variant="secondary">
-                        <Unlock className="mr-1 h-3 w-3" />
-                        Пользовательская
-                      </Badge>
+                      <Badge variant="secondary">Пользовательская</Badge>
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEditRole(role)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      {!role.isSystem && (
+                    {!SYSTEM_ROLES.includes(role.value) && (
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(role)} title="Редактировать">
+                          <Edit className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => {
-                            setSelectedRole(role)
-                            setIsDeleteModalOpen(true)
-                          }}
+                          onClick={() => setDeleteModal({ id: index + 1, name: role.displayName })}
+                          title="Удалить"
                         >
                           <Trash2 className="h-4 w-4 text-[hsl(var(--destructive))]" />
                         </Button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -349,120 +229,85 @@ export function UserRolesPage() {
         </CardContent>
       </Card>
 
-      {/* Edit/Create Modal */}
+      {/* Create/Edit Modal */}
       <Modal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        title={selectedRole ? 'Редактировать роль' : 'Создать роль'}
-        description={selectedRole?.isSystem ? 'Системные роли можно только просматривать' : undefined}
-        size="lg"
+        isOpen={formModal}
+        onClose={() => setFormModal(false)}
+        title={editingRole ? 'Редактирование роли' : 'Новая роль'}
       >
-        <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Название</Label>
+        <div className="space-y-4">
+          {!editingRole && (
+            <div>
+              <label className="mb-2 block text-sm font-medium">Код роли</label>
               <Input
-                value={editForm.displayName}
-                onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
-                disabled={selectedRole?.isSystem}
-                placeholder="Название роли"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value.toUpperCase().replace(/\s/g, '_') })}
+                placeholder="ROLE_NAME"
               />
+              <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
+                Латинские буквы, без пробелов
+              </p>
             </div>
-            <div className="space-y-2">
-              <Label>Описание</Label>
-              <Input
-                value={editForm.description}
-                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                disabled={selectedRole?.isSystem}
-                placeholder="Описание роли"
-              />
-            </div>
+          )}
+          <div>
+            <label className="mb-2 block text-sm font-medium">Название</label>
+            <Input
+              value={form.displayName}
+              onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+              placeholder="Отображаемое название"
+            />
           </div>
-
-          <div className="space-y-4">
-            <Label className="flex items-center gap-2">
-              <Key className="h-4 w-4" />
-              Разрешения
-            </Label>
-
-            <div className="max-h-[400px] space-y-4 overflow-y-auto rounded-lg border border-[hsl(var(--border))] p-4">
-              {Object.entries(allPermissions).map(([groupKey, group]) => (
-                <div key={groupKey} className="space-y-2">
-                  <p className="font-medium">{group.label}</p>
-                  <div className="grid gap-2 md:grid-cols-3">
-                    {group.permissions.map((permission) => {
-                      const isChecked = editForm.permissions.includes(permission.id)
-                      return (
-                        <button
-                          key={permission.id}
-                          onClick={() => !selectedRole?.isSystem && togglePermission(permission.id)}
-                          disabled={selectedRole?.isSystem}
-                          className={`flex items-center gap-2 rounded-lg border p-2 text-left text-sm transition-colors ${
-                            isChecked
-                              ? 'border-[hsl(var(--success))] bg-[hsl(var(--success))]/5'
-                              : 'border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]'
-                          } ${selectedRole?.isSystem ? 'cursor-not-allowed opacity-70' : ''}`}
-                        >
-                          {isChecked ? (
-                            <CheckCircle className="h-4 w-4 text-[hsl(var(--success))]" />
-                          ) : (
-                            <XCircle className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                          )}
-                          <span>{permission.label}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Описание</label>
+            <Textarea
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="Описание роли и её назначения"
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Разрешения</label>
+            <Textarea
+              value={form.permissions}
+              onChange={(e) => setForm({ ...form, permissions: e.target.value })}
+              placeholder="READ_ORDERS, WRITE_ORDERS, MANAGE_USERS"
+              rows={3}
+            />
+            <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
+              Разделяйте разрешения запятыми
+            </p>
           </div>
         </div>
-
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
-            {selectedRole?.isSystem ? 'Закрыть' : 'Отмена'}
+          <Button variant="outline" onClick={() => setFormModal(false)}>Отмена</Button>
+          <Button
+            onClick={handleSave}
+            disabled={(!editingRole && !form.name) || !form.displayName || createRole.isPending || updateRole.isPending}
+          >
+            {(createRole.isPending || updateRole.isPending) && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            {editingRole ? 'Сохранить' : 'Создать'}
           </Button>
-          {!selectedRole?.isSystem && (
-            <Button onClick={handleSave}>
-              <CheckCircle className="mr-2 h-4 w-4" />
-              Сохранить
-            </Button>
-          )}
         </ModalFooter>
       </Modal>
 
       {/* Delete Modal */}
       <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
+        isOpen={!!deleteModal}
+        onClose={() => setDeleteModal(null)}
         title="Удаление роли"
-        description="Это действие необратимо"
       >
-        <div className="space-y-4">
-          <div className="rounded-lg border border-[hsl(var(--destructive))]/30 bg-[hsl(var(--destructive))]/5 p-4">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-[hsl(var(--destructive))] mt-0.5" />
-              <div>
-                <p className="font-medium">
-                  Вы уверены, что хотите удалить роль "{selectedRole?.displayName}"?
-                </p>
-                {selectedRole && selectedRole.usersCount > 0 && (
-                  <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                    У {selectedRole.usersCount} пользователей будет отозвана эта роль.
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
+        <p>
+          Вы действительно хотите удалить роль <strong>"{deleteModal?.name}"</strong>?
+        </p>
+        <p className="mt-2 text-sm text-[hsl(var(--destructive))]">
+          Пользователи с этой ролью потеряют связанные разрешения.
+        </p>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
-            Отмена
-          </Button>
-          <Button variant="destructive" onClick={handleDelete}>
-            <Trash2 className="mr-2 h-4 w-4" />
+          <Button variant="outline" onClick={() => setDeleteModal(null)}>Отмена</Button>
+          <Button variant="destructive" onClick={handleDelete} disabled={deleteRole.isPending}>
+            {deleteRole.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Удалить
           </Button>
         </ModalFooter>

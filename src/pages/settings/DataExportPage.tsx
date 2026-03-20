@@ -28,66 +28,10 @@ import {
   Badge,
 } from '@/components/ui'
 import { formatDateTime } from '@/lib/utils'
+import { useExportJobs, useExportData } from '@/hooks/useSettings'
+import type { ExportRequest } from '@/api/settings.api'
 
-// Mock data
-type ExportStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
-
-const mockExportJobs: Array<{
-  id: string
-  type: string
-  format: string
-  status: ExportStatus
-  progress: number
-  fileUrl?: string
-  createdAt: string
-  completedAt?: string
-  recordCount: number
-  error?: string
-}> = [
-  {
-    id: 'exp-001',
-    type: 'ORDERS',
-    format: 'XLSX',
-    status: 'COMPLETED',
-    progress: 100,
-    fileUrl: '/exports/orders-2024-01.xlsx',
-    createdAt: '2024-01-15T10:30:00Z',
-    completedAt: '2024-01-15T10:32:15Z',
-    recordCount: 4250,
-  },
-  {
-    id: 'exp-002',
-    type: 'USERS',
-    format: 'CSV',
-    status: 'COMPLETED',
-    progress: 100,
-    fileUrl: '/exports/users-2024-01.csv',
-    createdAt: '2024-01-14T15:00:00Z',
-    completedAt: '2024-01-14T15:01:45Z',
-    recordCount: 15420,
-  },
-  {
-    id: 'exp-003',
-    type: 'ANALYTICS',
-    format: 'XLSX',
-    status: 'PROCESSING',
-    progress: 65,
-    createdAt: '2024-01-15T11:00:00Z',
-    recordCount: 0,
-  },
-  {
-    id: 'exp-004',
-    type: 'RESTAURANTS',
-    format: 'JSON',
-    status: 'FAILED',
-    progress: 0,
-    createdAt: '2024-01-13T09:00:00Z',
-    error: 'Превышен лимит времени выполнения',
-    recordCount: 0,
-  },
-]
-
-const exportTypes = [
+const exportTypes: Array<{ id: ExportRequest['type']; label: string; icon: typeof Users; description: string }> = [
   { id: 'USERS', label: 'Пользователи', icon: Users, description: 'Все пользователи системы' },
   { id: 'ORDERS', label: 'Заказы', icon: Package, description: 'История заказов' },
   { id: 'RESTAURANTS', label: 'Рестораны', icon: Store, description: 'Данные ресторанов' },
@@ -116,20 +60,31 @@ const statusColors = {
 } as const
 
 export function DataExportPage() {
-  const [exportForm, setExportForm] = useState({
+  const { data: exportJobs, isLoading, refetch } = useExportJobs()
+  const exportData = useExportData()
+
+  const [exportForm, setExportForm] = useState<{
+    type: ExportRequest['type']
+    format: ExportRequest['format']
+    dateFrom: string
+    dateTo: string
+  }>({
     type: 'ORDERS',
     format: 'XLSX',
     dateFrom: '',
     dateTo: '',
   })
-  const [isExporting, setIsExporting] = useState(false)
 
-  const handleExport = () => {
-    setIsExporting(true)
-    setTimeout(() => {
-      setIsExporting(false)
-    }, 2000)
+  const handleExport = async () => {
+    await exportData.mutateAsync({
+      type: exportForm.type,
+      format: exportForm.format,
+      dateFrom: exportForm.dateFrom || undefined,
+      dateTo: exportForm.dateTo || undefined,
+    })
   }
+
+  const jobs = exportJobs || []
 
   return (
     <div className="space-y-6">
@@ -235,8 +190,8 @@ export function DataExportPage() {
                 </div>
               </div>
 
-              <Button className="w-full" onClick={handleExport} disabled={isExporting}>
-                {isExporting ? (
+              <Button className="w-full" onClick={handleExport} disabled={exportData.isPending}>
+                {exportData.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Запуск экспорта...
@@ -293,7 +248,7 @@ export function DataExportPage() {
             <CardContent className="pt-6">
               <div className="text-center">
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Всего экспортов</p>
-                <p className="text-3xl font-bold">{mockExportJobs.length}</p>
+                <p className="text-3xl font-bold">{jobs.length}</p>
               </div>
             </CardContent>
           </Card>
@@ -307,14 +262,23 @@ export function DataExportPage() {
             <CardTitle>История экспортов</CardTitle>
             <CardDescription>Последние выгрузки данных</CardDescription>
           </div>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Обновить
           </Button>
         </CardHeader>
         <CardContent>
+          {isLoading ? (
+            <div className="flex h-32 items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--primary))]" />
+            </div>
+          ) : jobs.length === 0 ? (
+            <div className="flex h-32 items-center justify-center">
+              <p className="text-[hsl(var(--muted-foreground))]">Нет экспортов</p>
+            </div>
+          ) : (
           <div className="space-y-4">
-            {mockExportJobs.map((job) => {
+            {jobs.map((job) => {
               const TypeIcon = exportTypes.find((t) => t.id === job.type)?.icon || Package
               const FormatIcon = formatIcons[job.format as keyof typeof formatIcons] || FileText
 
@@ -339,7 +303,7 @@ export function DataExportPage() {
                       </div>
                       <p className="text-sm text-[hsl(var(--muted-foreground))]">
                         {formatDateTime(job.createdAt)}
-                        {job.recordCount > 0 && ` · ${job.recordCount.toLocaleString()} записей`}
+                        {job.recordCount && job.recordCount > 0 && ` · ${job.recordCount.toLocaleString()} записей`}
                       </p>
                       {job.error && (
                         <p className="text-sm text-[hsl(var(--destructive))]">{job.error}</p>
@@ -384,6 +348,7 @@ export function DataExportPage() {
               )
             })}
           </div>
+          )}
         </CardContent>
       </Card>
     </div>

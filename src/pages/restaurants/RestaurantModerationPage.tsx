@@ -9,6 +9,8 @@ import {
   Phone,
   User,
   Calendar,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react'
 import {
   Card,
@@ -22,41 +24,18 @@ import {
   Textarea,
 } from '@/components/ui'
 import { formatDateTime } from '@/lib/utils'
+import { useRestaurants, useUpdateRestaurantStatus } from '@/hooks/useRestaurants'
 import type { Restaurant } from '@/types'
 
-// Mock pending restaurants
-const mockPendingRestaurants: Restaurant[] = [
-  {
-    id: 4,
-    name: 'Вкусный Дом',
-    description: 'Домашняя кухня с доставкой',
-    address: 'ул. Советская, д. 5',
-    phone: '+7 495 456 78 90',
-    email: 'home@example.com',
-    status: 'PENDING',
-    isOpen: false,
-    ownerId: 9,
-    ownerName: 'Мария Козлова',
-    createdAt: '2024-01-14T10:00:00Z',
-    updatedAt: '2024-01-14T10:00:00Z',
-  },
-  {
-    id: 6,
-    name: 'Новый Ресторан',
-    description: 'Европейская кухня высокого уровня',
-    address: 'ул. Тверская, д. 1',
-    phone: '+7 495 678 90 12',
-    status: 'PENDING',
-    isOpen: false,
-    ownerId: 13,
-    ownerName: 'Ольга Новикова',
-    createdAt: '2024-01-15T09:00:00Z',
-    updatedAt: '2024-01-15T09:00:00Z',
-  },
-]
-
 export function RestaurantModerationPage() {
-  const [pendingRestaurants, setPendingRestaurants] = useState(mockPendingRestaurants)
+  // Fetch all restaurants and filter for pending
+  const { data, isLoading, refetch } = useRestaurants({ size: 100 })
+  const updateStatus = useUpdateRestaurantStatus()
+
+  const pendingRestaurants = (data?.data?.content || []).filter(
+    (r) => r.status === 'PENDING'
+  )
+
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null)
   const [actionModal, setActionModal] = useState<{
     type: 'approve' | 'reject'
@@ -64,40 +43,60 @@ export function RestaurantModerationPage() {
   } | null>(null)
   const [rejectReason, setRejectReason] = useState('')
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     if (actionModal?.restaurant) {
-      console.log('Approving restaurant:', actionModal.restaurant.id)
-      setPendingRestaurants((prev) => prev.filter((r) => r.id !== actionModal.restaurant.id))
+      await updateStatus.mutateAsync({
+        id: actionModal.restaurant.id,
+        status: 'ACTIVE',
+      })
       setActionModal(null)
       setSelectedRestaurant(null)
+      refetch()
     }
   }
 
-  const handleReject = () => {
+  const handleReject = async () => {
     if (actionModal?.restaurant) {
-      console.log('Rejecting restaurant:', actionModal.restaurant.id, rejectReason)
-      setPendingRestaurants((prev) => prev.filter((r) => r.id !== actionModal.restaurant.id))
+      await updateStatus.mutateAsync({
+        id: actionModal.restaurant.id,
+        status: 'REJECTED',
+      })
       setActionModal(null)
       setSelectedRestaurant(null)
       setRejectReason('')
+      refetch()
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex items-center gap-4">
-        <Link to="/restaurants">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold">Модерация ресторанов</h1>
-          <p className="text-[hsl(var(--muted-foreground))]">
-            Проверка заявок на регистрацию ресторанов
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link to="/restaurants">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold">Модерация ресторанов</h1>
+            <p className="text-[hsl(var(--muted-foreground))]">
+              Проверка заявок на регистрацию ресторанов
+            </p>
+          </div>
         </div>
+        <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          Обновить
+        </Button>
       </div>
 
       {pendingRestaurants.length === 0 ? (
@@ -135,7 +134,7 @@ export function RestaurantModerationPage() {
                   >
                     <p className="font-medium">{restaurant.name}</p>
                     <p className="text-sm text-[hsl(var(--muted-foreground))] truncate">
-                      {restaurant.address}
+                      {restaurant.fullAddress}
                     </p>
                     <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
                       {formatDateTime(restaurant.createdAt)}
@@ -186,7 +185,7 @@ export function RestaurantModerationPage() {
                       <MapPin className="h-5 w-5 text-[hsl(var(--muted-foreground))]" />
                       <div>
                         <p className="text-sm text-[hsl(var(--muted-foreground))]">Адрес</p>
-                        <p className="font-medium">{selectedRestaurant.address}</p>
+                        <p className="font-medium">{selectedRestaurant.fullAddress}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 rounded-lg border border-[hsl(var(--border))] p-4">
@@ -253,8 +252,12 @@ export function RestaurantModerationPage() {
           <Button variant="outline" onClick={() => setActionModal(null)}>
             Отмена
           </Button>
-          <Button variant="success" onClick={handleApprove}>
-            <CheckCircle className="mr-2 h-4 w-4" />
+          <Button variant="success" onClick={handleApprove} disabled={updateStatus.isPending}>
+            {updateStatus.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle className="mr-2 h-4 w-4" />
+            )}
             Одобрить
           </Button>
         </ModalFooter>
@@ -288,8 +291,12 @@ export function RestaurantModerationPage() {
           >
             Отмена
           </Button>
-          <Button variant="destructive" onClick={handleReject}>
-            <X className="mr-2 h-4 w-4" />
+          <Button variant="destructive" onClick={handleReject} disabled={updateStatus.isPending}>
+            {updateStatus.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <X className="mr-2 h-4 w-4" />
+            )}
             Отклонить
           </Button>
         </ModalFooter>
