@@ -585,15 +585,14 @@ export interface RestaurantMetricItem {
   name: string
   status: string
   isOnline: boolean
-  rating: number
+  address?: string
+  city?: string
   totalOrdersToday: number
   avgPreparationTimeMinutes: number
-  orderAcceptanceLatencySeconds: number
   acceptanceRate: number
-  rejectedOrdersToday: number
-  cuisineType?: string
-  city?: string
   performanceScore: number
+  rating: number
+  totalRatings: number
 }
 
 export interface RestaurantPerformanceSummary {
@@ -612,9 +611,12 @@ export interface RestaurantMetricsResponse {
   busyRestaurants: number
   onlinePercentage: number
   performanceSummary: RestaurantPerformanceSummary
-  restaurants: RestaurantMetricItem[]
   statusBreakdown: Record<string, number>
   cuisineDistribution: Record<string, number>
+  geographicDistribution: Record<string, number>
+  topPerformers: RestaurantMetricItem[]
+  underperformers: RestaurantMetricItem[]
+  restaurants: RestaurantMetricItem[]
   generatedAt: string
 }
 

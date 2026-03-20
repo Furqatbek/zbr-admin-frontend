@@ -146,14 +146,14 @@ export const dashboardApi = {
   // ============ Restaurant Metrics ============
 
   // Get restaurant metrics
-  getRestaurantMetrics: async (): Promise<ApiResponse<RestaurantMetricsResponse>> => {
-    const response = await api.get<ApiResponse<RestaurantMetricsResponse>>('/admin/dashboard/restaurants')
+  getRestaurantMetrics: async (): Promise<RestaurantMetricsResponse> => {
+    const response = await api.get<RestaurantMetricsResponse>('/admin/dashboard/restaurants')
     return response.data
   },
 
   // Get restaurant metrics with filtering
-  getRestaurantMetricsFiltered: async (data: RestaurantMetricsFilterRequest): Promise<ApiResponse<RestaurantMetricsResponse>> => {
-    const response = await api.post<ApiResponse<RestaurantMetricsResponse>>('/admin/dashboard/restaurants', data)
+  getRestaurantMetricsFiltered: async (data: RestaurantMetricsFilterRequest): Promise<RestaurantMetricsResponse> => {
+    const response = await api.post<RestaurantMetricsResponse>('/admin/dashboard/restaurants', data)
     return response.data
   },
 

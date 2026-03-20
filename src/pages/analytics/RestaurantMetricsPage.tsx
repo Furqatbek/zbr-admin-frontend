@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Loader2,
   TrendingUp,
+  MapPin,
 } from 'lucide-react'
 import {
   Card,
@@ -35,6 +36,7 @@ const statusLabels: Record<string, string> = {
   OFFLINE: 'Оффлайн',
   BUSY: 'Занят',
   CLOSED: 'Закрыт',
+  TEMPORARILY_CLOSED: 'Временно закрыт',
 }
 
 const statusColors: Record<string, string> = {
@@ -42,6 +44,7 @@ const statusColors: Record<string, string> = {
   OFFLINE: 'hsl(var(--destructive))',
   BUSY: 'hsl(var(--warning))',
   CLOSED: 'hsl(var(--muted-foreground))',
+  TEMPORARILY_CLOSED: 'hsl(var(--muted-foreground))',
 }
 
 export function RestaurantMetricsPage() {
@@ -71,7 +74,7 @@ export function RestaurantMetricsPage() {
   const { data: metricsData, isLoading, refetch } = useRestaurantMetricsFiltered(dateRange)
   const { data: generalData } = useRestaurantMetrics()
 
-  const data = metricsData?.data || generalData?.data
+  const data = metricsData || generalData
 
   if (isLoading) {
     return (
@@ -113,7 +116,7 @@ export function RestaurantMetricsPage() {
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Всего ресторанов</p>
                 <p className="text-2xl font-bold">{data?.totalRestaurants ?? 0}</p>
                 <p className="mt-1 text-sm text-[hsl(var(--success))]">
-                  {data?.onlinePercentage?.toFixed(1) ?? 0}% онлайн
+                  {(data?.onlinePercentage ?? 0).toFixed(1)}% онлайн
                 </p>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--primary))]/10">
@@ -289,13 +292,37 @@ export function RestaurantMetricsPage() {
         )}
       </div>
 
-      {/* Top Restaurants */}
+      {/* Geographic Distribution */}
+      {data?.geographicDistribution && Object.keys(data.geographicDistribution).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              Распределение по городам
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SimpleBarChart
+              data={Object.entries(data.geographicDistribution)
+                .sort(([, a], [, b]) => b - a)
+                .map(([city, count]) => ({
+                  label: city,
+                  value: count,
+                }))}
+              height={250}
+              valueFormatter={(v) => formatNumber(v)}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* All Restaurants Table */}
       {data?.restaurants && data.restaurants.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
-              Топ ресторанов по производительности
+              Все рестораны
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -303,8 +330,8 @@ export function RestaurantMetricsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Ресторан</TableHead>
+                  <TableHead>Город</TableHead>
                   <TableHead>Статус</TableHead>
-                  <TableHead>Кухня</TableHead>
                   <TableHead>Заказов сегодня</TableHead>
                   <TableHead>Ср. приготовление</TableHead>
                   <TableHead>Принятие</TableHead>
@@ -315,10 +342,10 @@ export function RestaurantMetricsPage() {
               <TableBody>
                 {data.restaurants
                   .sort((a, b) => b.performanceScore - a.performanceScore)
-                  .slice(0, 10)
                   .map((restaurant) => (
                     <TableRow key={restaurant.restaurantId}>
                       <TableCell className="font-medium">{restaurant.name}</TableCell>
+                      <TableCell>{restaurant.city || '—'}</TableCell>
                       <TableCell>
                         <Badge
                           variant="outline"
@@ -330,7 +357,6 @@ export function RestaurantMetricsPage() {
                           {statusLabels[restaurant.status] || restaurant.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>{restaurant.cuisineType || '—'}</TableCell>
                       <TableCell>{restaurant.totalOrdersToday}</TableCell>
                       <TableCell>{restaurant.avgPreparationTimeMinutes?.toFixed(0)} мин</TableCell>
                       <TableCell>{restaurant.acceptanceRate?.toFixed(0)}%</TableCell>
@@ -338,6 +364,11 @@ export function RestaurantMetricsPage() {
                         <div className="flex items-center gap-1">
                           <Star className="h-3 w-3 text-[hsl(var(--warning))]" />
                           {restaurant.rating?.toFixed(1)}
+                          {restaurant.totalRatings > 0 && (
+                            <span className="text-xs text-[hsl(var(--muted-foreground))]">
+                              ({restaurant.totalRatings})
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -353,8 +384,8 @@ export function RestaurantMetricsPage() {
         </Card>
       )}
 
-      {/* Low Performing Restaurants */}
-      {data?.restaurants && data.restaurants.length > 0 && (
+      {/* Underperformers */}
+      {data?.underperformers && data.underperformers.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-[hsl(var(--destructive))]">
@@ -367,56 +398,47 @@ export function RestaurantMetricsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Ресторан</TableHead>
+                  <TableHead>Город</TableHead>
                   <TableHead>Статус</TableHead>
-                  <TableHead>Отклонено сегодня</TableHead>
-                  <TableHead>Время принятия</TableHead>
+                  <TableHead>Заказов сегодня</TableHead>
+                  <TableHead>Ср. приготовление</TableHead>
                   <TableHead>Рейтинг</TableHead>
                   <TableHead>Балл</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.restaurants
-                  .filter((r) => r.performanceScore < 70 || r.rejectedOrdersToday > 3)
-                  .sort((a, b) => a.performanceScore - b.performanceScore)
-                  .slice(0, 5)
-                  .map((restaurant) => (
-                    <TableRow key={restaurant.restaurantId}>
-                      <TableCell className="font-medium">{restaurant.name}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          style={{
-                            borderColor: statusColors[restaurant.status],
-                            color: statusColors[restaurant.status],
-                          }}
-                        >
-                          {statusLabels[restaurant.status] || restaurant.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-[hsl(var(--destructive))]">
-                        {restaurant.rejectedOrdersToday}
-                      </TableCell>
-                      <TableCell>{restaurant.orderAcceptanceLatencySeconds?.toFixed(0)} сек</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3 w-3 text-[hsl(var(--warning))]" />
-                          {restaurant.rating?.toFixed(1)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="destructive">
-                          {restaurant.performanceScore?.toFixed(0)}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                {data.underperformers.map((restaurant) => (
+                  <TableRow key={restaurant.restaurantId}>
+                    <TableCell className="font-medium">{restaurant.name}</TableCell>
+                    <TableCell>{restaurant.city || '—'}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        style={{
+                          borderColor: statusColors[restaurant.status],
+                          color: statusColors[restaurant.status],
+                        }}
+                      >
+                        {statusLabels[restaurant.status] || restaurant.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{restaurant.totalOrdersToday}</TableCell>
+                    <TableCell>{restaurant.avgPreparationTimeMinutes?.toFixed(0)} мин</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Star className="h-3 w-3 text-[hsl(var(--warning))]" />
+                        {restaurant.rating?.toFixed(1)}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="destructive">
+                        {restaurant.performanceScore?.toFixed(0)}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
-            {data.restaurants.filter((r) => r.performanceScore < 70 || r.rejectedOrdersToday > 3).length === 0 && (
-              <div className="p-8 text-center text-[hsl(var(--muted-foreground))]">
-                Все рестораны работают нормально
-              </div>
-            )}
           </CardContent>
         </Card>
       )}
