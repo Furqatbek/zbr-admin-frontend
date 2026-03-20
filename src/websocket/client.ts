@@ -26,6 +26,8 @@ class WebSocketClient {
 
   connect(token: string): Promise<void> {
     return new Promise((resolve, reject) => {
+      this.reconnectAttempts = 0
+
       this.client = new Client({
         brokerURL: WS_URL,
         connectHeaders: {
@@ -53,7 +55,6 @@ class WebSocketClient {
         },
         onWebSocketError: (event) => {
           console.error('[WS] WebSocket Error:', event)
-          this.handleReconnect()
         },
         onWebSocketClose: () => {
           console.log('[WS] WebSocket Closed')
@@ -66,11 +67,12 @@ class WebSocketClient {
   }
 
   private handleReconnect(): void {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++
+    this.reconnectAttempts++
+    if (this.reconnectAttempts <= this.maxReconnectAttempts) {
       console.log(`[WS] Reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`)
     } else {
-      console.error('[WS] Max reconnect attempts reached')
+      console.error('[WS] Max reconnect attempts reached, stopping reconnection')
+      this.client?.deactivate()
     }
   }
 
