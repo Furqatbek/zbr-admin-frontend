@@ -319,11 +319,11 @@ export function UserAnalyticsPage() {
                 </div>
                 <div className="rounded-lg bg-[hsl(var(--primary))]/10 p-4 text-center">
                   <p className="text-3xl font-bold text-[hsl(var(--primary))]">
-                    {activation.avgActivationTimeHours.toFixed(1)}ч
+                    {(activation.avgActivationTimeHours ?? 0).toFixed(1)}ч
                   </p>
                   <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">Среднее время активации</p>
                   <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                    Медиана: {activation.medianActivationTimeHours.toFixed(1)}ч
+                    Медиана: {(activation.medianActivationTimeHours ?? 0).toFixed(1)}ч
                   </p>
                 </div>
               </div>
