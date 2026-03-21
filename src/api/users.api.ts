@@ -68,7 +68,7 @@ export const usersApi = {
   },
 
   assignRole: async (id: number, data: AssignRoleRequest): Promise<ApiResponse<User>> => {
-    const response = await api.post<ApiResponse<User>>(`/users/${id}/roles`, data)
+    const response = await api.post<ApiResponse<User>>(`/users/${id}/roles/${data.role}`)
     return response.data
   },
 
