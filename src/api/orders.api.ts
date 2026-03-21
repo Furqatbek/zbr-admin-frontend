@@ -54,6 +54,16 @@ export interface ResolveOrderProblemRequest {
   resolution: string
 }
 
+function problemTypeLabel(type?: ProblemType): string {
+  switch (type) {
+    case 'STUCK': return 'Застрял'
+    case 'DELAYED': return 'Задержка'
+    case 'NO_COURIER': return 'Нет курьера'
+    case 'COMPLAINT': return 'Жалоба'
+    default: return 'Проблема'
+  }
+}
+
 export const ordersApi = {
   // ============ Create Order ============
 
@@ -176,10 +186,50 @@ export const ordersApi = {
   getProblematicOrders: async (
     params: ProblematicOrdersQueryParams = {}
   ): Promise<ApiResponse<PaginatedResponse<ProblematicOrder>>> => {
-    const response = await api.get<ApiResponse<PaginatedResponse<ProblematicOrder>>>('/orders/problematic', {
+    const response = await api.get<ApiResponse<PaginatedResponse<Order>>>('/orders/problematic', {
       params,
     })
-    return response.data
+
+    // The backend returns flat Order objects — map them to the nested ProblematicOrder shape
+    const raw = response.data
+    if (raw.data?.content) {
+      const mapped = raw.data.content.map((order: Order & Record<string, unknown>) => {
+        const problem = (order as unknown as { problem?: ProblemType }).problem
+        return {
+          id: order.id,
+          problem: problem || 'STUCK',
+          problemLabel: (order as unknown as { problemLabel?: string }).problemLabel || problemTypeLabel(problem),
+          status: order.status,
+          statusLabel: (order as unknown as { statusLabel?: string }).statusLabel || order.status,
+          stuckMinutes: (order as unknown as { stuckMinutes?: number }).stuckMinutes || 0,
+          customer: {
+            name: order.customerName || order.consumerName || '',
+            phone: order.customerPhone || '',
+          },
+          restaurant: {
+            id: order.restaurantId,
+            name: order.restaurantName || '',
+          },
+          courier: order.courierId
+            ? {
+                id: order.courierId,
+                name: order.courierName || '',
+                phone: (order as unknown as { courierPhone?: string }).courierPhone || '',
+              }
+            : null,
+          total: order.total,
+          createdAt: order.createdAt,
+          complaint: (order as unknown as { complaint?: string }).complaint || undefined,
+        } satisfies ProblematicOrder
+      })
+
+      return {
+        ...raw,
+        data: { ...raw.data, content: mapped },
+      } as unknown as ApiResponse<PaginatedResponse<ProblematicOrder>>
+    }
+
+    return raw as unknown as ApiResponse<PaginatedResponse<ProblematicOrder>>
   },
 
   /**
