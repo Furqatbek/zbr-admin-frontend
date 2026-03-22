@@ -87,13 +87,44 @@ export const couriersApi = {
 
   // Get online couriers with location (for map)
   getOnline: async (params: CouriersQueryParams = {}): Promise<ApiResponse<PaginatedResponse<Courier>>> => {
-    const response = await api.get<ApiResponse<PaginatedResponse<Courier>>>('/couriers/online', {
+    const response = await api.get('/couriers/online', {
       params: {
         page: params.page ?? 0,
         size: params.size ?? 100,
       },
     })
-    return mapCourierPageResponse(response.data)
+    const raw = response.data as ApiResponse<unknown>
+
+    // Backend may return data as a plain array or as a paginated object with content
+    const payload = raw.data
+    let couriers: Courier[]
+
+    if (Array.isArray(payload)) {
+      couriers = payload.map((c: unknown) => mapCourier(c as Record<string, unknown>))
+    } else if (payload && typeof payload === 'object' && 'content' in payload) {
+      const paged = payload as PaginatedResponse<Courier>
+      couriers = paged.content.map((c) => mapCourier(c as unknown as Record<string, unknown>))
+      return {
+        ...raw,
+        data: { ...paged, content: couriers },
+      } as ApiResponse<PaginatedResponse<Courier>>
+    } else {
+      couriers = []
+    }
+
+    return {
+      ...raw,
+      data: {
+        content: couriers,
+        totalElements: couriers.length,
+        totalPages: 1,
+        page: 0,
+        size: couriers.length,
+        first: true,
+        last: true,
+        empty: couriers.length === 0,
+      },
+    } as ApiResponse<PaginatedResponse<Courier>>
   },
 
   // Get couriers by status
