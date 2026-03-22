@@ -21,6 +21,41 @@ export interface AvailableCouriersParams {
   radius?: number
 }
 
+/**
+ * Maps raw API courier data to the Courier type.
+ * The backend uses short field names (currentLat, currentLng, averageRating, verified)
+ * while the frontend type uses full names (currentLatitude, currentLongitude, rating, isVerified).
+ */
+function mapCourier(raw: Record<string, unknown>): Courier {
+  return {
+    ...raw,
+    currentLatitude: (raw.currentLatitude as number) ?? (raw.currentLat as number) ?? undefined,
+    currentLongitude: (raw.currentLongitude as number) ?? (raw.currentLng as number) ?? undefined,
+    rating: (raw.rating as number) ?? (raw.averageRating as number) ?? 0,
+    isVerified: (raw.isVerified as boolean) ?? (raw.verified as boolean) ?? false,
+  } as Courier
+}
+
+function mapCourierResponse(response: ApiResponse<Courier>): ApiResponse<Courier> {
+  if (response.data) {
+    return { ...response, data: mapCourier(response.data as unknown as Record<string, unknown>) }
+  }
+  return response
+}
+
+function mapCourierPageResponse(response: ApiResponse<PaginatedResponse<Courier>>): ApiResponse<PaginatedResponse<Courier>> {
+  if (response.data?.content) {
+    return {
+      ...response,
+      data: {
+        ...response.data,
+        content: response.data.content.map((c) => mapCourier(c as unknown as Record<string, unknown>)),
+      },
+    }
+  }
+  return response
+}
+
 export const couriersApi = {
   // Get all couriers with pagination (Admin)
   getAll: async (params: CouriersQueryParams = {}): Promise<ApiResponse<PaginatedResponse<Courier>>> => {
@@ -30,13 +65,13 @@ export const couriersApi = {
         size: params.size ?? 20,
       },
     })
-    return response.data
+    return mapCourierPageResponse(response.data)
   },
 
   // Get courier by ID
   getById: async (id: number): Promise<ApiResponse<Courier>> => {
     const response = await api.get<ApiResponse<Courier>>(`/couriers/${id}`)
-    return response.data
+    return mapCourierResponse(response.data)
   },
 
   // Get pending couriers awaiting approval
@@ -47,7 +82,7 @@ export const couriersApi = {
         size: params.size ?? 20,
       },
     })
-    return response.data
+    return mapCourierPageResponse(response.data)
   },
 
   // Get online couriers with location (for map)
@@ -58,7 +93,7 @@ export const couriersApi = {
         size: params.size ?? 100,
       },
     })
-    return response.data
+    return mapCourierPageResponse(response.data)
   },
 
   // Get couriers by status
@@ -69,7 +104,7 @@ export const couriersApi = {
         size: params.size ?? 20,
       },
     })
-    return response.data
+    return mapCourierPageResponse(response.data)
   },
 
   // Get courier statistics for dashboard
@@ -81,13 +116,13 @@ export const couriersApi = {
   // Get my courier profile (for courier users)
   getMyProfile: async (): Promise<ApiResponse<Courier>> => {
     const response = await api.get<ApiResponse<Courier>>('/couriers/me')
-    return response.data
+    return mapCourierResponse(response.data)
   },
 
   // Register as courier
   register: async (data: CourierRegistrationRequest): Promise<ApiResponse<Courier>> => {
     const response = await api.post<ApiResponse<Courier>>('/couriers/register', data)
-    return response.data
+    return mapCourierResponse(response.data)
   },
 
   // Update courier status (self)
@@ -95,7 +130,7 @@ export const couriersApi = {
     const response = await api.patch<ApiResponse<Courier>>('/couriers/me/status', null, {
       params: { status },
     })
-    return response.data
+    return mapCourierResponse(response.data)
   },
 
   // Update courier location
@@ -109,7 +144,7 @@ export const couriersApi = {
   // Update courier profile (admin)
   update: async (courierId: number, data: CourierUpdateRequest): Promise<ApiResponse<Courier>> => {
     const response = await api.put<ApiResponse<Courier>>(`/couriers/${courierId}`, data)
-    return response.data
+    return mapCourierResponse(response.data)
   },
 
   // Find available couriers near a location (Admin)
@@ -127,25 +162,25 @@ export const couriersApi = {
   // Verify a courier (Admin only)
   verify: async (courierId: number): Promise<ApiResponse<Courier>> => {
     const response = await api.post<ApiResponse<Courier>>(`/couriers/${courierId}/verify`)
-    return response.data
+    return mapCourierResponse(response.data)
   },
 
   // Reject pending courier application (Admin)
   reject: async (courierId: number): Promise<ApiResponse<Courier>> => {
     const response = await api.post<ApiResponse<Courier>>(`/couriers/${courierId}/reject`)
-    return response.data
+    return mapCourierResponse(response.data)
   },
 
   // Suspend courier account (Admin)
   suspend: async (courierId: number): Promise<ApiResponse<Courier>> => {
     const response = await api.post<ApiResponse<Courier>>(`/couriers/${courierId}/suspend`)
-    return response.data
+    return mapCourierResponse(response.data)
   },
 
   // Activate/reactivate courier (Admin)
   activate: async (courierId: number): Promise<ApiResponse<Courier>> => {
     const response = await api.post<ApiResponse<Courier>>(`/couriers/${courierId}/activate`)
-    return response.data
+    return mapCourierResponse(response.data)
   },
 
   // Accept an order (Courier)
