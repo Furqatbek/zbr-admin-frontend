@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { settingsApi, type PlatformSettings, type ExportRequest } from '@/api/settings.api'
+import { settingsApi, type PlatformSettings, type ExportRequest, type DeliveryFeeSettings } from '@/api/settings.api'
 
 export const settingsKeys = {
   all: ['settings'] as const,
   platform: () => [...settingsKeys.all, 'platform'] as const,
   exports: () => [...settingsKeys.all, 'exports'] as const,
+  deliveryFee: () => [...settingsKeys.all, 'delivery-fee'] as const,
 }
 
 export function usePlatformSettings() {
@@ -40,6 +41,27 @@ export function useExportData() {
     mutationFn: (request: ExportRequest) => settingsApi.exportData(request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: settingsKeys.exports() })
+    },
+  })
+}
+
+// ============ Delivery Fee Settings ============
+
+export function useDeliveryFeeSettings() {
+  return useQuery({
+    queryKey: settingsKeys.deliveryFee(),
+    queryFn: () => settingsApi.getDeliveryFeeSettings(),
+  })
+}
+
+export function useUpdateDeliveryFeeSettings() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (settings: Partial<DeliveryFeeSettings>) =>
+      settingsApi.updateDeliveryFeeSettings(settings),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: settingsKeys.deliveryFee() })
     },
   })
 }

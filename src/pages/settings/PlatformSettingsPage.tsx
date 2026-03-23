@@ -10,6 +10,7 @@ import {
   Shield,
   Loader2,
   RefreshCw,
+  MapPin,
 } from 'lucide-react'
 import {
   Card,
@@ -25,8 +26,8 @@ import {
   Modal,
   ModalFooter,
 } from '@/components/ui'
-import { usePlatformSettings, useUpdateSettings } from '@/hooks/useSettings'
-import type { PlatformSettings } from '@/api/settings.api'
+import { usePlatformSettings, useUpdateSettings, useDeliveryFeeSettings, useUpdateDeliveryFeeSettings } from '@/hooks/useSettings'
+import type { PlatformSettings, DeliveryFeeSettings } from '@/api/settings.api'
 
 const defaultSettings: PlatformSettings = {
   platformName: '',
@@ -64,22 +65,43 @@ const defaultSettings: PlatformSettings = {
   },
 }
 
-type SettingsSection = 'general' | 'orders' | 'couriers' | 'restaurants' | 'notifications'
+const defaultDeliveryFeeSettings: DeliveryFeeSettings = {
+  baseFee: 0,
+  perKmFee: 0,
+  minFee: 0,
+  maxFee: 0,
+  peakHourSurcharge: 0,
+  peakStartHour: 12,
+  peakEndHour: 14,
+}
+
+type SettingsSection = 'general' | 'orders' | 'delivery' | 'couriers' | 'restaurants' | 'notifications'
 
 export function PlatformSettingsPage() {
   const { data: platformSettings, isLoading, error } = usePlatformSettings()
   const updateSettings = useUpdateSettings()
 
+  const { data: deliveryFeeData, isLoading: isLoadingDeliveryFee } = useDeliveryFeeSettings()
+  const updateDeliveryFee = useUpdateDeliveryFeeSettings()
+
   const [settings, setSettings] = useState<PlatformSettings>(defaultSettings)
+  const [deliveryFeeSettings, setDeliveryFeeSettings] = useState<DeliveryFeeSettings>(defaultDeliveryFeeSettings)
   const [activeSection, setActiveSection] = useState<SettingsSection>('general')
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
+  const [hasDeliveryFeeChanges, setHasDeliveryFeeChanges] = useState(false)
 
   useEffect(() => {
     if (platformSettings) {
       setSettings(platformSettings)
     }
   }, [platformSettings])
+
+  useEffect(() => {
+    if (deliveryFeeData) {
+      setDeliveryFeeSettings(deliveryFeeData)
+    }
+  }, [deliveryFeeData])
 
   const handleChange = <T extends keyof PlatformSettings>(
     section: T,
@@ -103,19 +125,37 @@ export function PlatformSettingsPage() {
     setHasChanges(true)
   }
 
+  const handleDeliveryFeeChange = (field: keyof DeliveryFeeSettings, value: number) => {
+    setDeliveryFeeSettings((prev) => ({ ...prev, [field]: value }))
+    setHasDeliveryFeeChanges(true)
+  }
+
   const handleSave = async () => {
-    await updateSettings.mutateAsync(settings)
-    setHasChanges(false)
+    if (activeSection === 'delivery') {
+      await updateDeliveryFee.mutateAsync(deliveryFeeSettings)
+      setHasDeliveryFeeChanges(false)
+    } else {
+      await updateSettings.mutateAsync(settings)
+      setHasChanges(false)
+    }
   }
 
   const handleReset = () => {
-    if (platformSettings) {
+    if (activeSection === 'delivery') {
+      if (deliveryFeeData) {
+        setDeliveryFeeSettings(deliveryFeeData)
+        setHasDeliveryFeeChanges(false)
+      }
+    } else if (platformSettings) {
       setSettings(platformSettings)
       setHasChanges(false)
     }
   }
 
-  if (isLoading) {
+  const currentHasChanges = activeSection === 'delivery' ? hasDeliveryFeeChanges : hasChanges
+  const isSaving = activeSection === 'delivery' ? updateDeliveryFee.isPending : updateSettings.isPending
+
+  if (isLoading || isLoadingDeliveryFee) {
     return (
       <div className="flex h-96 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--primary))]" />
@@ -134,6 +174,7 @@ export function PlatformSettingsPage() {
   const sections = [
     { id: 'general' as const, label: 'Общие', icon: Settings },
     { id: 'orders' as const, label: 'Заказы', icon: CreditCard },
+    { id: 'delivery' as const, label: 'Доставка', icon: MapPin },
     { id: 'couriers' as const, label: 'Курьеры', icon: Truck },
     { id: 'restaurants' as const, label: 'Рестораны', icon: Store },
     { id: 'notifications' as const, label: 'Уведомления', icon: Bell },
@@ -150,15 +191,15 @@ export function PlatformSettingsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {hasChanges && (
+          {currentHasChanges && (
             <Badge variant="warning">Есть несохранённые изменения</Badge>
           )}
-          <Button variant="outline" onClick={handleReset} disabled={!hasChanges}>
+          <Button variant="outline" onClick={handleReset} disabled={!currentHasChanges}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Сбросить
           </Button>
-          <Button onClick={handleSave} disabled={!hasChanges || updateSettings.isPending}>
-            {updateSettings.isPending ? (
+          <Button onClick={handleSave} disabled={!currentHasChanges || isSaving}>
+            {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Сохранение...
@@ -382,6 +423,120 @@ export function PlatformSettingsPage() {
                       }
                     />
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === 'delivery' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Настройки стоимости доставки</CardTitle>
+                <CardDescription>Тарифы и наценки за доставку</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Базовая стоимость</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={deliveryFeeSettings.baseFee}
+                      onChange={(e) =>
+                        handleDeliveryFeeChange('baseFee', Number(e.target.value))
+                      }
+                    />
+                    <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                      Фиксированная плата за каждую доставку
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Стоимость за км</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={deliveryFeeSettings.perKmFee}
+                      onChange={(e) =>
+                        handleDeliveryFeeChange('perKmFee', Number(e.target.value))
+                      }
+                    />
+                    <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                      Дополнительная плата за каждый километр
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Минимальная стоимость</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={deliveryFeeSettings.minFee}
+                      onChange={(e) =>
+                        handleDeliveryFeeChange('minFee', Number(e.target.value))
+                      }
+                    />
+                    <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                      Минимальная сумма за доставку
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Максимальная стоимость</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={deliveryFeeSettings.maxFee}
+                      onChange={(e) =>
+                        handleDeliveryFeeChange('maxFee', Number(e.target.value))
+                      }
+                    />
+                    <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                      Максимальный лимит стоимости доставки
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-[hsl(var(--border))] p-4 space-y-4">
+                  <h4 className="font-medium">Наценка в час-пик</h4>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label>Наценка</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={deliveryFeeSettings.peakHourSurcharge}
+                        onChange={(e) =>
+                          handleDeliveryFeeChange('peakHourSurcharge', Number(e.target.value))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Начало (час)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={deliveryFeeSettings.peakStartHour}
+                        onChange={(e) =>
+                          handleDeliveryFeeChange('peakStartHour', Number(e.target.value))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Конец (час)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={deliveryFeeSettings.peakEndHour}
+                        onChange={(e) =>
+                          handleDeliveryFeeChange('peakEndHour', Number(e.target.value))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                    Дополнительная наценка к стоимости доставки в часы повышенного спроса ({deliveryFeeSettings.peakStartHour}:00 — {deliveryFeeSettings.peakEndHour}:00)
+                  </p>
                 </div>
               </CardContent>
             </Card>

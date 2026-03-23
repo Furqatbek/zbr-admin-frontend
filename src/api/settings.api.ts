@@ -36,6 +36,21 @@ export interface PlatformSettings {
   }
 }
 
+export interface DeliveryFeeSettings {
+  baseFee: number
+  perKmFee: number
+  minFee: number
+  maxFee: number
+  peakHourSurcharge: number
+  peakStartHour: number
+  peakEndHour: number
+}
+
+export interface DeliveryFeeSettingEntry {
+  key: string
+  value: string
+}
+
 export interface ExportRequest {
   type: 'USERS' | 'ORDERS' | 'RESTAURANTS' | 'COURIERS' | 'ANALYTICS'
   format: 'CSV' | 'XLSX' | 'JSON'
@@ -83,5 +98,28 @@ export const settingsApi = {
       responseType: 'blob',
     })
     return response.data
+  },
+
+  // ============ Delivery Fee Settings ============
+
+  getDeliveryFeeSettings: async (): Promise<DeliveryFeeSettings> => {
+    const response = await apiClient.get<DeliveryFeeSettings>('/admin/delivery-fee-settings')
+    return response.data
+  },
+
+  getDeliveryFeeSettingsList: async (): Promise<DeliveryFeeSettingEntry[]> => {
+    const response = await apiClient.get<DeliveryFeeSettingEntry[]>('/admin/delivery-fee-settings/all')
+    return response.data
+  },
+
+  updateDeliveryFeeSettings: async (settings: Partial<DeliveryFeeSettings>): Promise<DeliveryFeeSettings> => {
+    const response = await apiClient.put<DeliveryFeeSettings>('/admin/delivery-fee-settings', settings)
+    return response.data
+  },
+
+  updateDeliveryFeeSetting: async (key: string, value: string | number): Promise<void> => {
+    await apiClient.patch(`/admin/delivery-fee-settings/${key}`, null, {
+      params: { value },
+    })
   },
 }
