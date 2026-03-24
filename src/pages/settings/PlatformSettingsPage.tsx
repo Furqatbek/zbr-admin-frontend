@@ -26,7 +26,7 @@ import {
   Modal,
   ModalFooter,
 } from '@/components/ui'
-import { usePlatformSettings, useUpdateSettings, useDeliveryFeeSettings, useUpdateDeliveryFeeSettings } from '@/hooks/useSettings'
+import { useDeliveryFeeSettings, useUpdateDeliveryFeeSettings } from '@/hooks/useSettings'
 import type { PlatformSettings, DeliveryFeeSettings } from '@/api/settings.api'
 
 const defaultSettings: PlatformSettings = {
@@ -82,9 +82,6 @@ const defaultDeliveryFeeSettings: DeliveryFeeSettings = {
 type SettingsSection = 'general' | 'orders' | 'delivery' | 'couriers' | 'restaurants' | 'notifications'
 
 export function PlatformSettingsPage() {
-  const { data: platformSettings, isLoading, error } = usePlatformSettings()
-  const updateSettings = useUpdateSettings()
-
   const { data: deliveryFeeData, isLoading: isLoadingDeliveryFee, error: deliveryFeeError } = useDeliveryFeeSettings()
   const updateDeliveryFee = useUpdateDeliveryFeeSettings()
 
@@ -94,12 +91,6 @@ export function PlatformSettingsPage() {
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
   const [hasDeliveryFeeChanges, setHasDeliveryFeeChanges] = useState(false)
-
-  useEffect(() => {
-    if (platformSettings) {
-      setSettings(platformSettings)
-    }
-  }, [platformSettings])
 
   useEffect(() => {
     if (deliveryFeeData) {
@@ -138,9 +129,6 @@ export function PlatformSettingsPage() {
     if (activeSection === 'delivery') {
       await updateDeliveryFee.mutateAsync(deliveryFeeSettings)
       setHasDeliveryFeeChanges(false)
-    } else {
-      await updateSettings.mutateAsync(settings)
-      setHasChanges(false)
     }
   }
 
@@ -150,30 +138,14 @@ export function PlatformSettingsPage() {
         setDeliveryFeeSettings(deliveryFeeData)
         setHasDeliveryFeeChanges(false)
       }
-    } else if (platformSettings) {
-      setSettings(platformSettings)
+    } else {
+      setSettings(defaultSettings)
       setHasChanges(false)
     }
   }
 
   const currentHasChanges = activeSection === 'delivery' ? hasDeliveryFeeChanges : hasChanges
-  const isSaving = activeSection === 'delivery' ? updateDeliveryFee.isPending : updateSettings.isPending
-
-  if (isLoading) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--primary))]" />
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <p className="text-[hsl(var(--destructive))]">Ошибка загрузки настроек</p>
-      </div>
-    )
-  }
+  const isSaving = activeSection === 'delivery' ? updateDeliveryFee.isPending : false
 
   const sections = [
     { id: 'general' as const, label: 'Общие', icon: Settings },
