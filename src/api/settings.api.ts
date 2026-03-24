@@ -44,6 +44,10 @@ export interface DeliveryFeeSettings {
   peakHourSurcharge: number
   peakStartHour: number
   peakEndHour: number
+  routingEnabled: boolean
+  routingOsrmBaseUrl: string
+  routingConnectTimeout: number
+  routingReadTimeout: number
 }
 
 export interface DeliveryFeeSettingEntry {

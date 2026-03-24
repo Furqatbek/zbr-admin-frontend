@@ -73,6 +73,10 @@ const defaultDeliveryFeeSettings: DeliveryFeeSettings = {
   peakHourSurcharge: 0,
   peakStartHour: 12,
   peakEndHour: 14,
+  routingEnabled: false,
+  routingOsrmBaseUrl: '',
+  routingConnectTimeout: 5000,
+  routingReadTimeout: 5000,
 }
 
 type SettingsSection = 'general' | 'orders' | 'delivery' | 'couriers' | 'restaurants' | 'notifications'
@@ -125,7 +129,7 @@ export function PlatformSettingsPage() {
     setHasChanges(true)
   }
 
-  const handleDeliveryFeeChange = (field: keyof DeliveryFeeSettings, value: number) => {
+  const handleDeliveryFeeChange = (field: keyof DeliveryFeeSettings, value: number | string | boolean) => {
     setDeliveryFeeSettings((prev) => ({ ...prev, [field]: value }))
     setHasDeliveryFeeChanges(true)
   }
@@ -537,6 +541,75 @@ export function PlatformSettingsPage() {
                   <p className="text-xs text-[hsl(var(--muted-foreground))]">
                     Дополнительная наценка к стоимости доставки в часы повышенного спроса ({deliveryFeeSettings.peakStartHour}:00 — {deliveryFeeSettings.peakEndHour}:00)
                   </p>
+                </div>
+                <div className="rounded-lg border border-[hsl(var(--border))] p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">Маршрутизация (OSRM)</h4>
+                      <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                        Расчёт расстояния доставки по маршруту вместо прямой линии
+                      </p>
+                    </div>
+                    <button
+                      onClick={() =>
+                        handleDeliveryFeeChange('routingEnabled', !deliveryFeeSettings.routingEnabled)
+                      }
+                      className={`relative h-6 w-11 rounded-full transition-colors ${
+                        deliveryFeeSettings.routingEnabled
+                          ? 'bg-[hsl(var(--success))]'
+                          : 'bg-[hsl(var(--muted))]'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                          deliveryFeeSettings.routingEnabled
+                            ? 'left-[22px]'
+                            : 'left-0.5'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  {deliveryFeeSettings.routingEnabled && (
+                    <div className="space-y-4 pt-2">
+                      <div className="space-y-2">
+                        <Label>OSRM Server URL</Label>
+                        <Input
+                          type="url"
+                          placeholder="https://your-osrm-server.com"
+                          value={deliveryFeeSettings.routingOsrmBaseUrl}
+                          onChange={(e) =>
+                            handleDeliveryFeeChange('routingOsrmBaseUrl', e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>Connect Timeout (мс)</Label>
+                          <Input
+                            type="number"
+                            min={100}
+                            max={30000}
+                            value={deliveryFeeSettings.routingConnectTimeout}
+                            onChange={(e) =>
+                              handleDeliveryFeeChange('routingConnectTimeout', Number(e.target.value))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Read Timeout (мс)</Label>
+                          <Input
+                            type="number"
+                            min={100}
+                            max={30000}
+                            value={deliveryFeeSettings.routingReadTimeout}
+                            onChange={(e) =>
+                              handleDeliveryFeeChange('routingReadTimeout', Number(e.target.value))
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
