@@ -85,7 +85,7 @@ export function PlatformSettingsPage() {
   const { data: platformSettings, isLoading, error } = usePlatformSettings()
   const updateSettings = useUpdateSettings()
 
-  const { data: deliveryFeeData, isLoading: isLoadingDeliveryFee } = useDeliveryFeeSettings()
+  const { data: deliveryFeeData, isLoading: isLoadingDeliveryFee, error: deliveryFeeError } = useDeliveryFeeSettings()
   const updateDeliveryFee = useUpdateDeliveryFeeSettings()
 
   const [settings, setSettings] = useState<PlatformSettings>(defaultSettings)
@@ -159,7 +159,7 @@ export function PlatformSettingsPage() {
   const currentHasChanges = activeSection === 'delivery' ? hasDeliveryFeeChanges : hasChanges
   const isSaving = activeSection === 'delivery' ? updateDeliveryFee.isPending : updateSettings.isPending
 
-  if (isLoading || isLoadingDeliveryFee) {
+  if (isLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--primary))]" />
@@ -438,6 +438,19 @@ export function PlatformSettingsPage() {
                 <CardTitle>Настройки стоимости доставки</CardTitle>
                 <CardDescription>Тарифы и наценки за доставку</CardDescription>
               </CardHeader>
+              {isLoadingDeliveryFee ? (
+                <CardContent>
+                  <div className="flex h-40 items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--primary))]" />
+                  </div>
+                </CardContent>
+              ) : deliveryFeeError ? (
+                <CardContent>
+                  <div className="flex h-40 items-center justify-center">
+                    <p className="text-[hsl(var(--destructive))]">Ошибка загрузки настроек доставки</p>
+                  </div>
+                </CardContent>
+              ) : (
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
@@ -612,6 +625,7 @@ export function PlatformSettingsPage() {
                   )}
                 </div>
               </CardContent>
+              )}
             </Card>
           )}
 
