@@ -44,6 +44,8 @@ export interface DeliveryFeeSettings {
   peakHourSurcharge: number
   peakStartHour: number
   peakEndHour: number
+  eveningPeakStartHour: number
+  eveningPeakEndHour: number
   routingEnabled: boolean
   routingOsrmBaseUrl: string
   routingConnectTimeout: number
@@ -107,8 +109,8 @@ export const settingsApi = {
   // ============ Delivery Fee Settings ============
 
   getDeliveryFeeSettings: async (): Promise<DeliveryFeeSettings> => {
-    const response = await apiClient.get<DeliveryFeeSettings>('/admin/delivery-fee-settings')
-    return response.data
+    const response = await apiClient.get<{ success: boolean; data: DeliveryFeeSettings }>('/admin/delivery-fee-settings')
+    return response.data.data
   },
 
   getDeliveryFeeSettingsList: async (): Promise<DeliveryFeeSettingEntry[]> => {

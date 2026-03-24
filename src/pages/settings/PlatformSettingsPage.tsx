@@ -73,6 +73,8 @@ const defaultDeliveryFeeSettings: DeliveryFeeSettings = {
   peakHourSurcharge: 0,
   peakStartHour: 12,
   peakEndHour: 14,
+  eveningPeakStartHour: 18,
+  eveningPeakEndHour: 21,
   routingEnabled: false,
   routingOsrmBaseUrl: '',
   routingConnectTimeout: 5000,
@@ -525,6 +527,36 @@ export function PlatformSettingsPage() {
                   </div>
                   <p className="text-xs text-[hsl(var(--muted-foreground))]">
                     Дополнительная наценка к стоимости доставки в часы повышенного спроса ({deliveryFeeSettings.peakStartHour}:00 — {deliveryFeeSettings.peakEndHour}:00)
+                  </p>
+                  <h4 className="font-medium pt-2">Вечерний час-пик</h4>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Начало (час)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={deliveryFeeSettings.eveningPeakStartHour}
+                        onChange={(e) =>
+                          handleDeliveryFeeChange('eveningPeakStartHour', Number(e.target.value))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Конец (час)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={deliveryFeeSettings.eveningPeakEndHour}
+                        onChange={(e) =>
+                          handleDeliveryFeeChange('eveningPeakEndHour', Number(e.target.value))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                    Вечерняя наценка ({deliveryFeeSettings.eveningPeakStartHour}:00 — {deliveryFeeSettings.eveningPeakEndHour}:00)
                   </p>
                 </div>
                 <div className="rounded-lg border border-[hsl(var(--border))] p-4 space-y-4">
