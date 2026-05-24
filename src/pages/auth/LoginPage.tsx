@@ -68,7 +68,7 @@ export function LoginPage() {
               <Input
                 id="emailOrPhone"
                 type="text"
-                placeholder="admin@example.com"
+                placeholder="Email или номер телефона"
                 {...register('emailOrPhone')}
                 error={errors.emailOrPhone?.message}
               />
@@ -102,12 +102,6 @@ export function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-[hsl(var(--muted-foreground))]">
-            <p>Тестовые данные:</p>
-            <p className="mt-1">
-              <span className="font-medium">admin@fooddelivery.com</span> / <span className="font-medium">password</span>
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>
