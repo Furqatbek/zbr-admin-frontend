@@ -97,11 +97,12 @@ export function useActiveRestaurantOrders(restaurantId: number) {
 /**
  * Get payment details for an order
  */
-export function useOrderPayment(orderId: number) {
+export function useOrderPayment(orderId: number, enabled = true) {
   return useQuery({
     queryKey: orderKeys.payment(orderId),
     queryFn: () => ordersApi.getPayment(orderId),
-    enabled: !!orderId,
+    enabled: !!orderId && enabled,
+    retry: false,
   })
 }
 

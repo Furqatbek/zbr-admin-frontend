@@ -135,8 +135,8 @@ export function OrderDetailsPage() {
   const orderId = parseInt(id || '0', 10)
 
   const { data: orderData, isLoading } = useOrder(orderId)
-  const { data: paymentData } = useOrderPayment(orderId)
   const order = orderData?.data
+  const { data: paymentData } = useOrderPayment(orderId, !!order?.paymentStatus)
   const payment = paymentData?.data
 
   const updateStatusMutation = useUpdateOrderStatus()

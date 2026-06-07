@@ -4,7 +4,6 @@ import type {
   PaginatedResponse,
   Courier,
   CourierStatus,
-  CourierRegistrationRequest,
   CourierUpdateRequest,
   AvailableCourier,
   CourierStatistics,
@@ -144,34 +143,6 @@ export const couriersApi = {
     return response.data
   },
 
-  // Get my courier profile (for courier users)
-  getMyProfile: async (): Promise<ApiResponse<Courier>> => {
-    const response = await api.get<ApiResponse<Courier>>('/couriers/me')
-    return mapCourierResponse(response.data)
-  },
-
-  // Register as courier
-  register: async (data: CourierRegistrationRequest): Promise<ApiResponse<Courier>> => {
-    const response = await api.post<ApiResponse<Courier>>('/couriers/register', data)
-    return mapCourierResponse(response.data)
-  },
-
-  // Update courier status (self)
-  updateStatus: async (status: CourierStatus): Promise<ApiResponse<Courier>> => {
-    const response = await api.patch<ApiResponse<Courier>>('/couriers/me/status', null, {
-      params: { status },
-    })
-    return mapCourierResponse(response.data)
-  },
-
-  // Update courier location
-  updateLocation: async (lat: number, lng: number): Promise<ApiResponse<{ message: string }>> => {
-    const response = await api.post<ApiResponse<{ message: string }>>('/couriers/me/location', null, {
-      params: { lat, lng },
-    })
-    return response.data
-  },
-
   // Update courier profile (admin)
   update: async (courierId: number, data: CourierUpdateRequest): Promise<ApiResponse<Courier>> => {
     const response = await api.put<ApiResponse<Courier>>(`/couriers/${courierId}`, data)
@@ -214,19 +185,4 @@ export const couriersApi = {
     return mapCourierResponse(response.data)
   },
 
-  // Accept an order (Courier)
-  acceptOrder: async (courierId: number, orderId: number): Promise<ApiResponse<Courier>> => {
-    const response = await api.post<ApiResponse<Courier>>(
-      `/couriers/${courierId}/accept/${orderId}`
-    )
-    return response.data
-  },
-
-  // Complete a delivery (Courier)
-  completeDelivery: async (courierId: number, orderId: number): Promise<ApiResponse<Courier>> => {
-    const response = await api.post<ApiResponse<Courier>>(
-      `/couriers/${courierId}/complete/${orderId}`
-    )
-    return response.data
-  },
 }

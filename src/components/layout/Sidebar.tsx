@@ -138,7 +138,6 @@ export function Sidebar() {
               { to: '/couriers', label: 'Все курьеры' },
               { to: '/couriers/verification', label: 'Верификация' },
               { to: '/couriers/map', label: 'Карта курьеров' },
-              { to: '/couriers/operations', label: 'Операции' },
             ]}
           />
 

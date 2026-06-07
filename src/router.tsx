@@ -25,7 +25,6 @@ const CouriersPage = lazy(() => import('@/pages/couriers/CouriersPage').then(m =
 const CourierDetailsPage = lazy(() => import('@/pages/couriers/CourierDetailsPage').then(m => ({ default: m.CourierDetailsPage })))
 const CourierVerificationPage = lazy(() => import('@/pages/couriers/CourierVerificationPage').then(m => ({ default: m.CourierVerificationPage })))
 const CouriersMapPage = lazy(() => import('@/pages/couriers/CouriersMapPage').then(m => ({ default: m.CouriersMapPage })))
-const CourierOperationsPage = lazy(() => import('@/pages/couriers/CourierOperationsPage').then(m => ({ default: m.CourierOperationsPage })))
 
 const RestaurantsPage = lazy(() => import('@/pages/restaurants/RestaurantsPage').then(m => ({ default: m.RestaurantsPage })))
 const RestaurantDetailsPage = lazy(() => import('@/pages/restaurants/RestaurantDetailsPage').then(m => ({ default: m.RestaurantDetailsPage })))
@@ -127,10 +126,6 @@ export const router = createBrowserRouter([
       {
         path: 'couriers/map',
         element: <LazyPage><CouriersMapPage /></LazyPage>,
-      },
-      {
-        path: 'couriers/operations',
-        element: <LazyPage><CourierOperationsPage /></LazyPage>,
       },
       // Restaurants
       {
