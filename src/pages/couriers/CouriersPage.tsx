@@ -89,23 +89,31 @@ export function CouriersPage() {
   })
 
   // Fetch courier statistics
-  const { data: statsData, isLoading: isLoadingStats } = useCourierStatistics()
+  const { data: statsData, isLoading: isLoadingStats, refetch: refetchStats } = useCourierStatistics()
   const stats = statsData?.data
 
   // Fetch couriers - use by-status endpoint if filter is set, otherwise get all
-  const { data: allData, isLoading: isLoadingAll, refetch: refetchAll } = useCouriers({
+  const { data: allData, isLoading: isLoadingAll, isFetching: isFetchingAll, refetch: refetchAll } = useCouriers({
     page,
     size: pageSize,
   })
 
-  const { data: filteredData, isLoading: isLoadingFiltered, refetch: refetchFiltered } = useCouriersByStatus(
+  const { data: filteredData, isLoading: isLoadingFiltered, isFetching: isFetchingFiltered, refetch: refetchFiltered } = useCouriersByStatus(
     statusFilter as CourierStatus,
     { page, size: pageSize }
   )
 
   const isLoading = statusFilter ? isLoadingFiltered : isLoadingAll
+  const isFetching = statusFilter ? isFetchingFiltered : isFetchingAll
   const data = statusFilter ? filteredData : allData
-  const refetch = statusFilter ? refetchFiltered : refetchAll
+  const refetch = () => {
+    if (statusFilter) {
+      refetchFiltered()
+    } else {
+      refetchAll()
+    }
+    refetchStats()
+  }
 
   const verifyCourier = useVerifyCourier()
   const suspendCourier = useSuspendCourier()
@@ -172,8 +180,8 @@ export function CouriersPage() {
               Карта
             </Button>
           </Link>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <Button variant="outline" size="sm" onClick={refetch}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
             Обновить
           </Button>
         </div>

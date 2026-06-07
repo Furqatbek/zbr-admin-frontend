@@ -195,6 +195,22 @@ export interface CreateRestaurantRequest {
 
 export interface UpdateRestaurantRequest extends Partial<CreateRestaurantRequest> {}
 
+// Review types
+export interface Review {
+  id: number
+  orderId: number
+  consumerId: number
+  consumerName: string
+  restaurantId: number
+  courierId?: number
+  restaurantRating: number
+  foodRating: number
+  courierRating?: number
+  comment?: string
+  tags?: string
+  createdAt: string
+}
+
 // Menu types
 export interface MenuCategory {
   id: number

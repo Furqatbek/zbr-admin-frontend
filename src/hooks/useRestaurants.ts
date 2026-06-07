@@ -31,6 +31,8 @@ export const restaurantKeys = {
     [...restaurantKeys.detail(restaurantId), 'items', params] as const,
   menuItem: (restaurantId: number, itemId: number) =>
     [...restaurantKeys.detail(restaurantId), 'item', itemId] as const,
+  reviews: (restaurantId: number, params?: { page?: number; size?: number }) =>
+    [...restaurantKeys.detail(restaurantId), 'reviews', params] as const,
 }
 
 // ============ Restaurant Queries ============
@@ -100,6 +102,15 @@ export function useRestaurantOrders(id: number, params: { page?: number; size?: 
     queryKey: [...restaurantKeys.orders(id), params],
     queryFn: () => restaurantsApi.getOrders(id, params),
     enabled: !!id,
+  })
+}
+
+// Get restaurant reviews
+export function useRestaurantReviews(restaurantId: number, params: { page?: number; size?: number } = {}) {
+  return useQuery({
+    queryKey: restaurantKeys.reviews(restaurantId, params),
+    queryFn: () => restaurantsApi.getReviews(restaurantId, params),
+    enabled: !!restaurantId,
   })
 }
 

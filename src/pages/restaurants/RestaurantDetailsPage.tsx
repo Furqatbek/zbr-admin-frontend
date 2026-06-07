@@ -204,6 +204,12 @@ export function RestaurantDetailsPage() {
               Меню
             </Button>
           </Link>
+          <Link to={`/restaurants/${id}/reviews`}>
+            <Button variant="outline">
+              <Star className="mr-2 h-4 w-4" />
+              Отзывы
+            </Button>
+          </Link>
           <Button variant="outline" onClick={() => {
             setNewStatus(restaurant.status)
             setStatusModal(true)

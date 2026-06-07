@@ -11,6 +11,7 @@ import type {
   MenuItem,
   CreateMenuItemRequest,
   Order,
+  Review,
 } from '@/types'
 
 export interface RestaurantsQueryParams {
@@ -141,6 +142,18 @@ export const restaurantsApi = {
   // Get restaurant orders
   getOrders: async (id: number, params: { page?: number; size?: number } = {}): Promise<ApiResponse<PaginatedResponse<Order>>> => {
     const response = await api.get<ApiResponse<PaginatedResponse<Order>>>(`/restaurants/${id}/orders`, { params })
+    return response.data
+  },
+
+  // ============ Reviews ============
+
+  getReviews: async (restaurantId: number, params: { page?: number; size?: number } = {}): Promise<ApiResponse<PaginatedResponse<Review>>> => {
+    const response = await api.get<ApiResponse<PaginatedResponse<Review>>>(`/restaurants/${restaurantId}/reviews`, {
+      params: {
+        page: params.page ?? 0,
+        size: params.size ?? 20,
+      },
+    })
     return response.data
   },
 
