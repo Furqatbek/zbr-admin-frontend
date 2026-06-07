@@ -19,22 +19,20 @@ interface NavItemProps {
   to: string
   icon: React.ReactNode
   label: string
+  isOpen: boolean
+  onToggle: () => void
   children?: { to: string; label: string }[]
 }
 
-function NavItem({ to, icon, label, children }: NavItemProps) {
+function NavItem({ to, icon, label, isOpen, onToggle, children }: NavItemProps) {
   const location = useLocation()
-  const [isOpen, setIsOpen] = useState(
-    children?.some((child) => location.pathname.startsWith(child.to)) ?? false
-  )
-
   const isActive = location.pathname === to || (children && location.pathname.startsWith(to))
 
   if (children) {
     return (
       <div>
         <button
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={onToggle}
           className={cn(
             'flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors',
             isActive
@@ -83,6 +81,7 @@ function NavItem({ to, icon, label, children }: NavItemProps) {
             : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]'
         )
       }
+      onClick={onToggle}
     >
       {icon}
       <span>{label}</span>
@@ -93,11 +92,33 @@ function NavItem({ to, icon, label, children }: NavItemProps) {
 export function Sidebar() {
   const { hasRole } = useAuthStore()
   const isAdmin = hasRole('ADMIN')
+  const location = useLocation()
+
+  const sections = [
+    '/',
+    '/users',
+    '/couriers',
+    '/restaurants',
+    '/orders',
+    '/analytics',
+    '/notifications',
+    '/settings',
+  ]
+
+  const initialOpen = sections.find(
+    (s) => s === '/' ? location.pathname === '/' || location.pathname.startsWith('/dashboard') : location.pathname.startsWith(s)
+  ) ?? null
+
+  const [openSection, setOpenSection] = useState<string | null>(initialOpen)
+
+  const toggle = (section: string) => {
+    setOpenSection((prev) => (prev === section ? null : section))
+  }
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 w-[var(--sidebar-width)] border-r border-[hsl(var(--border))] bg-[hsl(var(--card))]">
+    <aside className="fixed inset-y-0 left-0 z-50 flex w-[var(--sidebar-width)] flex-col border-r border-[hsl(var(--border))] bg-[hsl(var(--card))]">
       {/* Logo */}
-      <div className="flex h-16 items-center border-b border-[hsl(var(--border))] px-6">
+      <div className="flex h-16 shrink-0 items-center border-b border-[hsl(var(--border))] px-6">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--primary))]">
             <span className="text-sm font-bold text-[hsl(var(--primary-foreground))]">ZBR</span>
@@ -107,12 +128,14 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-4">
+      <nav className="min-h-0 flex-1 overflow-y-auto p-4">
         <div className="space-y-1">
           <NavItem
             to="/"
             icon={<LayoutDashboard className="h-5 w-5" />}
             label="Главная"
+            isOpen={openSection === '/'}
+            onToggle={() => toggle('/')}
             children={[
               { to: '/', label: 'Обзор' },
               { to: '/dashboard/filtered-orders', label: 'Фильтр заказов' },
@@ -124,6 +147,8 @@ export function Sidebar() {
             to="/users"
             icon={<Users className="h-5 w-5" />}
             label="Пользователи"
+            isOpen={openSection === '/users'}
+            onToggle={() => toggle('/users')}
             children={[
               { to: '/users', label: 'Все пользователи' },
               { to: '/users/roles', label: 'Роли и права' },
@@ -134,6 +159,8 @@ export function Sidebar() {
             to="/couriers"
             icon={<Bike className="h-5 w-5" />}
             label="Курьеры"
+            isOpen={openSection === '/couriers'}
+            onToggle={() => toggle('/couriers')}
             children={[
               { to: '/couriers', label: 'Все курьеры' },
               { to: '/couriers/verification', label: 'Верификация' },
@@ -145,6 +172,8 @@ export function Sidebar() {
             to="/restaurants"
             icon={<UtensilsCrossed className="h-5 w-5" />}
             label="Рестораны"
+            isOpen={openSection === '/restaurants'}
+            onToggle={() => toggle('/restaurants')}
             children={[
               { to: '/restaurants', label: 'Все рестораны' },
               { to: '/restaurants/moderation', label: 'Модерация' },
@@ -156,6 +185,8 @@ export function Sidebar() {
             to="/orders"
             icon={<Package className="h-5 w-5" />}
             label="Заказы"
+            isOpen={openSection === '/orders'}
+            onToggle={() => toggle('/orders')}
             children={[
               { to: '/orders', label: 'Все заказы' },
               { to: '/orders/live', label: 'Активные заказы' },
@@ -168,6 +199,8 @@ export function Sidebar() {
             to="/analytics"
             icon={<BarChart3 className="h-5 w-5" />}
             label="Аналитика"
+            isOpen={openSection === '/analytics'}
+            onToggle={() => toggle('/analytics')}
             children={[
               { to: '/analytics/users', label: 'Пользователи' },
               { to: '/analytics/revenue', label: 'Доходы' },
@@ -188,6 +221,8 @@ export function Sidebar() {
             to="/notifications"
             icon={<Bell className="h-5 w-5" />}
             label="Уведомления"
+            isOpen={openSection === '/notifications'}
+            onToggle={() => toggle('/notifications')}
             children={[
               { to: '/notifications', label: 'Все уведомления' },
               { to: '/notifications/inbox', label: 'Входящие' },
@@ -201,6 +236,8 @@ export function Sidebar() {
             to="/settings"
             icon={<Settings className="h-5 w-5" />}
             label="Настройки"
+            isOpen={openSection === '/settings'}
+            onToggle={() => toggle('/settings')}
             children={[
               ...(isAdmin ? [{ to: '/settings', label: 'Платформа' }] : []),
               { to: '/settings/referrals', label: 'Рефералы' },
