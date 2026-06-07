@@ -364,7 +364,7 @@ export function CouriersPage() {
                       <span className="font-medium">{formatNumber(courier.totalDeliveries || 0)}</span>
                     </TableCell>
                     <TableCell>
-                      {courier.currentLatitude && courier.currentLongitude ? (
+                      {courier.status === 'AVAILABLE' || courier.status === 'BUSY' ? (
                         <div className="flex items-center gap-1 text-[hsl(var(--success))]">
                           <MapPin className="h-4 w-4" />
                           <span className="text-sm">Онлайн</span>
