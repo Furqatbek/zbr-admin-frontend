@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Search,
@@ -40,6 +40,7 @@ import { formatDateTime } from '@/lib/utils'
 import type { User, UserRole, UserStatus } from '@/types'
 import { useAuthStore } from '@/store/auth.store'
 import { useUsers, useUpdateUserStatus, useLockUser, useUnlockUser, useDeleteUser } from '@/hooks'
+import { useDebounce } from '@/hooks/useDebounce'
 
 const roleLabels: Record<UserRole, string> = {
   ADMIN: 'Администратор',
@@ -78,9 +79,17 @@ export function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<string>('')
   const [statusFilter, setStatusFilter] = useState<string>('')
 
+  // Debounced search value
+  const debouncedSearch = useDebounce(search, 400)
+
   // Pagination state
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(20)
+
+  // Reset page when debounced search changes
+  useEffect(() => {
+    setPage(0)
+  }, [debouncedSearch])
 
   // Modal states
   const [statusModal, setStatusModal] = useState<{ isOpen: boolean; user: User | null }>({
@@ -95,12 +104,12 @@ export function UsersPage() {
   const [newStatus, setNewStatus] = useState<UserStatus>('SUSPENDED')
 
   // API hooks
-  const { data: usersData, isLoading, refetch } = useUsers({
+  const { data: usersData, isLoading, isFetching, refetch } = useUsers({
     page,
     size: pageSize,
     role: roleFilter as UserRole || undefined,
     status: statusFilter as UserStatus || undefined,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
   })
 
   const updateStatusMutation = useUpdateUserStatus()
@@ -108,9 +117,26 @@ export function UsersPage() {
   const unlockUserMutation = useUnlockUser()
   const deleteUserMutation = useDeleteUser()
 
-  const users = usersData?.data?.content ?? []
+  const allUsers = usersData?.data?.content ?? []
   const totalItems = usersData?.data?.totalElements ?? 0
   const totalPages = usersData?.data?.totalPages ?? 0
+
+  // Client-side filtering as fallback if backend ignores filter params
+  const users = allUsers.filter((user) => {
+    if (roleFilter && !user.roles.includes(roleFilter as UserRole)) return false
+    if (statusFilter && user.status !== statusFilter) return false
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase()
+      const match =
+        user.firstName.toLowerCase().includes(q) ||
+        user.lastName.toLowerCase().includes(q) ||
+        user.email.toLowerCase().includes(q) ||
+        (user.phone && user.phone.includes(q)) ||
+        user.id.toString().includes(q)
+      if (!match) return false
+    }
+    return true
+  })
 
   const handleStatusChange = () => {
     if (statusModal.user) {
@@ -154,8 +180,8 @@ export function UsersPage() {
             Управление пользователями системы
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
           Обновить
         </Button>
       </div>
@@ -175,10 +201,7 @@ export function UsersPage() {
               <Input
                 placeholder="Поиск по имени, email, телефону..."
                 value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value)
-                  setPage(0)
-                }}
+                onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
               />
             </div>
