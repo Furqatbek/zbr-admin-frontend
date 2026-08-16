@@ -117,11 +117,10 @@ export const couriersApi = {
         content: couriers,
         totalElements: couriers.length,
         totalPages: 1,
-        page: 0,
+        number: 0,
         size: couriers.length,
         first: true,
         last: true,
-        empty: couriers.length === 0,
       },
     } as ApiResponse<PaginatedResponse<Courier>>
   },

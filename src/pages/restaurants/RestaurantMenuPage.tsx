@@ -26,18 +26,14 @@ import {
   ModalFooter,
   Input,
   Textarea,
-  Select,
 } from '@/components/ui'
 import { formatCurrency } from '@/lib/utils'
 import { useRestaurant } from '@/hooks/useRestaurants'
 import {
   useRestaurantMenu,
-  useMenuCategories,
   useCreateMenuCategory,
   useUpdateMenuCategory,
   useDeleteMenuCategory,
-  useMenuItems,
-  useMenuItem,
   useCreateMenuItem,
   useUpdateMenuItem,
   useUpdateMenuItemStock,

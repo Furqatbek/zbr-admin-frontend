@@ -35,11 +35,10 @@ import {
   useMarkBatchAsRead,
   useDismissNotification,
   useDeleteNotification,
-  useDeleteAllForUser,
   useUnreadNotifications,
 } from '@/hooks/useNotifications'
 import { useAuthStore } from '@/store/auth.store'
-import type { NotificationRole, NotificationCategory } from '@/types'
+import type { NotificationCategory } from '@/types'
 
 const categoryLabels: Record<string, string> = {
   ORDER: 'Заказ',
@@ -83,7 +82,7 @@ export function NotificationInboxPage() {
   const { data: detailData, isLoading: detailLoading } = useNotification(detailId || 0)
 
   // Search query (only when search term is set)
-  const { data: searchData, isLoading: searchLoading } = useNotificationSearch(
+  const { data: searchData } = useNotificationSearch(
     { searchTerm, page: 0, pageSize: 50 },
     !!searchTerm
   )
@@ -94,7 +93,6 @@ export function NotificationInboxPage() {
   const markBatchAsRead = useMarkBatchAsRead()
   const dismissNotification = useDismissNotification()
   const deleteNotification = useDeleteNotification()
-  const deleteAllForUser = useDeleteAllForUser()
 
   const activeData = searchTerm ? searchData : notificationsData
   const notifications = activeData?.notifications || []
@@ -113,11 +111,6 @@ export function NotificationInboxPage() {
     if (selectedIds.size === 0) return
     await markBatchAsRead.mutateAsync(Array.from(selectedIds))
     setSelectedIds(new Set())
-    refetch()
-  }
-
-  const handleDeleteAll = async () => {
-    await deleteAllForUser.mutateAsync(userId)
     refetch()
   }
 

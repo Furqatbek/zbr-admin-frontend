@@ -193,7 +193,8 @@ export const ordersApi = {
     // The backend returns flat Order objects — map them to the nested ProblematicOrder shape
     const raw = response.data
     if (raw.data?.content) {
-      const mapped = raw.data.content.map((order: Order & Record<string, unknown>) => {
+      const mapped = raw.data.content.map((orderRaw: Order) => {
+        const order = orderRaw as Order & Record<string, unknown>
         const problem = (order as unknown as { problem?: ProblemType }).problem
         return {
           id: order.id,

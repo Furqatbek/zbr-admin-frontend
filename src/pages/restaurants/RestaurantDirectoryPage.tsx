@@ -20,12 +20,9 @@ import {
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Badge,
   Button,
   Input,
-  Select,
   Modal,
   ModalFooter,
   Textarea,
@@ -112,7 +109,7 @@ export function RestaurantDirectoryPage() {
     searchEnabled && !!searchQuery
   )
   const { data: nearbyData, isLoading: nearbyLoading } = useNearbyRestaurants(
-    { lat: parseFloat(nearbyLat), lng: parseFloat(nearbyLng), radiusKm: parseFloat(nearbyRadius) },
+    { lat: parseFloat(nearbyLat), lng: parseFloat(nearbyLng), radius: parseFloat(nearbyRadius) },
     nearbyEnabled
   )
   const { data: myData, isLoading: myLoading } = useMyRestaurants()
@@ -458,7 +455,7 @@ export function RestaurantDirectoryPage() {
             Поиск, фильтрация и управление ресторанами
           </p>
           {roleData?.data && (
-            <Badge variant="outline" className="mt-1">Роль: {roleData.data.name || 'Admin'}</Badge>
+            <Badge variant="outline" className="mt-1">Роль: {roleData.data.displayName || 'Admin'}</Badge>
           )}
         </div>
         <Button onClick={() => { setForm({ ...emptyForm }); setCreateModal(true) }}>

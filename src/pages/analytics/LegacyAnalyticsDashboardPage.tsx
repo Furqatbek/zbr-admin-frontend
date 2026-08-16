@@ -5,7 +5,6 @@ import {
   Settings2,
   TrendingUp,
   Users,
-  RefreshCw,
   Loader2,
   BarChart3,
   Database,
@@ -13,14 +12,12 @@ import {
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Badge,
   Button,
   Select,
   Input,
 } from '@/components/ui'
-import { formatCurrency, formatNumber, formatPercent, formatDateTime } from '@/lib/utils'
+import { formatCurrency, formatNumber, formatPercent } from '@/lib/utils'
 import {
   useRevenueMetrics,
   useOrdersMetrics,
@@ -62,11 +59,11 @@ export function LegacyAnalyticsDashboardPage() {
   const { data: cxData, isLoading: cxLoading } = useCustomerExperienceMetrics(dateRange)
   const refreshCache = useRefreshSpecificCache()
 
-  const revenue = revenueData?.data
-  const orders = ordersData?.data
-  const operations = operationsData?.data
-  const financial = financialData?.data
-  const cx = cxData?.data
+  const revenue = revenueData
+  const orders = ordersData
+  const operations = operationsData
+  const financial = financialData
+  const cx = cxData
 
   const tabs: { key: TabType; label: string; icon: React.ReactNode }[] = [
     { key: 'revenue', label: 'Доходы', icon: <DollarSign className="h-4 w-4" /> },
@@ -81,22 +78,6 @@ export function LegacyAnalyticsDashboardPage() {
   const handleRefreshCache = () => {
     refreshCache.mutate(selectedCache)
   }
-
-  const renderMetricCard = (label: string, value: string | number | undefined, icon: React.ReactNode) => (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-[hsl(var(--muted-foreground))]">{label}</p>
-            <p className="text-2xl font-bold">{value ?? '—'}</p>
-          </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[hsl(var(--primary))]/10">
-            {icon}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
 
   return (
     <div className="space-y-6">

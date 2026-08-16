@@ -13,8 +13,6 @@ import {
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Button,
   Badge,
   Modal,
@@ -31,9 +29,6 @@ import {
 } from '@/components/ui'
 import {
   useNotificationTemplates,
-  useNotificationTemplate,
-  useTemplatesByType,
-  useTemplatesByRole,
   useCreateTemplate,
   useUpdateTemplate,
   useDeleteTemplate,
@@ -43,7 +38,14 @@ import {
   useNotificationCategories,
   useNotificationPriorities,
 } from '@/hooks/useNotifications'
-import type { NotificationRole } from '@/types'
+import type {
+  NotificationTemplate,
+  NotificationRole,
+  NotificationCategory,
+  NotificationPriority,
+  CreateTemplateRequest,
+  UpdateTemplateRequest,
+} from '@/types'
 
 export function NotificationTemplatesPage() {
   const { data: templates, isLoading, refetch } = useNotificationTemplates()
@@ -60,14 +62,20 @@ export function NotificationTemplatesPage() {
   const [formModal, setFormModal] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [deleteModal, setDeleteModal] = useState<{ id: number; name: string } | null>(null)
-  const [form, setForm] = useState({
-    name: '',
+  const [form, setForm] = useState<{
+    type: string
+    role: NotificationRole
+    category: NotificationCategory
+    title: string
+    messageTemplate: string
+    defaultPriority: NotificationPriority
+  }>({
     type: '',
+    role: 'ALL',
+    category: 'SYSTEM',
     title: '',
-    body: '',
-    role: '' as string,
-    category: '',
-    priority: 'NORMAL',
+    messageTemplate: '',
+    defaultPriority: 'NORMAL',
   })
 
   // Filters
@@ -76,46 +84,57 @@ export function NotificationTemplatesPage() {
 
   const templateList = Array.isArray(templates) ? templates : []
 
-  const filteredTemplates = templateList.filter(t => {
+  const filteredTemplates = templateList.filter((t) => {
     if (filterType && t.type !== filterType) return false
-    if (filterRole && t.targetRole !== filterRole) return false
+    if (filterRole && t.role !== filterRole) return false
     return true
   })
 
   const openCreate = () => {
     setEditingId(null)
-    setForm({ name: '', type: '', title: '', body: '', role: '', category: '', priority: 'NORMAL' })
+    setForm({
+      type: '',
+      role: 'ALL',
+      category: 'SYSTEM',
+      title: '',
+      messageTemplate: '',
+      defaultPriority: 'NORMAL',
+    })
     setFormModal(true)
   }
 
-  const openEdit = (template: { id: number; name: string; type: string; title: string; body: string; targetRole?: string; category?: string; priority?: string }) => {
+  const openEdit = (template: NotificationTemplate) => {
     setEditingId(template.id)
     setForm({
-      name: template.name,
       type: template.type,
+      role: template.role,
+      category: template.category,
       title: template.title,
-      body: template.body,
-      role: template.targetRole || '',
-      category: template.category || '',
-      priority: template.priority || 'NORMAL',
+      messageTemplate: template.messageTemplate,
+      defaultPriority: template.defaultPriority,
     })
     setFormModal(true)
   }
 
   const handleSave = async () => {
-    const data = {
-      name: form.name,
-      type: form.type,
-      title: form.title,
-      body: form.body,
-      targetRole: form.role || undefined,
-      category: form.category || undefined,
-      priority: form.priority,
-    }
     if (editingId) {
+      const data: UpdateTemplateRequest = {
+        title: form.title,
+        messageTemplate: form.messageTemplate,
+        defaultPriority: form.defaultPriority,
+        category: form.category,
+      }
       await updateTemplate.mutateAsync({ id: editingId, data })
     } else {
-      await createTemplate.mutateAsync(data as Parameters<typeof createTemplate.mutateAsync>[0])
+      const data: CreateTemplateRequest = {
+        type: form.type,
+        role: form.role,
+        category: form.category,
+        title: form.title,
+        messageTemplate: form.messageTemplate,
+        defaultPriority: form.defaultPriority,
+      }
+      await createTemplate.mutateAsync(data)
     }
     setFormModal(false)
     refetch()
@@ -186,7 +205,7 @@ export function NotificationTemplatesPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Активных</p>
-                <p className="text-2xl font-bold">{templateList.filter((t: { active?: boolean }) => t.active).length}</p>
+                <p className="text-2xl font-bold">{templateList.filter((t) => t.isActive).length}</p>
               </div>
             </div>
           </CardContent>
@@ -199,7 +218,7 @@ export function NotificationTemplatesPage() {
               </div>
               <div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">Неактивных</p>
-                <p className="text-2xl font-bold">{templateList.filter((t: { active?: boolean }) => !t.active).length}</p>
+                <p className="text-2xl font-bold">{templateList.filter((t) => !t.isActive).length}</p>
               </div>
             </div>
           </CardContent>
@@ -213,14 +232,14 @@ export function NotificationTemplatesPage() {
             <Filter className="h-5 w-5 text-[hsl(var(--muted-foreground))]" />
             <Select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
               <option value="">Все типы</option>
-              {Array.isArray(types) && types.map((t: { value: string; label: string }) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
+              {Array.isArray(types) && types.map((t) => (
+                <option key={t.value} value={t.value}>{t.displayName}</option>
               ))}
             </Select>
             <Select value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
               <option value="">Все роли</option>
-              {Array.isArray(roles) && roles.map((r: { value: string; label: string }) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
+              {Array.isArray(roles) && roles.map((r) => (
+                <option key={r.value} value={r.value}>{r.displayName}</option>
               ))}
             </Select>
             {(filterType || filterRole) && (
@@ -252,13 +271,13 @@ export function NotificationTemplatesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTemplates.map((template: { id: number; name: string; type: string; title: string; body: string; targetRole?: string; category?: string; priority?: string; active?: boolean }) => (
+                {filteredTemplates.map((template) => (
                   <TableRow key={template.id}>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{template.name}</p>
+                        <p className="font-medium">{template.title}</p>
                         <p className="text-sm text-[hsl(var(--muted-foreground))] truncate max-w-[300px]">
-                          {template.title}
+                          {template.messageTemplate}
                         </p>
                       </div>
                     </TableCell>
@@ -266,20 +285,16 @@ export function NotificationTemplatesPage() {
                       <Badge variant="default">{template.type}</Badge>
                     </TableCell>
                     <TableCell>
-                      {template.targetRole ? (
-                        <Badge variant="secondary">{template.targetRole}</Badge>
-                      ) : (
-                        <span className="text-[hsl(var(--muted-foreground))]">—</span>
-                      )}
+                      <Badge variant="secondary">{template.role}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={template.priority === 'HIGH' || template.priority === 'URGENT' ? 'destructive' : 'secondary'}>
-                        {template.priority || 'NORMAL'}
+                      <Badge variant={template.defaultPriority === 'HIGH' || template.defaultPriority === 'URGENT' ? 'destructive' : 'secondary'}>
+                        {template.defaultPriority}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <button onClick={() => handleToggle(template.id)}>
-                        {template.active ? (
+                        {template.isActive ? (
                           <Badge variant="success" className="cursor-pointer">Активен</Badge>
                         ) : (
                           <Badge variant="secondary" className="cursor-pointer">Неактивен</Badge>
@@ -294,7 +309,7 @@ export function NotificationTemplatesPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setDeleteModal({ id: template.id, name: template.name })}
+                          onClick={() => setDeleteModal({ id: template.id, name: template.title })}
                         >
                           <Trash2 className="h-4 w-4 text-[hsl(var(--destructive))]" />
                         </Button>
@@ -316,19 +331,15 @@ export function NotificationTemplatesPage() {
       >
         <div className="space-y-4 max-h-[60vh] overflow-y-auto">
           <div>
-            <label className="mb-2 block text-sm font-medium">Название шаблона</label>
-            <Input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Например: Новый заказ"
-            />
-          </div>
-          <div>
             <label className="mb-2 block text-sm font-medium">Тип уведомления</label>
-            <Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+            <Select
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+              disabled={!!editingId}
+            >
               <option value="">Выберите тип</option>
-              {Array.isArray(types) && types.map((t: { value: string; label: string }) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
+              {Array.isArray(types) && types.map((t) => (
+                <option key={t.value} value={t.value}>{t.displayName}</option>
               ))}
             </Select>
           </div>
@@ -343,8 +354,8 @@ export function NotificationTemplatesPage() {
           <div>
             <label className="mb-2 block text-sm font-medium">Текст</label>
             <Textarea
-              value={form.body}
-              onChange={(e) => setForm({ ...form, body: e.target.value })}
+              value={form.messageTemplate}
+              onChange={(e) => setForm({ ...form, messageTemplate: e.target.value })}
               placeholder="Текст уведомления. Используйте {{переменные}} для подстановки"
               rows={4}
             />
@@ -352,18 +363,24 @@ export function NotificationTemplatesPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="mb-2 block text-sm font-medium">Целевая роль</label>
-              <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-                <option value="">Все роли</option>
-                {Array.isArray(roles) && roles.map((r: { value: string; label: string }) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
+              <Select
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value as NotificationRole })}
+                disabled={!!editingId}
+              >
+                {Array.isArray(roles) && roles.map((r) => (
+                  <option key={r.value} value={r.value}>{r.displayName}</option>
                 ))}
               </Select>
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium">Приоритет</label>
-              <Select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}>
-                {Array.isArray(priorities) ? priorities.map((p: { value: string; label: string }) => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
+              <Select
+                value={form.defaultPriority}
+                onChange={(e) => setForm({ ...form, defaultPriority: e.target.value as NotificationPriority })}
+              >
+                {Array.isArray(priorities) ? priorities.map((p) => (
+                  <option key={p.value} value={p.value}>{p.displayName}</option>
                 )) : (
                   <>
                     <option value="LOW">Низкий</option>
@@ -377,10 +394,12 @@ export function NotificationTemplatesPage() {
           </div>
           <div>
             <label className="mb-2 block text-sm font-medium">Категория</label>
-            <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-              <option value="">Без категории</option>
-              {Array.isArray(categories) && categories.map((c: { value: string; label: string }) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
+            <Select
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value as NotificationCategory })}
+            >
+              {Array.isArray(categories) && categories.map((c) => (
+                <option key={c.value} value={c.value}>{c.displayName}</option>
               ))}
             </Select>
           </div>
@@ -389,7 +408,7 @@ export function NotificationTemplatesPage() {
           <Button variant="outline" onClick={() => setFormModal(false)}>Отмена</Button>
           <Button
             onClick={handleSave}
-            disabled={!form.name || !form.type || !form.title || !form.body || createTemplate.isPending || updateTemplate.isPending}
+            disabled={!form.type || !form.title || !form.messageTemplate || createTemplate.isPending || updateTemplate.isPending}
           >
             {(createTemplate.isPending || updateTemplate.isPending) && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

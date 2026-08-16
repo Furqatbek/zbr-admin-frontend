@@ -8,7 +8,6 @@ import {
   Clock,
   Calendar,
   TrendingUp,
-  TrendingDown,
   Loader2,
   AlertCircle,
   ArrowUpRight,
