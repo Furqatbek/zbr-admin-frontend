@@ -1,6 +1,23 @@
 import { Client, type IMessage } from '@stomp/stompjs'
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws'
+/**
+ * Resolve the WebSocket endpoint.
+ * - If VITE_WS_URL is set at build time (e.g. local dev .env), use it.
+ * - Otherwise derive a same-origin URL so the browser connects to the host
+ *   that served the app and nginx proxies /ws to the backend. Uses wss:// on
+ *   HTTPS pages to avoid mixed-content blocking.
+ */
+function resolveWsUrl(): string {
+  const configured = import.meta.env.VITE_WS_URL
+  if (configured) return configured
+  if (typeof window !== 'undefined' && window.location) {
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${proto}//${window.location.host}/ws`
+  }
+  return 'ws://localhost:8080/ws'
+}
+
+const WS_URL = resolveWsUrl()
 
 export type WebSocketTopic =
   | '/topic/orders/new'
