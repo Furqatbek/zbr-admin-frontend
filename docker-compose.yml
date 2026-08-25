@@ -11,9 +11,10 @@ services:
       - "3000:80"
     # The frontend is a static build served by nginx. It calls the API and
     # WebSocket using SAME-ORIGIN relative paths (/api/v1 and /ws); nginx
-    # (see nginx.conf) proxies those to the `api` service. No VITE_* runtime
-    # env is needed here — Vite bakes any such vars at build time, and the
-    # browser cannot resolve docker-internal hostnames anyway.
+    # (see nginx.conf) reverse-proxies those to the live backend at
+    # https://zbrr.uz, so there is no CORS. No VITE_* runtime env is needed —
+    # Vite bakes any such vars at build time. The user-defined network below
+    # is required so nginx's 127.0.0.11 resolver can look up zbrr.uz.
     networks:
       - zbr-network
     restart: unless-stopped
@@ -25,42 +26,9 @@ services:
       retries: 3
       start_period: 40s
 
-  # Backend API (uncomment when available)
-  # api:
-  #   image: zbr-backend-api:latest
-  #   container_name: zbr-api
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     - SPRING_PROFILES_ACTIVE=docker
-  #     - DATABASE_URL=jdbc:postgresql://db:5432/zbr_db
-  #     - DATABASE_USERNAME=postgres
-  #     - DATABASE_PASSWORD=postgres
-  #   depends_on:
-  #     - db
-  #   networks:
-  #     - zbr-network
-  #   restart: unless-stopped
-
-  # PostgreSQL Database (uncomment when needed)
-  # db:
-  #   image: postgres:15-alpine
-  #   container_name: zbr-postgres
-  #   ports:
-  #     - "5432:5432"
-  #   environment:
-  #     - POSTGRES_DB=zbr_db
-  #     - POSTGRES_USER=postgres
-  #     - POSTGRES_PASSWORD=postgres
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   networks:
-  #     - zbr-network
-  #   restart: unless-stopped
+  # The backend API and database run externally (https://zbrr.uz); nginx in the
+  # admin-frontend container reverse-proxies /api and /ws to it.
 
 networks:
   zbr-network:
     driver: bridge
-
-# volumes:
-#   postgres_data:
