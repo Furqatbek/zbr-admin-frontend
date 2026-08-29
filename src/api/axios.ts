@@ -1,4 +1,5 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
+import { getAccessToken, refreshAccessToken, handleSessionExpired } from './tokens'
 
 const API_URL = import.meta.env.VITE_API_URL || '/api/v1'
 
@@ -9,10 +10,10 @@ export const api = axios.create({
   },
 })
 
-// Request interceptor - add auth token
+// Request interceptor - attach the current access token
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('accessToken')
+    const token = getAccessToken()
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -21,41 +22,36 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Response interceptor - handle token refresh
+// Response interceptor - silent access-token refresh on 401
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+    const originalRequest = error.config as
+      | (InternalAxiosRequestConfig & { _retry?: boolean })
+      | undefined
 
-    // If 401 and not already retried
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const isAuthEndpoint = originalRequest?.url?.includes('/auth/')
+
+    // On 401 from any API call (except the auth endpoints themselves): refresh
+    // once and retry the original request exactly once. refreshAccessToken() is
+    // single-flight, so ten simultaneous 401s trigger only ONE /auth/refresh.
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !isAuthEndpoint
+    ) {
       originalRequest._retry = true
-
       try {
-        const refreshToken = localStorage.getItem('refreshToken')
-        if (!refreshToken) {
-          throw new Error('No refresh token')
-        }
-
-        const response = await axios.post(`${API_URL}/auth/refresh`, {
-          refreshToken,
-        })
-
-        const { accessToken, refreshToken: newRefreshToken } = response.data.data
-
-        localStorage.setItem('accessToken', accessToken)
-        localStorage.setItem('refreshToken', newRefreshToken)
-
+        const token = await refreshAccessToken()
         if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`
+          originalRequest.headers.Authorization = `Bearer ${token}`
         }
-
         return api(originalRequest)
       } catch (refreshError) {
-        // Clear tokens and redirect to login
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('refreshToken')
-        window.location.href = '/login'
+        // Refresh failed (e.g. 400 — refresh token expired/revoked). Terminal:
+        // clear tokens and redirect to login exactly once, no retry loop.
+        handleSessionExpired()
         return Promise.reject(refreshError)
       }
     }

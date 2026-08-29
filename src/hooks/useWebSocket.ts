@@ -3,33 +3,28 @@ import { wsClient, type WebSocketTopic, type WebSocketMessage } from '@/websocke
 import { useAuthStore } from '@/store/auth.store'
 
 export function useWebSocket() {
-  const { accessToken, isAuthenticated } = useAuthStore()
-  const [isConnected, setIsConnected] = useState(false)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const [isConnected, setIsConnected] = useState(() => wsClient.isConnected())
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!isAuthenticated || !accessToken) {
+    if (!isAuthenticated) {
       return
     }
 
-    const connect = async () => {
-      try {
-        await wsClient.connect(accessToken)
-        setIsConnected(true)
-        setError(null)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Connection failed')
-        setIsConnected(false)
-      }
-    }
+    // Reflect live connection state — the socket may drop and reconnect on its
+    // own (token refresh, tab focus, network back) without this effect re-running.
+    const unsubscribe = wsClient.onConnectionChange(setIsConnected)
 
-    connect()
+    wsClient.connect().catch((err) => {
+      setError(err instanceof Error ? err.message : 'Connection failed')
+    })
 
     return () => {
+      unsubscribe()
       wsClient.disconnect()
-      setIsConnected(false)
     }
-  }, [accessToken, isAuthenticated])
+  }, [isAuthenticated])
 
   return { isConnected, error }
 }
