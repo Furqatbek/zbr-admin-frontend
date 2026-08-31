@@ -126,6 +126,27 @@ export async function getValidAccessToken(): Promise<string> {
 }
 
 /**
+ * Whether a refresh failure is *terminal* (the session is really over) vs
+ * *transient* (a network blip we should not punish the user for).
+ *
+ * Per the backend's shared contract, a dead/revoked refresh token comes back as
+ * a non-200 *response* (typically 400). Any server response means "your token
+ * is no good" -> log out. A network error has NO response -> the server was
+ * simply unreachable; keep the session and let the caller retry.
+ */
+export function isTerminalRefreshError(err: unknown): boolean {
+  if (err instanceof Error && (err.message === 'No refresh token' || err.message === 'Malformed refresh response')) {
+    return true
+  }
+  if (axios.isAxiosError(err)) {
+    // A response present (any status the server returned) = terminal.
+    // No response (network/timeout) = transient.
+    return !!err.response
+  }
+  return false
+}
+
+/**
  * Terminal session end: the refresh token is dead/revoked. Clear everything and
  * send the user to login exactly once (guard against redirect loops). The full
  * navigation reloads the app, so in-memory auth state resets cleanly.

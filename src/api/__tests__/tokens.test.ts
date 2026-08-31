@@ -3,7 +3,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 // Mock the bare axios client that tokens.ts creates for the refresh call.
 const { postMock } = vi.hoisted(() => ({ postMock: vi.fn() }))
 vi.mock('axios', () => ({
-  default: { create: () => ({ post: postMock }) },
+  default: {
+    create: () => ({ post: postMock }),
+    isAxiosError: (e: unknown) => !!(e && (e as { isAxiosError?: boolean }).isAxiosError),
+  },
 }))
 
 import {
@@ -14,6 +17,7 @@ import {
   isAccessTokenExpired,
   refreshAccessToken,
   getValidAccessToken,
+  isTerminalRefreshError,
 } from '../tokens'
 
 const refreshResponse = (accessToken: string) => ({
@@ -83,6 +87,24 @@ describe('tokens', () => {
       clearTokens()
       await expect(refreshAccessToken()).rejects.toThrow('No refresh token')
       expect(postMock).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('isTerminalRefreshError', () => {
+    it('treats a server response (e.g. 400) as terminal — the token is dead', () => {
+      expect(isTerminalRefreshError({ isAxiosError: true, response: { status: 400 } })).toBe(true)
+    })
+
+    it('treats a network error (no response) as transient — keep the session', () => {
+      expect(isTerminalRefreshError({ isAxiosError: true, response: undefined })).toBe(false)
+    })
+
+    it('treats a missing refresh token as terminal', () => {
+      expect(isTerminalRefreshError(new Error('No refresh token'))).toBe(true)
+    })
+
+    it('treats an unknown error as transient', () => {
+      expect(isTerminalRefreshError(new Error('boom'))).toBe(false)
     })
   })
 

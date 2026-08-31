@@ -9,10 +9,16 @@ services:
       - "3000:80"
     # The frontend is a static build served by nginx. It calls the API and
     # WebSocket using SAME-ORIGIN relative paths (/api/v1 and /ws); nginx
-    # (see nginx.conf) reverse-proxies those to the live backend at
-    # https://zbrr.uz, so there is no CORS. No VITE_* runtime env is needed —
-    # Vite bakes any such vars at build time. The user-defined network below
-    # is required so nginx's 127.0.0.11 resolver can look up zbrr.uz.
+    # (see nginx.conf.template) reverse-proxies those to the backend host below,
+    # so there is no CORS. No VITE_* runtime env is needed — Vite bakes any such
+    # vars at build time. The user-defined network is required so nginx's
+    # 127.0.0.11 resolver can look up the backend host.
+    environment:
+      # Which backend nginx proxies to. Override for staging without editing any
+      # file, e.g.  BACKEND_HOST=staging.zbrr.uz docker compose up --build -d
+      - BACKEND_HOST=${BACKEND_HOST:-zbrr.uz}
+      # Substitute ONLY BACKEND_HOST in the template — never nginx's own $vars.
+      - NGINX_ENVSUBST_FILTER=BACKEND_HOST
     networks:
       - zbr-network
     restart: unless-stopped
@@ -24,8 +30,8 @@ services:
       retries: 3
       start_period: 40s
 
-  # The backend API and database run externally (https://zbrr.uz); nginx in the
-  # admin-frontend container reverse-proxies /api and /ws to it.
+  # The backend API and database run externally (see BACKEND_HOST above); nginx
+  # in the admin-frontend container reverse-proxies /api and /ws to it.
 
 networks:
   zbr-network:

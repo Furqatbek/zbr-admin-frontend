@@ -1,5 +1,10 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
-import { getAccessToken, refreshAccessToken, handleSessionExpired } from './tokens'
+import {
+  getAccessToken,
+  refreshAccessToken,
+  handleSessionExpired,
+  isTerminalRefreshError,
+} from './tokens'
 
 const API_URL = import.meta.env.VITE_API_URL || '/api/v1'
 
@@ -49,9 +54,12 @@ api.interceptors.response.use(
         }
         return api(originalRequest)
       } catch (refreshError) {
-        // Refresh failed (e.g. 400 — refresh token expired/revoked). Terminal:
-        // clear tokens and redirect to login exactly once, no retry loop.
-        handleSessionExpired()
+        // Only end the session if the refresh was genuinely rejected by the
+        // server (e.g. 400 — refresh token expired/revoked). A transient network
+        // failure must NOT log the user out; just surface the original error.
+        if (isTerminalRefreshError(refreshError)) {
+          handleSessionExpired()
+        }
         return Promise.reject(refreshError)
       }
     }

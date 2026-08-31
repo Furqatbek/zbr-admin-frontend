@@ -1,3 +1,7 @@
+# Rendered at container start by the nginx image's envsubst step:
+# ${BACKEND_HOST} is substituted from the environment (default set in
+# docker-compose.yml). NGINX_ENVSUBST_FILTER is set to BACKEND_HOST so ONLY
+# this variable is replaced and nginx's own $variables are left untouched.
 server {
     listen 80;
     server_name localhost;
@@ -28,22 +32,23 @@ server {
     # failing to start).
     resolver 127.0.0.11 valid=30s ipv6=off;
 
-    # Live backend host — the browser calls same-origin /api and /ws, nginx
-    # reverse-proxies to this HTTPS origin so there is no cross-origin/CORS.
-    set $backend https://zbrr.uz;
+    # Live backend host (env-configurable — prod vs staging). The browser calls
+    # same-origin /api and /ws; nginx reverse-proxies to this HTTPS origin so
+    # there is no cross-origin/CORS.
+    set $backend https://${BACKEND_HOST};
 
-    # API proxy -> https://zbrr.uz/api/v1/...
+    # API proxy -> https://${BACKEND_HOST}/api/v1/...
     location /api {
         proxy_pass $backend;
         proxy_http_version 1.1;
         # TLS to an external HTTPS upstream needs SNI + the backend's own Host.
         proxy_ssl_server_name on;
-        proxy_set_header Host zbrr.uz;
+        proxy_set_header Host ${BACKEND_HOST};
         # This is a same-origin reverse proxy, so drop the browser's Origin
         # header before forwarding. Otherwise the backend's CORS check sees a
-        # foreign origin (http://localhost:3000) and rejects the request with
-        # 403. An empty value tells nginx not to send the header at all —
-        # matching a direct server-to-server call, which the backend accepts.
+        # foreign origin (e.g. http://localhost:3000) and rejects with 403. An
+        # empty value tells nginx not to send the header at all — matching a
+        # direct server-to-server call, which the backend accepts.
         proxy_set_header Origin "";
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -52,12 +57,12 @@ server {
         proxy_read_timeout 90;
     }
 
-    # WebSocket proxy -> wss://zbrr.uz/ws
+    # WebSocket proxy -> wss://${BACKEND_HOST}/ws
     location /ws {
         proxy_pass $backend;
         proxy_http_version 1.1;
         proxy_ssl_server_name on;
-        proxy_set_header Host zbrr.uz;
+        proxy_set_header Host ${BACKEND_HOST};
         # Same as /api: strip the browser Origin so the backend's WS handshake
         # origin check treats this as a same-origin request.
         proxy_set_header Origin "";

@@ -1,5 +1,10 @@
 import { Client, type IMessage, type StompSubscription } from '@stomp/stompjs'
-import { getValidAccessToken, handleSessionExpired } from '@/api/tokens'
+import {
+  getAccessToken,
+  getValidAccessToken,
+  handleSessionExpired,
+  isTerminalRefreshError,
+} from '@/api/tokens'
 
 /**
  * Resolve the WebSocket endpoint.
@@ -80,11 +85,18 @@ class WebSocketClient {
         try {
           const token = await getValidAccessToken()
           client.connectHeaders = { Authorization: `Bearer ${token}` }
-        } catch {
-          // Refresh token dead/revoked — stop reconnecting and send to login.
-          this.stopped = true
-          client.deactivate().catch(() => {})
-          handleSessionExpired()
+        } catch (err) {
+          if (isTerminalRefreshError(err)) {
+            // Refresh token dead/revoked — stop reconnecting and send to login.
+            this.stopped = true
+            client.deactivate().catch(() => {})
+            handleSessionExpired()
+          } else {
+            // Transient (network) — keep the session. Try the existing token;
+            // if the socket still can't connect, backoff will retry.
+            const existing = getAccessToken()
+            if (existing) client.connectHeaders = { Authorization: `Bearer ${existing}` }
+          }
         }
       },
       reconnectDelay: this.baseReconnectDelay,
