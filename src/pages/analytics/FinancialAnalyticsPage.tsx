@@ -23,7 +23,7 @@ import {
   Button,
 } from '@/components/ui'
 import { SimpleBarChart, SimpleLineChart } from '@/components/charts'
-import { formatCurrency, formatDateTime } from '@/lib/utils'
+import { formatCurrency, formatDateTime, parseApiDate } from '@/lib/utils'
 import { useFinanceMetrics, useFinanceMetricsFiltered } from '@/hooks/useDashboard'
 
 export function FinancialAnalyticsPage() {
@@ -320,7 +320,7 @@ export function FinancialAnalyticsPage() {
             <CardContent>
               <SimpleLineChart
                 data={data.dailyRevenue.map((d) => ({
-                  label: new Date(d.date).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' }),
+                  label: parseApiDate(d.date).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', timeZone: 'Asia/Tashkent' }),
                   value: d.gmv,
                 }))}
                 height={250}
@@ -345,7 +345,7 @@ export function FinancialAnalyticsPage() {
             <CardContent>
               <SimpleBarChart
                 data={data.dailyRevenue.map((d) => ({
-                  label: new Date(d.date).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' }),
+                  label: parseApiDate(d.date).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', timeZone: 'Asia/Tashkent' }),
                   value: d.commissionRevenue + d.deliveryFeeRevenue,
                   color: 'hsl(var(--primary))',
                 }))}

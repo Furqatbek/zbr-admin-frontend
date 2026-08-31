@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { format } from 'date-fns'
+import { formatDateTime } from '@/lib/utils'
 import {
   Bell,
   Search,
@@ -309,7 +309,7 @@ export function NotificationsListPage() {
 
                       <div className="mt-2 flex items-center gap-4 text-xs text-[hsl(var(--muted-foreground))] flex-wrap">
                         <span>
-                          {notification.timeAgo || format(new Date(notification.createdAt), 'dd.MM.yyyy HH:mm')}
+                          {notification.timeAgo || formatDateTime(notification.createdAt)}
                         </span>
                         {notification.roleDisplayName && <span>Роль: {notification.roleDisplayName}</span>}
                         {notification.notificationTypeDisplayName && (
