@@ -38,6 +38,18 @@ export interface LoginRequest {
   password: string
 }
 
+// Admin-created user. POST /auth/register honours role only for
+// CONSUMER | COURIER | RESTAURANT_OWNER (admin roles are granted server-side).
+export type RegisterableRole = Extract<UserRole, 'CONSUMER' | 'COURIER' | 'RESTAURANT_OWNER'>
+
+export interface RegisterRequest {
+  email: string
+  password: string
+  firstName: string
+  lastName: string
+  role: RegisterableRole
+}
+
 export interface LoginResponse {
   accessToken: string
   refreshToken: string

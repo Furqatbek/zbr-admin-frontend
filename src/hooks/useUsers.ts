@@ -7,7 +7,8 @@ import {
   type CreateRoleRequest,
   type UpdateRoleRequest,
 } from '@/api/users.api'
-import type { UserRole } from '@/types'
+import { authApi } from '@/api/auth.api'
+import type { UserRole, RegisterRequest } from '@/types'
 
 export const userKeys = {
   all: ['users'] as const,
@@ -36,6 +37,19 @@ export function useUser(id: number) {
     queryKey: userKeys.detail(id),
     queryFn: () => usersApi.getUserById(id),
     enabled: !!id,
+  })
+}
+
+// Create a user (admin). Uses POST /auth/register; the admin's own session is
+// unaffected. Invalidates the users list so the new user shows up.
+export function useCreateUser() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: RegisterRequest) => authApi.register(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: userKeys.all })
+    },
   })
 }
 

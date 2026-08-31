@@ -4,10 +4,12 @@ import {
   Search,
   MoreHorizontal,
   Eye,
+  EyeOff,
   Lock,
   Unlock,
   Trash2,
   UserCog,
+  UserPlus,
   Filter,
   RefreshCw,
   Loader2,
@@ -37,10 +39,29 @@ import {
   Textarea,
 } from '@/components/ui'
 import { formatDateTime } from '@/lib/utils'
-import type { User, UserRole, UserStatus } from '@/types'
+import type { User, UserRole, UserStatus, RegisterRequest, RegisterableRole } from '@/types'
 import { useAuthStore } from '@/store/auth.store'
-import { useUsers, useUpdateUserStatus, useLockUser, useUnlockUser, useDeleteUser } from '@/hooks'
+import {
+  useUsers,
+  useCreateUser,
+  useUpdateUserStatus,
+  useLockUser,
+  useUnlockUser,
+  useDeleteUser,
+} from '@/hooks'
 import { useDebounce } from '@/hooks/useDebounce'
+
+const EMPTY_CREATE_FORM: RegisterRequest = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  password: '',
+  role: 'CONSUMER',
+}
+
+// Backend password rule: lower + upper + digit + one of @#$%^&+=!
+const isPasswordValid = (pw: string) =>
+  /[a-z]/.test(pw) && /[A-Z]/.test(pw) && /\d/.test(pw) && /[@#$%^&+=!]/.test(pw)
 
 const roleLabels: Record<UserRole, string> = {
   ADMIN: 'Администратор',
@@ -103,6 +124,13 @@ export function UsersPage() {
   const [statusReason, setStatusReason] = useState('')
   const [newStatus, setNewStatus] = useState<UserStatus>('SUSPENDED')
 
+  // Create-user modal
+  const [createModal, setCreateModal] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const [createForm, setCreateForm] = useState<RegisterRequest>(EMPTY_CREATE_FORM)
+  const createUserMutation = useCreateUser()
+
   // API hooks
   const { data: usersData, isLoading, isFetching, refetch } = useUsers({
     page,
@@ -162,6 +190,27 @@ export function UsersPage() {
     }
   }
 
+  const openCreate = () => {
+    setCreateForm(EMPTY_CREATE_FORM)
+    setCreateError(null)
+    setShowPassword(false)
+    setCreateModal(true)
+  }
+
+  const handleCreate = async () => {
+    setCreateError(null)
+    try {
+      await createUserMutation.mutateAsync(createForm)
+      setCreateModal(false)
+      setCreateForm(EMPTY_CREATE_FORM)
+      setShowPassword(false)
+    } catch (err) {
+      // Surface the backend's human-readable message ("Email is already in use").
+      const e = err as { response?: { data?: { message?: string } }; message?: string }
+      setCreateError(e.response?.data?.message || e.message || 'Не удалось создать пользователя')
+    }
+  }
+
   const handleLock = (user: User) => {
     lockUserMutation.mutate(user.id)
   }
@@ -180,10 +229,18 @@ export function UsersPage() {
             Управление пользователями системы
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-          Обновить
-        </Button>
+        <div className="flex gap-2">
+          {isAdmin && (
+            <Button size="sm" onClick={openCreate}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Создать пользователя
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            Обновить
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -452,6 +509,115 @@ export function UsersPage() {
               </>
             ) : (
               'Удалить'
+            )}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Create user modal */}
+      <Modal
+        isOpen={createModal}
+        onClose={() => setCreateModal(false)}
+        title="Создать пользователя"
+        description="Новый пользователь с выбранной ролью"
+      >
+        <div className="space-y-4">
+          {createError && (
+            <div className="rounded-md bg-[hsl(var(--destructive))]/10 p-3 text-sm text-[hsl(var(--destructive))]">
+              {createError}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium">Имя</label>
+              <Input
+                value={createForm.firstName}
+                onChange={(e) => setCreateForm({ ...createForm, firstName: e.target.value })}
+                placeholder="Имя"
+                maxLength={50}
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Фамилия</label>
+              <Input
+                value={createForm.lastName}
+                onChange={(e) => setCreateForm({ ...createForm, lastName: e.target.value })}
+                placeholder="Фамилия"
+                maxLength={50}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Email</label>
+            <Input
+              type="email"
+              value={createForm.email}
+              onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+              placeholder="user@example.com"
+              maxLength={100}
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Пароль</label>
+            <div className="relative">
+              <Input
+                type={showPassword ? 'text' : 'password'}
+                value={createForm.password}
+                onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                placeholder="Введите пароль"
+                className="pr-10"
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <p
+              className={`mt-1 text-xs ${
+                createForm.password && !isPasswordValid(createForm.password)
+                  ? 'text-[hsl(var(--destructive))]'
+                  : 'text-[hsl(var(--muted-foreground))]'
+              }`}
+            >
+              Минимум: строчная и заглавная буква, цифра и символ (@#$%^&+=!).
+            </p>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Роль</label>
+            <Select
+              value={createForm.role}
+              onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as RegisterableRole })}
+            >
+              <option value="CONSUMER">Потребитель</option>
+              <option value="COURIER">Курьер</option>
+              <option value="RESTAURANT_OWNER">Владелец ресторана</option>
+            </Select>
+          </div>
+        </div>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setCreateModal(false)}>
+            Отмена
+          </Button>
+          <Button
+            onClick={handleCreate}
+            disabled={
+              createUserMutation.isPending ||
+              !createForm.firstName ||
+              !createForm.lastName ||
+              !createForm.email ||
+              !isPasswordValid(createForm.password)
+            }
+          >
+            {createUserMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Создание...
+              </>
+            ) : (
+              'Создать'
             )}
           </Button>
         </ModalFooter>
