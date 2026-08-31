@@ -7,7 +7,6 @@ import {
   Mail,
   Star,
   Package,
-  User,
   Calendar,
   CheckCircle,
   Clock,
@@ -41,6 +40,7 @@ import { formatDateTime, formatNumber, formatCurrency } from '@/lib/utils'
 import { useRestaurant, useUpdateRestaurantStatus, useToggleRestaurantOpen } from '@/hooks/useRestaurants'
 import { useOrdersByRestaurant } from '@/hooks/useOrders'
 import type { RestaurantStatus, OrderStatus } from '@/types'
+import { OwnershipTransfer } from './OwnershipTransfer'
 
 const orderStatusLabels: Record<OrderStatus, string> = {
   CREATED: 'Создан',
@@ -376,30 +376,8 @@ export function RestaurantDetailsPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Owner info */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Владелец
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">Имя</p>
-                <p className="font-medium">{restaurant.ownerName || '—'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">User ID</p>
-                <p className="font-medium">{restaurant.ownerId}</p>
-              </div>
-              <Link to={`/users/${restaurant.ownerId}`}>
-                <Button variant="outline" size="sm" className="w-full">
-                  Перейти к профилю
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          {/* Owner + ownership transfer */}
+          <OwnershipTransfer restaurant={restaurant} />
 
           {/* Status card */}
           <Card>

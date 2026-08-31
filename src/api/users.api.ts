@@ -47,6 +47,29 @@ export const usersApi = {
     return response.data
   },
 
+  // Users holding a given role (Admin/Platform), paginated.
+  getByRole: async (
+    role: UserRole,
+    params: { page?: number; size?: number } = {}
+  ): Promise<ApiResponse<PaginatedResponse<User>>> => {
+    const response = await api.get<ApiResponse<PaginatedResponse<User>>>(`/users/role/${role}`, {
+      params: { page: params.page ?? 0, size: params.size ?? 20 },
+    })
+    return response.data
+  },
+
+  // Full-text user search (Admin/Platform), paginated. NOTE (backend limits):
+  // matches email/firstName/lastName only (NOT phone) and is CASE-SENSITIVE.
+  search: async (
+    q: string,
+    params: { page?: number; size?: number } = {}
+  ): Promise<ApiResponse<PaginatedResponse<User>>> => {
+    const response = await api.get<ApiResponse<PaginatedResponse<User>>>('/users/search', {
+      params: { q, page: params.page ?? 0, size: params.size ?? 20 },
+    })
+    return response.data
+  },
+
   updateUserStatus: async (id: number, data: UpdateUserStatusRequest): Promise<ApiResponse<User>> => {
     const response = await api.put<ApiResponse<User>>(`/users/${id}/status`, data)
     return response.data

@@ -40,6 +40,24 @@ export function useUser(id: number) {
   })
 }
 
+// Users holding a given role (for pickers, e.g. existing restaurant owners).
+export function useUsersByRole(role: UserRole, params: { page?: number; size?: number } = {}, enabled = true) {
+  return useQuery({
+    queryKey: [...userKeys.all, 'byRole', role, params],
+    queryFn: () => usersApi.getByRole(role, params),
+    enabled: enabled && !!role,
+  })
+}
+
+// Backend full-text user search (email/name only, case-sensitive).
+export function useSearchUsers(q: string, params: { page?: number; size?: number } = {}, enabled = true) {
+  return useQuery({
+    queryKey: [...userKeys.all, 'search', q, params],
+    queryFn: () => usersApi.search(q, params),
+    enabled: enabled && !!q,
+  })
+}
+
 // Create a user (admin). Uses POST /auth/register; the admin's own session is
 // unaffected. Invalidates the users list so the new user shows up.
 export function useCreateUser() {

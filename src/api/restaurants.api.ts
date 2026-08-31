@@ -139,6 +139,14 @@ export const restaurantsApi = {
     return response.data
   },
 
+  // Transfer ownership to another user (Admin/Platform). The backend grants the
+  // new owner the RESTAURANT_OWNER role automatically; the previous owner keeps
+  // theirs. Returns the updated restaurant.
+  transferOwnership: async (id: number, newOwnerId: number): Promise<ApiResponse<Restaurant>> => {
+    const response = await api.patch<ApiResponse<Restaurant>>(`/restaurants/${id}/owner`, { newOwnerId })
+    return response.data
+  },
+
   // Get restaurant orders
   getOrders: async (id: number, params: { page?: number; size?: number } = {}): Promise<ApiResponse<PaginatedResponse<Order>>> => {
     const response = await api.get<ApiResponse<PaginatedResponse<Order>>>(`/restaurants/${id}/orders`, { params })

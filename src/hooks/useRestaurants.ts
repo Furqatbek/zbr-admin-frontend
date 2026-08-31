@@ -170,6 +170,21 @@ export function useToggleRestaurantOpen() {
   })
 }
 
+// Transfer restaurant ownership (Admin/Platform). Invalidates ALL restaurant
+// queries — the transfer changes this restaurant, the list, and both owners'
+// restaurant lists, and the response only describes this restaurant.
+export function useTransferRestaurantOwnership() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, newOwnerId }: { id: number; newOwnerId: number }) =>
+      restaurantsApi.transferOwnership(id, newOwnerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: restaurantKeys.all })
+    },
+  })
+}
+
 // ============ Menu Queries ============
 
 // Get full menu with categories and items
