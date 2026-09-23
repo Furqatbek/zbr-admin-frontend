@@ -41,7 +41,8 @@ import {
   useUploadMenuItemImage,
   useDeleteMenuItemImage,
 } from '@/hooks/useRestaurants'
-import type { MenuCategory, MenuItem, ItemOption, CreateMenuCategoryRequest, CreateMenuItemRequest } from '@/types'
+import type { MenuCategory, MenuItem, CreateMenuCategoryRequest, CreateMenuItemRequest } from '@/types'
+import { groupOptions, UNGROUPED } from '@/lib/menu'
 
 // Draft rows for the create form. These mirror what POST /menu/items accepts
 // nested on the item (ids/stock are assigned server-side).
@@ -53,19 +54,6 @@ type OptionDraft = {
   isDefault: boolean
   required: boolean
   maxSelections: number
-}
-
-const UNGROUPED = 'Прочее'
-
-/** Add-ons are grouped by `groupName`; `required`/`maxSelections` describe the group rule. */
-function groupOptions(options: ItemOption[]): [string, ItemOption[]][] {
-  const groups = new Map<string, ItemOption[]>()
-  for (const option of options) {
-    const key = option.groupName || UNGROUPED
-    if (!groups.has(key)) groups.set(key, [])
-    groups.get(key)!.push(option)
-  }
-  return Array.from(groups.entries())
 }
 
 export function RestaurantMenuPage() {

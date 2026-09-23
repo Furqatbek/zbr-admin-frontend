@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   ShoppingCart,
   Loader2,
@@ -7,6 +7,7 @@ import {
   Trash2,
   Package,
   ListOrdered,
+  AlertTriangle,
 } from 'lucide-react'
 import {
   Card,
@@ -20,11 +21,20 @@ import {
 } from '@/components/ui'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import {
+  groupOptions,
+  groupMax,
+  defaultOptionIds,
+  lineTotal,
+  validateLine,
+  toggleOption,
+} from '@/lib/menu'
+import {
   useMyOrders,
   useCreateOrder,
   useCreatePayment,
 } from '@/hooks/useOrders'
-import type { OrderType, CreateOrderItemRequest } from '@/types'
+import { useRestaurantMenu } from '@/hooks/useRestaurants'
+import type { OrderType, CreateOrderItemRequest, ItemOption, MenuItem } from '@/types'
 
 const orderTypeLabels: Record<OrderType, string> = {
   DELIVERY: 'Доставка',
@@ -59,6 +69,17 @@ export function OrderCreatePage() {
 
   const myOrders = myOrdersData?.data
 
+  // Load the restaurant's menu so lines can be picked by name and carry their
+  // sizes/add-ons. Falls back to raw id entry if the menu is unavailable.
+  const parsedRestaurantId = parseInt(restaurantId) || 0
+  const { data: menuData, isLoading: menuLoading } = useRestaurantMenu(parsedRestaurantId)
+  const menuCategories = menuData?.data ?? []
+  const menuItems = useMemo(
+    () => menuCategories.flatMap((c) => c.items ?? []),
+    [menuCategories]
+  )
+  const findMenuItem = (id: number): MenuItem | undefined => menuItems.find((m) => m.id === id)
+
   const addItem = () => setItems([...items, { menuItemId: 0, quantity: 1 }])
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index))
   const updateItem = (index: number, field: keyof CreateOrderItemRequest, value: number) => {
@@ -66,10 +87,35 @@ export function OrderCreatePage() {
     updated[index] = { ...updated[index], [field]: value }
     setItems(updated)
   }
+  const patchItem = (index: number, patch: Partial<CreateOrderItemRequest>) =>
+    setItems(items.map((line, i) => (i === index ? { ...line, ...patch } : line)))
+
+  // Changing the dish resets its choices and preselects the marked defaults.
+  const selectMenuItem = (index: number, menuItemId: number) =>
+    patchItem(index, {
+      menuItemId,
+      variantId: undefined,
+      optionIds: defaultOptionIds(findMenuItem(menuItemId)),
+    })
+
+  const handleToggleOption = (index: number, option: ItemOption, group: ItemOption[]) =>
+    patchItem(index, { optionIds: toggleOption(items[index].optionIds ?? [], option, group) })
+
+  // The backend enforces none of required/maxSelections/inStock — block here.
+  const itemIssues = items.map((line) =>
+    line.menuItemId > 0 ? validateLine(findMenuItem(line.menuItemId), line) : []
+  )
+  const hasIssues = itemIssues.some((issues) => issues.length > 0)
+  const orderTotal = items.reduce(
+    (sum, line) => sum + lineTotal(findMenuItem(line.menuItemId), line),
+    0
+  )
 
   const handleCreateOrder = async () => {
-    const validItems = items.filter((i) => i.menuItemId > 0)
-    if (!restaurantId || validItems.length === 0) return
+    const validItems = items
+      .filter((i) => i.menuItemId > 0)
+      .map((i) => ({ ...i, optionIds: i.optionIds?.length ? i.optionIds : undefined }))
+    if (!restaurantId || validItems.length === 0 || hasIssues) return
 
     await createOrder.mutateAsync({
       restaurantId: parseInt(restaurantId),
@@ -170,38 +216,175 @@ export function OrderCreatePage() {
                 </Button>
               </div>
               <div className="space-y-2">
-                {items.map((item, i) => (
-                  <div key={i} className="flex gap-2 items-end">
-                    <div className="flex-1">
-                      <label className="mb-1 block text-xs text-[hsl(var(--muted-foreground))]">ID позиции меню</label>
-                      <Input
-                        type="number"
-                        value={item.menuItemId || ''}
-                        onChange={(e) => updateItem(i, 'menuItemId', parseInt(e.target.value) || 0)}
-                      />
+                {items.map((item, i) => {
+                  const menuItem = findMenuItem(item.menuItemId)
+                  const issues = itemIssues[i]
+                  return (
+                    <div key={i} className="rounded-lg border border-[hsl(var(--border))] p-3 space-y-3">
+                      <div className="flex gap-2 items-end">
+                        <div className="flex-1">
+                          <label className="mb-1 block text-xs text-[hsl(var(--muted-foreground))]">
+                            Позиция меню
+                          </label>
+                          {menuItems.length > 0 ? (
+                            <Select
+                              value={item.menuItemId || ''}
+                              onChange={(e) => selectMenuItem(i, parseInt(e.target.value) || 0)}
+                            >
+                              <option value="">Выберите позицию</option>
+                              {menuCategories.map((category) => (
+                                <optgroup key={category.id} label={category.name}>
+                                  {(category.items ?? []).map((mi) => (
+                                    <option key={mi.id} value={mi.id} disabled={!mi.inStock}>
+                                      {mi.name} · {formatCurrency(mi.effectivePrice ?? mi.price)}
+                                      {!mi.inStock ? ' (нет в наличии)' : ''}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ))}
+                            </Select>
+                          ) : (
+                            <Input
+                              type="number"
+                              placeholder={menuLoading ? 'Загрузка меню...' : 'ID позиции меню'}
+                              value={item.menuItemId || ''}
+                              onChange={(e) => selectMenuItem(i, parseInt(e.target.value) || 0)}
+                            />
+                          )}
+                        </div>
+                        <div className="w-24">
+                          <label className="mb-1 block text-xs text-[hsl(var(--muted-foreground))]">Кол-во</label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={item.quantity}
+                            onChange={(e) => updateItem(i, 'quantity', parseInt(e.target.value) || 1)}
+                          />
+                        </div>
+                        {items.length > 1 && (
+                          <Button variant="ghost" size="icon" onClick={() => removeItem(i)}>
+                            <Trash2 className="h-4 w-4 text-[hsl(var(--destructive))]" />
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Sizes — one-of, and optional (variantId may be omitted) */}
+                      {menuItem?.variants && menuItem.variants.length > 0 && (
+                        <div>
+                          <div className="mb-1 flex items-center gap-2">
+                            <span className="text-xs font-medium">Размер</span>
+                            {item.variantId && (
+                              <button
+                                className="text-xs text-[hsl(var(--muted-foreground))] underline"
+                                onClick={() => patchItem(i, { variantId: undefined })}
+                              >
+                                сбросить
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-3">
+                            {menuItem.variants.map((v) => (
+                              <label
+                                key={v.id}
+                                className={`flex items-center gap-1 text-sm ${
+                                  v.inStock ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name={`variant-${i}`}
+                                  className="h-4 w-4"
+                                  checked={item.variantId === v.id}
+                                  disabled={!v.inStock}
+                                  onChange={() => patchItem(i, { variantId: v.id })}
+                                />
+                                <span className={v.inStock ? '' : 'line-through'}>
+                                  {v.name} · {formatCurrency(v.totalPrice ?? (menuItem.effectivePrice ?? menuItem.price) + v.priceDelta)}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Add-ons — grouped; cap of 1 behaves as a radio group */}
+                      {menuItem?.options &&
+                        menuItem.options.length > 0 &&
+                        groupOptions(menuItem.options).map(([groupName, opts]) => {
+                          const max = groupMax(opts)
+                          const chosen = opts.filter((o) => item.optionIds?.includes(o.id)).length
+                          return (
+                            <div key={groupName}>
+                              <p className="mb-1 text-xs font-medium">
+                                {groupName}{' '}
+                                <span className="font-normal text-[hsl(var(--muted-foreground))]">
+                                  ({opts[0].required ? 'обязательно' : 'необязательно'}
+                                  {max > 1 ? `, макс. ${max}` : ''})
+                                </span>
+                              </p>
+                              <div className="flex flex-wrap gap-3">
+                                {opts.map((o) => {
+                                  const checked = item.optionIds?.includes(o.id) ?? false
+                                  const atCap = !checked && max > 1 && chosen >= max
+                                  const disabled = !o.inStock || atCap
+                                  return (
+                                    <label
+                                      key={o.id}
+                                      className={`flex items-center gap-1 text-sm ${
+                                        disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                                      }`}
+                                    >
+                                      <input
+                                        type={max === 1 ? 'radio' : 'checkbox'}
+                                        name={max === 1 ? `opt-${i}-${groupName}` : undefined}
+                                        className="h-4 w-4"
+                                        checked={checked}
+                                        disabled={disabled}
+                                        onChange={() => handleToggleOption(i, o, opts)}
+                                      />
+                                      <span className={o.inStock ? '' : 'line-through'}>
+                                        {o.name}
+                                        {o.priceDelta !== 0 && ` +${formatCurrency(o.priceDelta)}`}
+                                      </span>
+                                    </label>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )
+                        })}
+
+                      {/* Line issues + line total */}
+                      {issues.length > 0 && (
+                        <div className="flex items-start gap-2 rounded-md bg-[hsl(var(--destructive))]/10 p-2 text-xs text-[hsl(var(--destructive))]">
+                          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                          <div>
+                            {issues.map((issue) => (
+                              <p key={issue}>{issue}</p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {menuItem && (
+                        <p className="text-right text-sm">
+                          Итого по позиции:{' '}
+                          <strong>{formatCurrency(lineTotal(menuItem, item))}</strong>
+                        </p>
+                      )}
                     </div>
-                    <div className="w-24">
-                      <label className="mb-1 block text-xs text-[hsl(var(--muted-foreground))]">Кол-во</label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={item.quantity}
-                        onChange={(e) => updateItem(i, 'quantity', parseInt(e.target.value) || 1)}
-                      />
-                    </div>
-                    {items.length > 1 && (
-                      <Button variant="ghost" size="icon" onClick={() => removeItem(i)}>
-                        <Trash2 className="h-4 w-4 text-[hsl(var(--destructive))]" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
+              {orderTotal > 0 && (
+                <p className="mt-2 text-right text-sm">
+                  Сумма заказа: <strong>{formatCurrency(orderTotal)}</strong>
+                </p>
+              )}
             </div>
 
             <Button
               onClick={handleCreateOrder}
-              disabled={createOrder.isPending || !restaurantId}
+              disabled={createOrder.isPending || !restaurantId || hasIssues}
               className="w-full"
             >
               {createOrder.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingCart className="mr-2 h-4 w-4" />}
