@@ -12,6 +12,9 @@ export const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
+    // The admin UI is Russian throughout. Without this the backend falls back
+    // to Uzbek for server-resolved strings (error messages, category names).
+    'Accept-Language': 'ru',
   },
 })
 

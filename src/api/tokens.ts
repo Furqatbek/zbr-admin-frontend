@@ -81,10 +81,11 @@ export function isAccessTokenExpired(skewMs = 30_000): boolean {
 }
 
 // A bare axios client with NO interceptors, so a refresh call can never
-// recurse back into the refresh logic.
+// recurse back into the refresh logic. Mirrors the main client's headers
+// (see axios.ts) so refresh errors come back in Russian too.
 const bareClient = axios.create({
   baseURL: API_URL,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json', 'Accept-Language': 'ru' },
 })
 
 let inFlight: Promise<string> | null = null
