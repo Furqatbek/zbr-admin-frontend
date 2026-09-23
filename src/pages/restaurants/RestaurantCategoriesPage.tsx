@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { UtensilsCrossed, Plus, Edit, Loader2, RefreshCw, Image as ImageIcon, EyeOff } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { UtensilsCrossed, Plus, Edit, Loader2, RefreshCw, Image as ImageIcon, EyeOff, Upload } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -24,7 +24,25 @@ import {
   useCreateRestaurantCategory,
   useUpdateRestaurantCategory,
 } from '@/hooks/useRestaurantCategories'
+import { useUploadImage } from '@/hooks/useImages'
 import type { RestaurantCategory } from '@/types'
+
+/** Read a picked image's pixel size so we can warn about the expected 256x256. */
+function readImageSize(file: File): Promise<{ width: number; height: number } | null> {
+  return new Promise((resolve) => {
+    const objectUrl = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve({ width: img.naturalWidth, height: img.naturalHeight })
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve(null)
+    }
+    img.src = objectUrl
+  })
+}
 
 const EMPTY_FORM = {
   nameUz: '',
@@ -44,6 +62,11 @@ export function RestaurantCategoriesPage() {
   const [editing, setEditing] = useState<RestaurantCategory | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [error, setError] = useState<string | null>(null)
+  const [sizeWarning, setSizeWarning] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  // There is no cuisine-category bucket in the images API, so icons go in the
+  // 'restaurants' bucket; the endpoint returns the URL we store on the category.
+  const uploadImage = useUploadImage('restaurants')
 
   const categories = [...(data?.data ?? [])].sort((a, b) => a.sortOrder - b.sortOrder)
   // The public endpoint only returns categories with an open restaurant.
@@ -53,6 +76,7 @@ export function RestaurantCategoriesPage() {
     setEditing(null)
     setForm(EMPTY_FORM)
     setError(null)
+    setSizeWarning(null)
     setModal(true)
   }
 
@@ -66,7 +90,32 @@ export function RestaurantCategoriesPage() {
       imageUrl: category.imageUrl ?? '',
     })
     setError(null)
+    setSizeWarning(null)
     setModal(true)
+  }
+
+  const handlePickImage = async (file?: File | null) => {
+    if (!file) return
+    setError(null)
+    setSizeWarning(null)
+    if (!file.type.startsWith('image/')) {
+      setError('Выбранный файл не является изображением')
+      return
+    }
+    try {
+      const size = await readImageSize(file)
+      if (size && (size.width !== 256 || size.height !== 256)) {
+        setSizeWarning(`Ожидается 256×256 PNG, выбрано ${size.width}×${size.height}. Файл загружен как есть.`)
+      }
+      const uploaded = await uploadImage.mutateAsync(file)
+      const url = uploaded.data?.url
+      if (!url) throw new Error('Ответ загрузки не содержит URL')
+      setForm((f) => ({ ...f, imageUrl: url }))
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Не удалось загрузить изображение'))
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
   }
 
   const handleSave = async () => {
@@ -285,12 +334,50 @@ export function RestaurantCategoriesPage() {
               />
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium">Изображение (URL)</label>
+              <label className="mb-2 block text-sm font-medium">Изображение</label>
+              <div className="flex items-center gap-2">
+                {form.imageUrl ? (
+                  <img src={form.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
+                ) : (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-[hsl(var(--muted))]">
+                    <ImageIcon className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handlePickImage(e.target.files?.[0])}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={uploadImage.isPending}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploadImage.isPending ? (
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="mr-1 h-4 w-4" />
+                  )}
+                  Загрузить
+                </Button>
+                {form.imageUrl && (
+                  <Button variant="ghost" size="sm" onClick={() => setForm({ ...form, imageUrl: '' })}>
+                    Убрать
+                  </Button>
+                )}
+              </div>
               <Input
+                className="mt-2"
                 value={form.imageUrl}
                 onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                placeholder="https://zbrr.uz/media/cat/...png"
+                placeholder="или вставьте URL"
               />
+              {sizeWarning && (
+                <p className="mt-1 text-xs text-[hsl(var(--warning))]">{sizeWarning}</p>
+              )}
             </div>
           </div>
           {editing && (
