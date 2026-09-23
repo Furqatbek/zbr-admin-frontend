@@ -2,10 +2,16 @@ import { describe, it, expect } from 'vitest'
 import {
   groupOptions,
   groupMax,
+  groupRequired,
   defaultOptionIds,
+  defaultVariantId,
+  dedupeOptionIds,
   lineTotal,
   validateLine,
   toggleOption,
+  variantPrice,
+  visibleVariants,
+  visibleOptions,
   UNGROUPED,
 } from '../menu'
 import type { ItemOption, ItemVariant, MenuItem } from '@/types'
@@ -63,6 +69,25 @@ describe('groupOptions', () => {
     expect(groupMax([option({ id: 1, name: 'X', maxSelections: 3 })])).toBe(3)
     expect(groupMax([option({ id: 1, name: 'X', maxSelections: undefined })])).toBe(1)
   })
+
+  it('takes the STRICTEST cap when options in a group disagree', () => {
+    // The server takes the strictest; taking the most permissive would build
+    // orders it then refuses.
+    const mixed = [
+      option({ id: 1, name: 'A', maxSelections: 1 }),
+      option({ id: 2, name: 'B', maxSelections: 3 }),
+    ]
+    expect(groupMax(mixed)).toBe(1)
+  })
+
+  it('is required if ANY option in the group says so', () => {
+    const mixed = [
+      option({ id: 1, name: 'A', required: false }),
+      option({ id: 2, name: 'B', required: true }),
+    ]
+    expect(groupRequired(mixed)).toBe(true)
+    expect(groupRequired([option({ id: 3, name: 'C', required: false })])).toBe(false)
+  })
 })
 
 describe('lineTotal', () => {
@@ -108,20 +133,31 @@ describe('defaultOptionIds', () => {
   })
 })
 
-describe('validateLine — the rules the backend does NOT enforce', () => {
+describe('validateLine — the rules the server enforces (caught before submit)', () => {
   it('flags a required group with nothing chosen', () => {
-    const issues = validateLine(lavash, { quantity: 1, optionIds: [] })
+    const issues = validateLine(lavash, { quantity: 1, variantId: 11, optionIds: [] })
     expect(issues.some((i) => i.includes('Sauce'))).toBe(true)
   })
 
   it('accepts a required group once chosen', () => {
-    const issues = validateLine(lavash, { quantity: 1, optionIds: [51] })
+    const issues = validateLine(lavash, { quantity: 1, variantId: 11, optionIds: [51] })
     expect(issues).toEqual([])
+  })
+
+  it('flags a dish with sizes when none is chosen', () => {
+    const issues = validateLine(lavash, { quantity: 1, optionIds: [51] })
+    expect(issues.some((i) => i.includes('размер'))).toBe(true)
+  })
+
+  it('flags a duplicated add-on', () => {
+    const issues = validateLine(lavash, { quantity: 1, variantId: 11, optionIds: [51, 51] })
+    expect(issues.some((i) => i.includes('дважды'))).toBe(true)
   })
 
   it('flags exceeding maxSelections', () => {
     const item = {
       ...lavash,
+      variants: [],
       options: [
         option({ id: 1, groupName: 'Extras', name: 'A', required: false, maxSelections: 1 }),
         option({ id: 2, groupName: 'Extras', name: 'B', required: false, maxSelections: 1 }),
@@ -136,9 +172,19 @@ describe('validateLine — the rules the backend does NOT enforce', () => {
     expect(issues.some((i) => i.includes('Large'))).toBe(true)
   })
 
+  it('flags a withdrawn (inactive) variant', () => {
+    const item = {
+      ...lavash,
+      variants: [variant({ id: 20, name: 'Gone', active: false })],
+    }
+    // Withdrawn sizes are hidden, so "choose a size" is what surfaces.
+    expect(validateLine(item, { quantity: 1, variantId: 20, optionIds: [51] }).length).toBeGreaterThan(0)
+  })
+
   it('flags a sold-out add-on', () => {
     const item = {
       ...lavash,
+      variants: [],
       options: [option({ id: 70, groupName: 'Extras', name: 'Truffle', inStock: false })],
     }
     const issues = validateLine(item, { quantity: 1, optionIds: [70] })
@@ -171,5 +217,40 @@ describe('toggleOption', () => {
       option({ id: 3, groupName: 'Extras', name: 'C', maxSelections: 2 }),
     ]
     expect(toggleOption([1, 2], three[2], three)).toEqual([1, 2])
+  })
+})
+
+describe('visibility, defaults and dedupe', () => {
+  it('hides withdrawn choices but keeps sold-out ones', () => {
+    const item = {
+      ...lavash,
+      variants: [
+        variant({ id: 1, name: 'Shown' }),
+        variant({ id: 2, name: 'SoldOut', inStock: false }),
+        variant({ id: 3, name: 'Withdrawn', active: false }),
+      ],
+      options: [option({ id: 9, name: 'Hidden', active: false })],
+    }
+    expect(visibleVariants(item).map((v) => v.name)).toEqual(['Shown', 'SoldOut'])
+    expect(visibleOptions(item)).toEqual([])
+  })
+
+  it('preselects the first in-stock size', () => {
+    expect(defaultVariantId(lavash)).toBe(11)
+    const allOut = { ...lavash, variants: [variant({ id: 5, name: 'X', inStock: false })] }
+    expect(defaultVariantId(allOut)).toBeUndefined()
+  })
+
+  it('derives the size price from effectivePrice, not totalPrice', () => {
+    // On sale: price 30000, effectivePrice 24000, delta 8000 -> 32000 charged,
+    // while a totalPrice built from `price` would say 38000.
+    const onSale = { ...lavash, price: 30000, effectivePrice: 24000 }
+    const large = { ...variant({ id: 12, name: 'Large', priceDelta: 8000 }), totalPrice: 38000 }
+    expect(variantPrice(onSale, large)).toBe(32000)
+  })
+
+  it('dedupes option ids', () => {
+    expect(dedupeOptionIds([1, 2, 1, 3, 3])).toEqual([1, 2, 3])
+    expect(dedupeOptionIds(undefined)).toEqual([])
   })
 })

@@ -273,8 +273,15 @@ export interface ItemVariant {
   id: number
   name: string
   priceDelta: number
+  /**
+   * Server-precomputed base + priceDelta. NOTE: it is unconfirmed whether this
+   * is built from `price` or `effectivePrice`, so it diverges from the charged
+   * amount on a sale. Derive display from effectivePrice + priceDelta instead.
+   */
   totalPrice?: number
   inStock: boolean
+  /** false = withdrawn; hidden from pickers (sold-out is `inStock`, shown disabled). */
+  active?: boolean
   sortOrder?: number
 }
 
@@ -284,10 +291,38 @@ export interface ItemOption {
   name: string
   priceDelta: number
   isDefault: boolean
+  /** Stored per option but describes the group — the server takes the strictest. */
   maxSelections?: number
   required: boolean
   inStock: boolean
+  /** false = withdrawn; hidden from pickers. */
+  active?: boolean
+  sortOrder?: number
 }
+
+export interface CreateVariantRequest {
+  name: string
+  priceDelta?: number
+  sortOrder?: number
+  inStock?: boolean
+  active?: boolean
+}
+
+export type UpdateVariantRequest = Partial<CreateVariantRequest>
+
+export interface CreateOptionRequest {
+  groupName?: string
+  name: string
+  priceDelta?: number
+  maxSelections?: number
+  required?: boolean
+  isDefault?: boolean
+  sortOrder?: number
+  inStock?: boolean
+  active?: boolean
+}
+
+export type UpdateOptionRequest = Partial<CreateOptionRequest>
 
 export interface CreateMenuItemRequest {
   categoryId: number

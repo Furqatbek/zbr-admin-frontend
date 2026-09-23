@@ -12,6 +12,12 @@ import type {
   CreateMenuItemRequest,
   Order,
   Review,
+  ItemVariant,
+  ItemOption,
+  CreateVariantRequest,
+  UpdateVariantRequest,
+  CreateOptionRequest,
+  UpdateOptionRequest,
 } from '@/types'
 
 export interface RestaurantsQueryParams {
@@ -299,6 +305,57 @@ export const restaurantsApi = {
   deleteMenuItem: async (restaurantId: number, itemId: number): Promise<ApiResponse<void>> => {
     const response = await api.delete<ApiResponse<void>>(
       `/restaurants/${restaurantId}/menu/items/${itemId}`
+    )
+    return response.data
+  },
+
+  // ============ Item variants (sizes) & options (add-ons) ============
+  // Dedicated endpoints — PUT /menu/items/{id} REFUSES a body carrying
+  // `variants`/`options` and points here instead.
+
+  createVariant: async (restaurantId: number, itemId: number, data: CreateVariantRequest): Promise<ApiResponse<ItemVariant>> => {
+    const response = await api.post<ApiResponse<ItemVariant>>(
+      `/restaurants/${restaurantId}/menu/items/${itemId}/variants`,
+      data
+    )
+    return response.data
+  },
+
+  // Partial: e.g. { inStock: false } marks a size sold out and changes nothing else.
+  updateVariant: async (restaurantId: number, itemId: number, variantId: number, data: UpdateVariantRequest): Promise<ApiResponse<ItemVariant>> => {
+    const response = await api.put<ApiResponse<ItemVariant>>(
+      `/restaurants/${restaurantId}/menu/items/${itemId}/variants/${variantId}`,
+      data
+    )
+    return response.data
+  },
+
+  deleteVariant: async (restaurantId: number, itemId: number, variantId: number): Promise<ApiResponse<void>> => {
+    const response = await api.delete<ApiResponse<void>>(
+      `/restaurants/${restaurantId}/menu/items/${itemId}/variants/${variantId}`
+    )
+    return response.data
+  },
+
+  createOption: async (restaurantId: number, itemId: number, data: CreateOptionRequest): Promise<ApiResponse<ItemOption>> => {
+    const response = await api.post<ApiResponse<ItemOption>>(
+      `/restaurants/${restaurantId}/menu/items/${itemId}/options`,
+      data
+    )
+    return response.data
+  },
+
+  updateOption: async (restaurantId: number, itemId: number, optionId: number, data: UpdateOptionRequest): Promise<ApiResponse<ItemOption>> => {
+    const response = await api.put<ApiResponse<ItemOption>>(
+      `/restaurants/${restaurantId}/menu/items/${itemId}/options/${optionId}`,
+      data
+    )
+    return response.data
+  },
+
+  deleteOption: async (restaurantId: number, itemId: number, optionId: number): Promise<ApiResponse<void>> => {
+    const response = await api.delete<ApiResponse<void>>(
+      `/restaurants/${restaurantId}/menu/items/${itemId}/options/${optionId}`
     )
     return response.data
   },

@@ -11,6 +11,10 @@ import type {
   UpdateRestaurantRequest,
   CreateMenuCategoryRequest,
   CreateMenuItemRequest,
+  CreateVariantRequest,
+  UpdateVariantRequest,
+  CreateOptionRequest,
+  UpdateOptionRequest,
 } from '@/types'
 
 export const restaurantKeys = {
@@ -346,6 +350,64 @@ export function useDeleteMenuItem() {
       queryClient.invalidateQueries({ queryKey: restaurantKeys.menuItems(restaurantId) })
     },
   })
+}
+
+// ============ Item variants (sizes) & options (add-ons) ============
+// All invalidate the item's menu so the list reflects the change immediately.
+
+function useMenuMutation<TArgs extends { restaurantId: number }>(
+  mutationFn: (args: TArgs) => Promise<unknown>
+) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn,
+    onSuccess: (_, { restaurantId }) => {
+      queryClient.invalidateQueries({ queryKey: restaurantKeys.menu(restaurantId) })
+      queryClient.invalidateQueries({ queryKey: restaurantKeys.menuItems(restaurantId) })
+    },
+  })
+}
+
+export function useCreateVariant() {
+  return useMenuMutation(
+    ({ restaurantId, itemId, data }: { restaurantId: number; itemId: number; data: CreateVariantRequest }) =>
+      restaurantsApi.createVariant(restaurantId, itemId, data)
+  )
+}
+
+export function useUpdateVariant() {
+  return useMenuMutation(
+    ({ restaurantId, itemId, variantId, data }: { restaurantId: number; itemId: number; variantId: number; data: UpdateVariantRequest }) =>
+      restaurantsApi.updateVariant(restaurantId, itemId, variantId, data)
+  )
+}
+
+export function useDeleteVariant() {
+  return useMenuMutation(
+    ({ restaurantId, itemId, variantId }: { restaurantId: number; itemId: number; variantId: number }) =>
+      restaurantsApi.deleteVariant(restaurantId, itemId, variantId)
+  )
+}
+
+export function useCreateOption() {
+  return useMenuMutation(
+    ({ restaurantId, itemId, data }: { restaurantId: number; itemId: number; data: CreateOptionRequest }) =>
+      restaurantsApi.createOption(restaurantId, itemId, data)
+  )
+}
+
+export function useUpdateOption() {
+  return useMenuMutation(
+    ({ restaurantId, itemId, optionId, data }: { restaurantId: number; itemId: number; optionId: number; data: UpdateOptionRequest }) =>
+      restaurantsApi.updateOption(restaurantId, itemId, optionId, data)
+  )
+}
+
+export function useDeleteOption() {
+  return useMenuMutation(
+    ({ restaurantId, itemId, optionId }: { restaurantId: number; itemId: number; optionId: number }) =>
+      restaurantsApi.deleteOption(restaurantId, itemId, optionId)
+  )
 }
 
 // Upload menu item image

@@ -23,11 +23,18 @@ import { formatCurrency, formatDateTime } from '@/lib/utils'
 import {
   groupOptions,
   groupMax,
+  groupRequired,
   defaultOptionIds,
+  defaultVariantId,
+  dedupeOptionIds,
   lineTotal,
   validateLine,
   toggleOption,
+  variantPrice,
+  visibleVariants,
+  visibleOptions,
 } from '@/lib/menu'
+import { apiErrorMessage } from '@/lib/apiError'
 import {
   useMyOrders,
   useCreateOrder,
@@ -94,14 +101,15 @@ export function OrderCreatePage() {
   const selectMenuItem = (index: number, menuItemId: number) =>
     patchItem(index, {
       menuItemId,
-      variantId: undefined,
+      variantId: defaultVariantId(findMenuItem(menuItemId)),
       optionIds: defaultOptionIds(findMenuItem(menuItemId)),
     })
 
   const handleToggleOption = (index: number, option: ItemOption, group: ItemOption[]) =>
     patchItem(index, { optionIds: toggleOption(items[index].optionIds ?? [], option, group) })
 
-  // The backend enforces none of required/maxSelections/inStock — block here.
+  // The server enforces these too and refuses the order; validating here
+  // catches it before submit rather than after.
   const itemIssues = items.map((line) =>
     line.menuItemId > 0 ? validateLine(findMenuItem(line.menuItemId), line) : []
   )
@@ -114,7 +122,10 @@ export function OrderCreatePage() {
   const handleCreateOrder = async () => {
     const validItems = items
       .filter((i) => i.menuItemId > 0)
-      .map((i) => ({ ...i, optionIds: i.optionIds?.length ? i.optionIds : undefined }))
+      .map((i) => {
+        const optionIds = dedupeOptionIds(i.optionIds)
+        return { ...i, optionIds: optionIds.length ? optionIds : undefined }
+      })
     if (!restaurantId || validItems.length === 0 || hasIssues) return
 
     await createOrder.mutateAsync({
@@ -269,21 +280,15 @@ export function OrderCreatePage() {
                       </div>
 
                       {/* Sizes — one-of, and optional (variantId may be omitted) */}
-                      {menuItem?.variants && menuItem.variants.length > 0 && (
+                      {menuItem && visibleVariants(menuItem).length > 0 && (
                         <div>
                           <div className="mb-1 flex items-center gap-2">
-                            <span className="text-xs font-medium">Размер</span>
-                            {item.variantId && (
-                              <button
-                                className="text-xs text-[hsl(var(--muted-foreground))] underline"
-                                onClick={() => patchItem(i, { variantId: undefined })}
-                              >
-                                сбросить
-                              </button>
-                            )}
+                            <span className="text-xs font-medium">
+                              Размер <span className="font-normal text-[hsl(var(--muted-foreground))]">(обязательно)</span>
+                            </span>
                           </div>
                           <div className="flex flex-wrap gap-3">
-                            {menuItem.variants.map((v) => (
+                            {visibleVariants(menuItem).map((v) => (
                               <label
                                 key={v.id}
                                 className={`flex items-center gap-1 text-sm ${
@@ -299,7 +304,7 @@ export function OrderCreatePage() {
                                   onChange={() => patchItem(i, { variantId: v.id })}
                                 />
                                 <span className={v.inStock ? '' : 'line-through'}>
-                                  {v.name} · {formatCurrency(v.totalPrice ?? (menuItem.effectivePrice ?? menuItem.price) + v.priceDelta)}
+                                  {v.name} · {formatCurrency(variantPrice(menuItem, v))}
                                 </span>
                               </label>
                             ))}
@@ -308,9 +313,9 @@ export function OrderCreatePage() {
                       )}
 
                       {/* Add-ons — grouped; cap of 1 behaves as a radio group */}
-                      {menuItem?.options &&
-                        menuItem.options.length > 0 &&
-                        groupOptions(menuItem.options).map(([groupName, opts]) => {
+                      {menuItem &&
+                        visibleOptions(menuItem).length > 0 &&
+                        groupOptions(visibleOptions(menuItem)).map(([groupName, opts]) => {
                           const max = groupMax(opts)
                           const chosen = opts.filter((o) => item.optionIds?.includes(o.id)).length
                           return (
@@ -318,7 +323,7 @@ export function OrderCreatePage() {
                               <p className="mb-1 text-xs font-medium">
                                 {groupName}{' '}
                                 <span className="font-normal text-[hsl(var(--muted-foreground))]">
-                                  ({opts[0].required ? 'обязательно' : 'необязательно'}
+                                  ({groupRequired(opts) ? 'обязательно' : 'необязательно'}
                                   {max > 1 ? `, макс. ${max}` : ''})
                                 </span>
                               </p>
@@ -392,7 +397,13 @@ export function OrderCreatePage() {
             </Button>
 
             {createOrder.isSuccess && <Badge variant="success">Заказ создан</Badge>}
-            {createOrder.isError && <Badge variant="destructive">Ошибка создания</Badge>}
+            {createOrder.isError && (
+              <div className="flex items-start gap-2 rounded-md bg-[hsl(var(--destructive))]/10 p-3 text-sm text-[hsl(var(--destructive))]">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                {/* The API's refusal messages name what to change — show them verbatim. */}
+                <span>{apiErrorMessage(createOrder.error, 'Не удалось создать заказ')}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

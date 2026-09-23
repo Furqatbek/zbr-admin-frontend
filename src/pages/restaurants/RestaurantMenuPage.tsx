@@ -31,6 +31,8 @@ import { formatCurrency } from '@/lib/utils'
 import { useRestaurant } from '@/hooks/useRestaurants'
 import {
   useRestaurantMenu,
+  useCreateVariant,
+  useCreateOption,
   useCreateMenuCategory,
   useUpdateMenuCategory,
   useDeleteMenuCategory,
@@ -42,7 +44,9 @@ import {
   useDeleteMenuItemImage,
 } from '@/hooks/useRestaurants'
 import type { MenuCategory, MenuItem, CreateMenuCategoryRequest, CreateMenuItemRequest } from '@/types'
-import { groupOptions, UNGROUPED } from '@/lib/menu'
+import { groupOptions, groupMax, groupRequired, variantPrice, UNGROUPED } from '@/lib/menu'
+import { apiErrorMessage } from '@/lib/apiError'
+import { ItemModifiersEditor } from './ItemModifiersEditor'
 
 // Draft rows for the create form. These mirror what POST /menu/items accepts
 // nested on the item (ids/stock are assigned server-side).
@@ -75,11 +79,17 @@ export function RestaurantMenuPage() {
   const [itemModal, setItemModal] = useState(false)
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null)
   const [itemCategoryId, setItemCategoryId] = useState<number>(0)
-  // Sizes (one-of) and add-ons (grouped), draft rows for the CREATE form only.
-  // The backend accepts these nested in POST /menu/items and silently ignores
-  // them on PUT, so they can never be edited after the item exists.
+  // Sizes (one-of) and add-ons (grouped). Drafts are only for the CREATE form;
+  // once the item exists they are managed through their own endpoints.
   const [variantDrafts, setVariantDrafts] = useState<VariantDraft[]>([])
   const [optionDrafts, setOptionDrafts] = useState<OptionDraft[]>([])
+  const [itemError, setItemError] = useState<string | null>(null)
+
+  // The modal holds the item captured when it opened; re-read it from the live
+  // menu so the modifiers editor reflects additions/removals immediately.
+  const liveEditingItem = editingItem
+    ? categories.flatMap((c) => c.items ?? []).find((i) => i.id === editingItem.id) ?? editingItem
+    : null
   const [itemForm, setItemForm] = useState<CreateMenuItemRequest>({
     categoryId: 0,
     name: '',
@@ -116,6 +126,8 @@ export function RestaurantMenuPage() {
   const deleteItem = useDeleteMenuItem()
   const uploadImage = useUploadMenuItemImage()
   const deleteImage = useDeleteMenuItemImage()
+  const createVariant = useCreateVariant()
+  const createOption = useCreateOption()
 
   const toggleCategory = (categoryId: number) => {
     setExpandedCategories(prev => {
@@ -158,6 +170,7 @@ export function RestaurantMenuPage() {
     setItemCategoryId(categoryId)
     setVariantDrafts([])
     setOptionDrafts([])
+    setItemError(null)
     setItemForm({
       categoryId,
       name: '',
@@ -180,6 +193,7 @@ export function RestaurantMenuPage() {
     setItemCategoryId(item.categoryId)
     setVariantDrafts([])
     setOptionDrafts([])
+    setItemError(null)
     setItemForm({
       categoryId: item.categoryId,
       name: item.name,
@@ -198,27 +212,50 @@ export function RestaurantMenuPage() {
   }
 
   const handleSaveItem = async () => {
-    if (editingItem) {
-      // Deliberately does NOT send variants/options: PUT accepts and silently
-      // ignores them, so sending would look like it worked.
-      await updateItem.mutateAsync({ restaurantId, itemId: editingItem.id, data: { ...itemForm, categoryId: itemCategoryId } })
-    } else {
-      const variants = variantDrafts.filter((v) => v.name.trim())
-      const options = optionDrafts.filter((o) => o.name.trim())
-      await createItem.mutateAsync({
-        restaurantId,
-        data: {
-          ...itemForm,
-          categoryId: itemCategoryId,
-          ...(variants.length > 0 && { variants }),
-          ...(options.length > 0 && {
-            options: options.map((o) => ({ ...o, groupName: o.groupName.trim() || UNGROUPED })),
-          }),
-        },
-      })
+    setItemError(null)
+    try {
+      if (editingItem) {
+        // Never send variants/options here — PUT refuses a body carrying them.
+        await updateItem.mutateAsync({ restaurantId, itemId: editingItem.id, data: { ...itemForm, categoryId: itemCategoryId } })
+      } else {
+        const created = await createItem.mutateAsync({
+          restaurantId,
+          data: { ...itemForm, categoryId: itemCategoryId },
+        })
+        // Sizes/add-ons are created through their own endpoints once the item
+        // exists. If one fails the item is still created and the rest can be
+        // added from the editor, so surface the error rather than rolling back.
+        const itemId = created.data?.id
+        if (itemId) {
+          for (const v of variantDrafts.filter((v) => v.name.trim())) {
+            await createVariant.mutateAsync({
+              restaurantId,
+              itemId,
+              data: { name: v.name.trim(), priceDelta: v.priceDelta },
+            })
+          }
+          for (const o of optionDrafts.filter((o) => o.name.trim())) {
+            await createOption.mutateAsync({
+              restaurantId,
+              itemId,
+              data: {
+                groupName: o.groupName.trim() || UNGROUPED,
+                name: o.name.trim(),
+                priceDelta: o.priceDelta,
+                required: o.required,
+                maxSelections: o.maxSelections,
+                isDefault: o.isDefault,
+              },
+            })
+          }
+        }
+      }
+      setItemModal(false)
+      refetchMenu()
+    } catch (err) {
+      setItemError(apiErrorMessage(err, 'Не удалось сохранить позицию'))
+      refetchMenu()
     }
-    setItemModal(false)
-    refetchMenu()
   }
 
   const updateVariantDraft = (index: number, patch: Partial<VariantDraft>) =>
@@ -482,7 +519,7 @@ export function RestaurantMenuPage() {
                                     className={v.inStock ? '' : 'line-through opacity-60'}
                                     title={v.inStock ? undefined : 'Нет в наличии'}
                                   >
-                                    {v.name} · {formatCurrency(v.totalPrice ?? item.price + v.priceDelta)}
+                                    {v.name} · {formatCurrency(variantPrice(item, v))}
                                   </Badge>
                                 ))}
                               </div>
@@ -494,8 +531,8 @@ export function RestaurantMenuPage() {
                               groupOptions(item.options).map(([groupName, opts]) => (
                                 <div key={groupName} className="mt-1 flex flex-wrap items-center gap-1">
                                   <span className="text-xs text-[hsl(var(--muted-foreground))]">
-                                    {groupName} ({opts[0].required ? 'обязательно' : 'необязательно'}
-                                    {opts[0].maxSelections ? `, макс. ${opts[0].maxSelections}` : ''}):
+                                    {groupName} ({groupRequired(opts) ? 'обязательно' : 'необязательно'}
+                                    {groupMax(opts) > 1 ? `, макс. ${groupMax(opts)}` : ''}):
                                   </span>
                                   {opts.map((o) => (
                                     <Badge
@@ -644,6 +681,11 @@ export function RestaurantMenuPage() {
         title={editingItem ? 'Редактирование позиции' : 'Новая позиция'}
       >
         <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+          {itemError && (
+            <div className="rounded-md bg-[hsl(var(--destructive))]/10 p-3 text-sm text-[hsl(var(--destructive))]">
+              {itemError}
+            </div>
+          )}
           <div>
             <label className="mb-2 block text-sm font-medium">Название</label>
             <Input
@@ -730,38 +772,18 @@ export function RestaurantMenuPage() {
             </div>
           </div>
 
-          {/* Sizes & add-ons. The backend only accepts these nested in the
-              CREATE call — PUT accepts and silently ignores them — so they are
-              editable when creating and read-only forever after. */}
+          {/* Sizes & add-ons. Managed through their own endpoints — PUT on the
+              item refuses a body carrying them — so an existing item gets the
+              full editor, and a new one collects drafts that are created right
+              after the item itself. */}
           {editingItem ? (
-            <div className="rounded-lg border border-[hsl(var(--warning))]/40 bg-[hsl(var(--warning))]/5 p-3">
-              <p className="text-sm font-medium">Размеры и добавки нельзя изменить</p>
-              <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-                Бэкенд принимает их только при создании позиции: при сохранении изменений они
-                молча игнорируются. Чтобы изменить — удалите позицию и создайте заново.
-              </p>
-              {(editingItem.variants?.length ?? 0) + (editingItem.options?.length ?? 0) > 0 ? (
-                <div className="mt-2 space-y-1 text-xs">
-                  {editingItem.variants?.map((v) => (
-                    <div key={`v-${v.id}`}>
-                      Размер: <strong>{v.name}</strong> ·{' '}
-                      {formatCurrency(v.totalPrice ?? editingItem.price + v.priceDelta)}
-                      {!v.inStock && ' (нет в наличии)'}
-                    </div>
-                  ))}
-                  {editingItem.options?.map((o) => (
-                    <div key={`o-${o.id}`}>
-                      {o.groupName || UNGROUPED}: <strong>{o.name}</strong>
-                      {o.priceDelta !== 0 && ` +${formatCurrency(o.priceDelta)}`}
-                      {o.isDefault && ' · по умолчанию'}
-                      {!o.inStock && ' (нет в наличии)'}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-2 text-xs">У этой позиции нет размеров и добавок.</p>
-              )}
-            </div>
+            liveEditingItem && (
+              <ItemModifiersEditor
+                restaurantId={restaurantId}
+                item={liveEditingItem}
+                onChanged={refetchMenu}
+              />
+            )
           ) : (
             <div className="space-y-4">
               {/* Variants — one-of (a size) */}
