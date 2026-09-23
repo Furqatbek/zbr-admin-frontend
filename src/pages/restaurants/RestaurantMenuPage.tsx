@@ -41,7 +41,32 @@ import {
   useUploadMenuItemImage,
   useDeleteMenuItemImage,
 } from '@/hooks/useRestaurants'
-import type { MenuCategory, MenuItem, CreateMenuCategoryRequest, CreateMenuItemRequest } from '@/types'
+import type { MenuCategory, MenuItem, ItemOption, CreateMenuCategoryRequest, CreateMenuItemRequest } from '@/types'
+
+// Draft rows for the create form. These mirror what POST /menu/items accepts
+// nested on the item (ids/stock are assigned server-side).
+type VariantDraft = { name: string; priceDelta: number }
+type OptionDraft = {
+  groupName: string
+  name: string
+  priceDelta: number
+  isDefault: boolean
+  required: boolean
+  maxSelections: number
+}
+
+const UNGROUPED = 'Прочее'
+
+/** Add-ons are grouped by `groupName`; `required`/`maxSelections` describe the group rule. */
+function groupOptions(options: ItemOption[]): [string, ItemOption[]][] {
+  const groups = new Map<string, ItemOption[]>()
+  for (const option of options) {
+    const key = option.groupName || UNGROUPED
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(option)
+  }
+  return Array.from(groups.entries())
+}
 
 export function RestaurantMenuPage() {
   const { id } = useParams()
@@ -62,6 +87,11 @@ export function RestaurantMenuPage() {
   const [itemModal, setItemModal] = useState(false)
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null)
   const [itemCategoryId, setItemCategoryId] = useState<number>(0)
+  // Sizes (one-of) and add-ons (grouped), draft rows for the CREATE form only.
+  // The backend accepts these nested in POST /menu/items and silently ignores
+  // them on PUT, so they can never be edited after the item exists.
+  const [variantDrafts, setVariantDrafts] = useState<VariantDraft[]>([])
+  const [optionDrafts, setOptionDrafts] = useState<OptionDraft[]>([])
   const [itemForm, setItemForm] = useState<CreateMenuItemRequest>({
     categoryId: 0,
     name: '',
@@ -138,6 +168,8 @@ export function RestaurantMenuPage() {
   const openCreateItem = (categoryId: number) => {
     setEditingItem(null)
     setItemCategoryId(categoryId)
+    setVariantDrafts([])
+    setOptionDrafts([])
     setItemForm({
       categoryId,
       name: '',
@@ -158,6 +190,8 @@ export function RestaurantMenuPage() {
   const openEditItem = (item: MenuItem) => {
     setEditingItem(item)
     setItemCategoryId(item.categoryId)
+    setVariantDrafts([])
+    setOptionDrafts([])
     setItemForm({
       categoryId: item.categoryId,
       name: item.name,
@@ -177,13 +211,33 @@ export function RestaurantMenuPage() {
 
   const handleSaveItem = async () => {
     if (editingItem) {
+      // Deliberately does NOT send variants/options: PUT accepts and silently
+      // ignores them, so sending would look like it worked.
       await updateItem.mutateAsync({ restaurantId, itemId: editingItem.id, data: { ...itemForm, categoryId: itemCategoryId } })
     } else {
-      await createItem.mutateAsync({ restaurantId, data: { ...itemForm, categoryId: itemCategoryId } })
+      const variants = variantDrafts.filter((v) => v.name.trim())
+      const options = optionDrafts.filter((o) => o.name.trim())
+      await createItem.mutateAsync({
+        restaurantId,
+        data: {
+          ...itemForm,
+          categoryId: itemCategoryId,
+          ...(variants.length > 0 && { variants }),
+          ...(options.length > 0 && {
+            options: options.map((o) => ({ ...o, groupName: o.groupName.trim() || UNGROUPED })),
+          }),
+        },
+      })
     }
     setItemModal(false)
     refetchMenu()
   }
+
+  const updateVariantDraft = (index: number, patch: Partial<VariantDraft>) =>
+    setVariantDrafts(variantDrafts.map((v, i) => (i === index ? { ...v, ...patch } : v)))
+
+  const updateOptionDraft = (index: number, patch: Partial<OptionDraft>) =>
+    setOptionDrafts(optionDrafts.map((o, i) => (i === index ? { ...o, ...patch } : o)))
 
   const handleToggleStock = async (item: MenuItem) => {
     await updateStock.mutateAsync({ restaurantId, itemId: item.id, inStock: !item.inStock })
@@ -427,6 +481,48 @@ export function RestaurantMenuPage() {
                               {item.prepTimeMinutes && <span>{item.prepTimeMinutes} мин</span>}
                               {item.calories && <span>{item.calories} ккал</span>}
                             </div>
+
+                            {/* Sizes: one-of. totalPrice is the server's own sum
+                                (base + delta) — show it rather than re-deriving. */}
+                            {item.variants && item.variants.length > 0 && (
+                              <div className="mt-2 flex flex-wrap items-center gap-1">
+                                <span className="text-xs text-[hsl(var(--muted-foreground))]">Размеры:</span>
+                                {item.variants.map((v) => (
+                                  <Badge
+                                    key={v.id}
+                                    variant={v.inStock ? 'secondary' : 'outline'}
+                                    className={v.inStock ? '' : 'line-through opacity-60'}
+                                    title={v.inStock ? undefined : 'Нет в наличии'}
+                                  >
+                                    {v.name} · {formatCurrency(v.totalPrice ?? item.price + v.priceDelta)}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Add-ons, grouped by groupName; the group rule comes
+                                from required/maxSelections on its members. */}
+                            {item.options && item.options.length > 0 &&
+                              groupOptions(item.options).map(([groupName, opts]) => (
+                                <div key={groupName} className="mt-1 flex flex-wrap items-center gap-1">
+                                  <span className="text-xs text-[hsl(var(--muted-foreground))]">
+                                    {groupName} ({opts[0].required ? 'обязательно' : 'необязательно'}
+                                    {opts[0].maxSelections ? `, макс. ${opts[0].maxSelections}` : ''}):
+                                  </span>
+                                  {opts.map((o) => (
+                                    <Badge
+                                      key={o.id}
+                                      variant={o.inStock ? 'secondary' : 'outline'}
+                                      className={o.inStock ? '' : 'line-through opacity-60'}
+                                      title={o.inStock ? undefined : 'Нет в наличии'}
+                                    >
+                                      {o.isDefault && '★ '}
+                                      {o.name}
+                                      {o.priceDelta !== 0 && ` +${formatCurrency(o.priceDelta)}`}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              ))}
                           </div>
 
                           {/* Price. `effectivePrice` is what the customer is
@@ -645,6 +741,170 @@ export function RestaurantMenuPage() {
               ))}
             </div>
           </div>
+
+          {/* Sizes & add-ons. The backend only accepts these nested in the
+              CREATE call — PUT accepts and silently ignores them — so they are
+              editable when creating and read-only forever after. */}
+          {editingItem ? (
+            <div className="rounded-lg border border-[hsl(var(--warning))]/40 bg-[hsl(var(--warning))]/5 p-3">
+              <p className="text-sm font-medium">Размеры и добавки нельзя изменить</p>
+              <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                Бэкенд принимает их только при создании позиции: при сохранении изменений они
+                молча игнорируются. Чтобы изменить — удалите позицию и создайте заново.
+              </p>
+              {(editingItem.variants?.length ?? 0) + (editingItem.options?.length ?? 0) > 0 ? (
+                <div className="mt-2 space-y-1 text-xs">
+                  {editingItem.variants?.map((v) => (
+                    <div key={`v-${v.id}`}>
+                      Размер: <strong>{v.name}</strong> ·{' '}
+                      {formatCurrency(v.totalPrice ?? editingItem.price + v.priceDelta)}
+                      {!v.inStock && ' (нет в наличии)'}
+                    </div>
+                  ))}
+                  {editingItem.options?.map((o) => (
+                    <div key={`o-${o.id}`}>
+                      {o.groupName || UNGROUPED}: <strong>{o.name}</strong>
+                      {o.priceDelta !== 0 && ` +${formatCurrency(o.priceDelta)}`}
+                      {o.isDefault && ' · по умолчанию'}
+                      {!o.inStock && ' (нет в наличии)'}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs">У этой позиции нет размеров и добавок.</p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Variants — one-of (a size) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Размеры (выбор одного)</label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setVariantDrafts([...variantDrafts, { name: '', priceDelta: 0 }])}
+                  >
+                    <Plus className="mr-1 h-3 w-3" />
+                    Добавить
+                  </Button>
+                </div>
+                {variantDrafts.length === 0 && (
+                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                    Необязательно. Цена указывается как разница от базовой.
+                  </p>
+                )}
+                {variantDrafts.map((v, i) => (
+                  <div key={i} className="flex gap-2">
+                    <Input
+                      placeholder="Например: Большой"
+                      value={v.name}
+                      onChange={(e) => updateVariantDraft(i, { name: e.target.value })}
+                    />
+                    <Input
+                      type="number"
+                      className="w-32"
+                      placeholder="+ к цене"
+                      value={v.priceDelta}
+                      onChange={(e) => updateVariantDraft(i, { priceDelta: parseFloat(e.target.value) || 0 })}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setVariantDrafts(variantDrafts.filter((_, idx) => idx !== i))}
+                    >
+                      <Trash2 className="h-4 w-4 text-[hsl(var(--destructive))]" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Options — add-ons, grouped by name */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Добавки</label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setOptionDrafts([
+                        ...optionDrafts,
+                        { groupName: '', name: '', priceDelta: 0, isDefault: false, required: false, maxSelections: 1 },
+                      ])
+                    }
+                  >
+                    <Plus className="mr-1 h-3 w-3" />
+                    Добавить
+                  </Button>
+                </div>
+                {optionDrafts.length === 0 && (
+                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                    Необязательно. Добавки с одинаковой группой образуют один блок выбора.
+                  </p>
+                )}
+                {optionDrafts.map((o, i) => (
+                  <div key={i} className="space-y-2 rounded-lg border border-[hsl(var(--border))] p-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      <Input
+                        placeholder="Группа: Соус"
+                        value={o.groupName}
+                        onChange={(e) => updateOptionDraft(i, { groupName: e.target.value })}
+                      />
+                      <Input
+                        placeholder="Название: Чесночный"
+                        value={o.name}
+                        onChange={(e) => updateOptionDraft(i, { name: e.target.value })}
+                      />
+                      <Input
+                        type="number"
+                        placeholder="+ к цене"
+                        value={o.priceDelta}
+                        onChange={(e) => updateOptionDraft(i, { priceDelta: parseFloat(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-xs">
+                      <label className="flex cursor-pointer items-center gap-1">
+                        <input
+                          type="checkbox"
+                          checked={o.required}
+                          onChange={(e) => updateOptionDraft(i, { required: e.target.checked })}
+                          className="h-4 w-4 rounded border-[hsl(var(--border))]"
+                        />
+                        Обязательно
+                      </label>
+                      <label className="flex items-center gap-1">
+                        Макс.
+                        <Input
+                          type="number"
+                          min={1}
+                          className="h-7 w-16"
+                          value={o.maxSelections}
+                          onChange={(e) => updateOptionDraft(i, { maxSelections: parseInt(e.target.value) || 1 })}
+                        />
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-1">
+                        <input
+                          type="checkbox"
+                          checked={o.isDefault}
+                          onChange={(e) => updateOptionDraft(i, { isDefault: e.target.checked })}
+                          className="h-4 w-4 rounded border-[hsl(var(--border))]"
+                        />
+                        По умолчанию
+                      </label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="ml-auto"
+                        onClick={() => setOptionDrafts(optionDrafts.filter((_, idx) => idx !== i))}
+                      >
+                        <Trash2 className="h-4 w-4 text-[hsl(var(--destructive))]" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <ModalFooter>
           <Button variant="outline" onClick={() => setItemModal(false)}>Отмена</Button>
