@@ -25,6 +25,7 @@ import {
   useUpdateRestaurantCategory,
 } from '@/hooks/useRestaurantCategories'
 import { useUploadImage } from '@/hooks/useImages'
+import { IMAGE_UPLOAD_ACCEPTED_TYPES, IMAGE_UPLOAD_MAX_BYTES } from '@/types'
 import type { RestaurantCategory } from '@/types'
 
 /** Read a picked image's pixel size so we can warn about the expected 256x256. */
@@ -64,9 +65,8 @@ export function RestaurantCategoriesPage() {
   const [error, setError] = useState<string | null>(null)
   const [sizeWarning, setSizeWarning] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  // There is no cuisine-category bucket in the images API, so icons go in the
-  // 'restaurants' bucket; the endpoint returns the URL we store on the category.
-  const uploadImage = useUploadImage('restaurants')
+  // Dedicated bucket; the endpoint returns the URL we store on the category.
+  const uploadImage = useUploadImage('categories')
 
   const categories = [...(data?.data ?? [])].sort((a, b) => a.sortOrder - b.sortOrder)
   // The public endpoint only returns categories with an open restaurant.
@@ -98,8 +98,12 @@ export function RestaurantCategoriesPage() {
     if (!file) return
     setError(null)
     setSizeWarning(null)
-    if (!file.type.startsWith('image/')) {
-      setError('Выбранный файл не является изображением')
+    if (!IMAGE_UPLOAD_ACCEPTED_TYPES.includes(file.type)) {
+      setError('Допустимы только PNG, JPEG, GIF или WebP')
+      return
+    }
+    if (file.size > IMAGE_UPLOAD_MAX_BYTES) {
+      setError(`Файл больше 5 МБ (${(file.size / 1024 / 1024).toFixed(1)} МБ)`)
       return
     }
     try {
@@ -346,7 +350,7 @@ export function RestaurantCategoriesPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/gif,image/webp"
                   className="hidden"
                   onChange={(e) => handlePickImage(e.target.files?.[0])}
                 />

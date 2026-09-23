@@ -308,9 +308,10 @@ export interface ItemVariant {
   name: string
   priceDelta: number
   /**
-   * Server-precomputed base + priceDelta. NOTE: it is unconfirmed whether this
-   * is built from `price` or `effectivePrice`, so it diverges from the charged
-   * amount on a sale. Derive display from effectivePrice + priceDelta instead.
+   * Server-precomputed effectivePrice + priceDelta — confirmed against the
+   * backend (ItemVariant.calculateTotalPrice), so it agrees with the charged
+   * amount on sales too. We still derive it locally so that the displayed size
+   * price and the line total come from one formula.
    */
   totalPrice?: number
   inStock: boolean
@@ -1167,15 +1168,25 @@ export interface ExportRequest {
 }
 
 // Image types
-export type ImageCategory = 'restaurants' | 'menu-items' | 'profiles' | 'documents'
+/**
+ * Buckets the server accepts. Enumerated server-side as of the categories
+ * addition — an unknown one is a 400 naming the list. Only the first path
+ * segment is policy; deeper paths (restaurants/7/logo) are allowed.
+ */
+export type ImageCategory = 'restaurants' | 'menu-items' | 'categories' | 'profiles' | 'documents'
 
 export interface ImageUploadResponse {
-  filename: string
-  originalFilename: string
   url: string
+  relativePath: string
+  storedName: string
+  originalName: string
   size: number
   contentType: string
 }
+
+/** PNG, JPEG, GIF or WebP, 5 MB ceiling — enforced server-side. */
+export const IMAGE_UPLOAD_ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
+export const IMAGE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024
 
 export interface ImageDeleteResponse {
   success: boolean

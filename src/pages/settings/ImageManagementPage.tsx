@@ -26,6 +26,7 @@ import type { ImageCategory } from '@/types'
 const categoryLabels: Record<ImageCategory, string> = {
   restaurants: 'Рестораны',
   'menu-items': 'Позиции меню',
+  categories: 'Категории кухонь',
   profiles: 'Профили',
   documents: 'Документы',
 }
@@ -50,7 +51,7 @@ export function ImageManagementPage() {
 
     try {
       const result = await uploadImage.mutateAsync(file)
-      setUploadResult(result?.data?.url || result?.data?.filename || 'Загружено')
+      setUploadResult(result?.data?.url || result?.data?.storedName || 'Загружено')
     } catch {
       setUploadResult(null)
     }
@@ -63,7 +64,7 @@ export function ImageManagementPage() {
 
     try {
       const result = await uploadMenuItemImage.mutateAsync({ menuItemId: parseInt(menuItemId), file })
-      setMenuUploadResult(result?.data?.url || result?.data?.filename || 'Загружено')
+      setMenuUploadResult(result?.data?.url || result?.data?.storedName || 'Загружено')
     } catch {
       setMenuUploadResult(null)
     }

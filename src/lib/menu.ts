@@ -49,9 +49,9 @@ export function basePrice(item: MenuItem): number {
 }
 
 /**
- * Display price of a size. Derived from `effectivePrice + priceDelta` rather
- * than the server's `totalPrice`, so what is shown always equals what is
- * charged even when the item is on sale.
+ * Display price of a size. The server's `totalPrice` is confirmed to be this
+ * same sum, so the two agree; we derive it anyway so the displayed size price
+ * and the line total below come from one formula rather than two sources.
  */
 export function variantPrice(item: MenuItem, variant: ItemVariant): number {
   return basePrice(item) + variant.priceDelta
