@@ -372,6 +372,14 @@ export interface Order {
   paymentStatus?: PaymentStatus
   items: OrderItem[]
   subtotal: number
+  /**
+   * Platform service fee. Was previously mislabelled as "tax" (an 8% US
+   * sales-tax default from the scaffolding) — the rate is now 0, but it is
+   * configuration and can come back, and historical orders keep what they were
+   * charged. Prefer this over the deprecated `tax` alias.
+   */
+  serviceFee?: number
+  /** @deprecated Backend alias of `serviceFee`. Read `serviceFee` first. */
   tax?: number
   deliveryFee: number
   discount?: number

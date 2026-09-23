@@ -429,14 +429,31 @@ export function RestaurantMenuPage() {
                             </div>
                           </div>
 
-                          {/* Price */}
+                          {/* Price. `effectivePrice` is what the customer is
+                              actually charged; it equals `price` today, but a
+                              POS partner can set it away from `price`, so show
+                              it — and flag the divergence rather than hiding it
+                              (an invisible markup is what caused the incident). */}
                           <div className="text-right">
-                            <p className="text-lg font-bold">{formatCurrency(item.price)}</p>
-                            {item.originalPrice && item.originalPrice > item.price && (
-                              <p className="text-sm text-[hsl(var(--muted-foreground))] line-through">
-                                {formatCurrency(item.originalPrice)}
-                              </p>
-                            )}
+                            {(() => {
+                              const charged = item.effectivePrice ?? item.price
+                              const diverges = item.effectivePrice != null && item.effectivePrice !== item.price
+                              return (
+                                <>
+                                  <p className="text-lg font-bold">{formatCurrency(charged)}</p>
+                                  {diverges && (
+                                    <p className="text-xs text-[hsl(var(--warning))]">
+                                      База: {formatCurrency(item.price)}
+                                    </p>
+                                  )}
+                                  {item.originalPrice && item.originalPrice > charged && (
+                                    <p className="text-sm text-[hsl(var(--muted-foreground))] line-through">
+                                      {formatCurrency(item.originalPrice)}
+                                    </p>
+                                  )}
+                                </>
+                              )
+                            })()}
                           </div>
 
                           {/* Stock toggle */}

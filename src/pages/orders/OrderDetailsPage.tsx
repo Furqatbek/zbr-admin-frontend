@@ -327,12 +327,19 @@ export function OrderDetailsPage() {
                   <span className="text-[hsl(var(--muted-foreground))]">Подытог</span>
                   <span>{formatCurrency(order.subtotal)}</span>
                 </div>
-                {order.tax != null && order.tax > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[hsl(var(--muted-foreground))]">Налог</span>
-                    <span>{formatCurrency(order.tax)}</span>
-                  </div>
-                )}
+                {(() => {
+                  // `serviceFee` supersedes the deprecated `tax` alias. It was
+                  // never a tax, so label it accordingly. Now 0 on new orders —
+                  // hide the line rather than showing "0 so'm" — but old orders
+                  // keep the 8% they were actually charged.
+                  const serviceFee = order.serviceFee ?? order.tax
+                  return serviceFee != null && serviceFee > 0 ? (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[hsl(var(--muted-foreground))]">Сервисный сбор</span>
+                      <span>{formatCurrency(serviceFee)}</span>
+                    </div>
+                  ) : null
+                })()}
                 <div className="flex justify-between text-sm">
                   <span className="text-[hsl(var(--muted-foreground))]">Доставка</span>
                   <span>{formatCurrency(order.deliveryFee)}</span>
