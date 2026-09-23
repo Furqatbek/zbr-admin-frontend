@@ -174,6 +174,20 @@ export function useToggleRestaurantOpen() {
   })
 }
 
+// Feature / unfeature a restaurant (Admin/Platform).
+export function useSetRestaurantFeatured() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, featured }: { id: number; featured: boolean }) =>
+      restaurantsApi.setFeatured(id, featured),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: restaurantKeys.all })
+      queryClient.invalidateQueries({ queryKey: restaurantKeys.detail(id) })
+    },
+  })
+}
+
 // Transfer restaurant ownership (Admin/Platform). Invalidates ALL restaurant
 // queries — the transfer changes this restaurant, the list, and both owners'
 // restaurant lists, and the response only describes this restaurant.

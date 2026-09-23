@@ -31,6 +31,7 @@ const RestaurantDetailsPage = lazy(() => import('@/pages/restaurants/RestaurantD
 const RestaurantModerationPage = lazy(() => import('@/pages/restaurants/RestaurantModerationPage').then(m => ({ default: m.RestaurantModerationPage })))
 const RestaurantMenuPage = lazy(() => import('@/pages/restaurants/RestaurantMenuPage').then(m => ({ default: m.RestaurantMenuPage })))
 const RestaurantDirectoryPage = lazy(() => import('@/pages/restaurants/RestaurantDirectoryPage').then(m => ({ default: m.RestaurantDirectoryPage })))
+const RestaurantCategoriesPage = lazy(() => import('@/pages/restaurants/RestaurantCategoriesPage').then(m => ({ default: m.RestaurantCategoriesPage })))
 const RestaurantReviewsPage = lazy(() => import('@/pages/restaurants/RestaurantReviewsPage').then(m => ({ default: m.RestaurantReviewsPage })))
 
 const RevenueAnalyticsPage = lazy(() => import('@/pages/analytics/RevenueAnalyticsPage').then(m => ({ default: m.RevenueAnalyticsPage })))
@@ -147,6 +148,10 @@ export const router = createBrowserRouter([
       {
         path: 'restaurants/:id/reviews',
         element: <LazyPage><RestaurantReviewsPage /></LazyPage>,
+      },
+      {
+        path: 'restaurants/categories',
+        element: <LazyPage><RestaurantCategoriesPage /></LazyPage>,
       },
       {
         path: 'restaurants/directory',

@@ -177,6 +177,7 @@ export function Sidebar() {
             children={[
               { to: '/restaurants', label: 'Все рестораны' },
               { to: '/restaurants/moderation', label: 'Модерация' },
+              { to: '/restaurants/categories', label: 'Категории кухонь' },
               { to: '/restaurants/directory', label: 'Каталог' },
             ]}
           />

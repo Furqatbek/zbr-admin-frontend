@@ -24,18 +24,24 @@ export interface RestaurantsQueryParams {
   page?: number
   size?: number
   sort?: string
+  /** Filters in the query, so a filtered list is the whole list, not a page of one. */
+  categoryId?: number
+  /** /active only. ANDed with categoryId ("featured burgers"), not ORed. */
+  featured?: boolean
 }
 
 export interface SearchParams {
   q: string
   page?: number
   size?: number
+  categoryId?: number
 }
 
 export interface NearbyParams {
   lat: number
   lng: number
   radius?: number
+  categoryId?: number
 }
 
 export const restaurantsApi = {
@@ -66,6 +72,7 @@ export const restaurantsApi = {
         page: params.page ?? 0,
         size: params.size ?? 20,
         ...(params.sort && { sort: params.sort }),
+        ...(params.categoryId != null && { categoryId: params.categoryId }),
       },
     })
     return response.data
@@ -77,6 +84,8 @@ export const restaurantsApi = {
       params: {
         page: params.page ?? 0,
         size: params.size ?? 20,
+        ...(params.categoryId != null && { categoryId: params.categoryId }),
+        ...(params.featured != null && { featured: params.featured }),
       },
     })
     return response.data
@@ -89,6 +98,7 @@ export const restaurantsApi = {
         q: params.q,
         page: params.page ?? 0,
         size: params.size ?? 20,
+        ...(params.categoryId != null && { categoryId: params.categoryId }),
       },
     })
     return response.data
@@ -112,6 +122,7 @@ export const restaurantsApi = {
         lat: params.lat,
         lng: params.lng,
         ...(params.radius && { radius: params.radius }),
+        ...(params.categoryId != null && { categoryId: params.categoryId }),
       },
     })
     return response.data
@@ -141,6 +152,14 @@ export const restaurantsApi = {
   toggleOpen: async (id: number, isOpen: boolean): Promise<ApiResponse<Restaurant>> => {
     const response = await api.patch<ApiResponse<Restaurant>>(`/restaurants/${id}/toggle-open`, null, {
       params: { isOpen },
+    })
+    return response.data
+  },
+
+  // Feature / unfeature a restaurant (Admin/Platform). Query parameter.
+  setFeatured: async (id: number, featured: boolean): Promise<ApiResponse<Restaurant>> => {
+    const response = await api.patch<ApiResponse<Restaurant>>(`/restaurants/${id}/featured`, null, {
+      params: { featured },
     })
     return response.data
   },

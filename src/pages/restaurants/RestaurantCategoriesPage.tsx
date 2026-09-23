@@ -1,0 +1,315 @@
+import { useState } from 'react'
+import { UtensilsCrossed, Plus, Edit, Loader2, RefreshCw, Image as ImageIcon, EyeOff } from 'lucide-react'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Button,
+  Input,
+  Badge,
+  Modal,
+  ModalFooter,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui'
+import { apiErrorMessage } from '@/lib/apiError'
+import {
+  useAllRestaurantCategories,
+  usePublicRestaurantCategories,
+  useCreateRestaurantCategory,
+  useUpdateRestaurantCategory,
+} from '@/hooks/useRestaurantCategories'
+import type { RestaurantCategory } from '@/types'
+
+const EMPTY_FORM = {
+  nameUz: '',
+  nameRu: '',
+  nameEn: '',
+  sortOrder: 0,
+  imageUrl: '',
+}
+
+export function RestaurantCategoriesPage() {
+  const { data, isLoading, isFetching, refetch } = useAllRestaurantCategories()
+  const { data: publicData } = usePublicRestaurantCategories()
+  const createCategory = useCreateRestaurantCategory()
+  const updateCategory = useUpdateRestaurantCategory()
+
+  const [modal, setModal] = useState(false)
+  const [editing, setEditing] = useState<RestaurantCategory | null>(null)
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [error, setError] = useState<string | null>(null)
+
+  const categories = [...(data?.data ?? [])].sort((a, b) => a.sortOrder - b.sortOrder)
+  // The public endpoint only returns categories with an open restaurant.
+  const visibleIds = new Set((publicData?.data ?? []).map((c) => c.id))
+
+  const openCreate = () => {
+    setEditing(null)
+    setForm(EMPTY_FORM)
+    setError(null)
+    setModal(true)
+  }
+
+  const openEdit = (category: RestaurantCategory) => {
+    setEditing(category)
+    setForm({
+      nameUz: category.nameUz ?? category.name ?? '',
+      nameRu: category.nameRu ?? '',
+      nameEn: category.nameEn ?? '',
+      sortOrder: category.sortOrder ?? 0,
+      imageUrl: category.imageUrl ?? '',
+    })
+    setError(null)
+    setModal(true)
+  }
+
+  const handleSave = async () => {
+    setError(null)
+    try {
+      // The body is strict — a misspelled field is a 400 naming it — so send
+      // only known fields, and only those with a value.
+      if (editing) {
+        await updateCategory.mutateAsync({
+          id: editing.id,
+          data: {
+            nameUz: form.nameUz.trim(),
+            nameRu: form.nameRu.trim() || undefined,
+            nameEn: form.nameEn.trim() || undefined,
+            sortOrder: form.sortOrder,
+            imageUrl: form.imageUrl.trim() || undefined,
+          },
+        })
+      } else {
+        await createCategory.mutateAsync({
+          nameUz: form.nameUz.trim(),
+          nameRu: form.nameRu.trim() || undefined,
+          nameEn: form.nameEn.trim() || undefined,
+          sortOrder: form.sortOrder,
+          imageUrl: form.imageUrl.trim() || undefined,
+        })
+      }
+      setModal(false)
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Не удалось сохранить категорию'))
+    }
+  }
+
+  const toggleActive = async (category: RestaurantCategory) => {
+    setError(null)
+    try {
+      await updateCategory.mutateAsync({ id: category.id, data: { active: !(category.active ?? true) } })
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Не удалось изменить категорию'))
+    }
+  }
+
+  const saving = createCategory.isPending || updateCategory.isPending
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Категории кухонь</h1>
+          <p className="text-[hsl(var(--muted-foreground))]">
+            Справочник кухонь для витрины клиентского приложения
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            Обновить
+          </Button>
+          <Button size="sm" onClick={openCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            Новая категория
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-md bg-[hsl(var(--destructive))]/10 p-3 text-sm text-[hsl(var(--destructive))]">
+          {error}
+        </div>
+      )}
+
+      <div className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/40 p-3 text-sm text-[hsl(var(--muted-foreground))]">
+        Клиент видит только категории, в которых есть хотя бы один открытый ресторан — чтобы чип
+        не вёл на пустой экран. «Не видна» ниже означает именно это, а не ошибку.
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <UtensilsCrossed className="h-4 w-4" />
+            Все категории ({categories.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="py-12 text-center text-[hsl(var(--muted-foreground))]">
+              Категорий нет
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[70px]">Порядок</TableHead>
+                  <TableHead>Название</TableHead>
+                  <TableHead>Slug</TableHead>
+                  <TableHead>Изображение</TableHead>
+                  <TableHead>Статус</TableHead>
+                  <TableHead className="w-[140px]">Действия</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {categories.map((category) => {
+                  const active = category.active ?? true
+                  return (
+                    <TableRow key={category.id} className={active ? '' : 'opacity-60'}>
+                      <TableCell className="text-sm text-[hsl(var(--muted-foreground))]">
+                        {category.sortOrder}
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{category.nameUz || category.name}</div>
+                        <div className="text-sm text-[hsl(var(--muted-foreground))]">
+                          {[category.nameRu, category.nameEn].filter(Boolean).join(' · ') || '—'}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <code className="text-xs text-[hsl(var(--muted-foreground))]">{category.slug}</code>
+                      </TableCell>
+                      <TableCell>
+                        {category.imageUrl ? (
+                          <img src={category.imageUrl} alt="" className="h-8 w-8 rounded object-cover" />
+                        ) : (
+                          <span className="flex items-center gap-1 text-xs text-[hsl(var(--warning))]">
+                            <ImageIcon className="h-3 w-3" />
+                            нет
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {active ? (
+                            <Badge variant="success">Активна</Badge>
+                          ) : (
+                            <Badge variant="secondary">Отключена</Badge>
+                          )}
+                          {active && !visibleIds.has(category.id) && (
+                            <Badge variant="outline" title="Нет открытых ресторанов в этой категории">
+                              <EyeOff className="mr-1 h-3 w-3" />
+                              Не видна
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(category)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={saving}
+                            onClick={() => toggleActive(category)}
+                          >
+                            {active ? 'Отключить' : 'Включить'}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Modal
+        isOpen={modal}
+        onClose={() => setModal(false)}
+        title={editing ? 'Редактирование категории' : 'Новая категория'}
+        description={editing ? `slug: ${editing.slug}` : 'Slug будет создан автоматически'}
+      >
+        <div className="space-y-4">
+          {error && (
+            <div className="rounded-md bg-[hsl(var(--destructive))]/10 p-3 text-sm text-[hsl(var(--destructive))]">
+              {error}
+            </div>
+          )}
+          <div>
+            <label className="mb-2 block text-sm font-medium">Название (uz) *</label>
+            <Input
+              value={form.nameUz}
+              onChange={(e) => setForm({ ...form, nameUz: e.target.value })}
+              placeholder="Milliy taomlar"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium">Название (ru)</label>
+              <Input
+                value={form.nameRu}
+                onChange={(e) => setForm({ ...form, nameRu: e.target.value })}
+                placeholder="Национальная кухня"
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Название (en)</label>
+              <Input
+                value={form.nameEn}
+                onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
+                placeholder="National"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium">Порядок</label>
+              <Input
+                type="number"
+                value={form.sortOrder}
+                onChange={(e) => setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Изображение (URL)</label>
+              <Input
+                value={form.imageUrl}
+                onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                placeholder="https://zbrr.uz/media/cat/...png"
+              />
+            </div>
+          </div>
+          {editing && (
+            <p className="text-xs text-[hsl(var(--muted-foreground))]">
+              Slug не редактируется — на него ссылаются аналитика и ссылки. Категории нельзя
+              удалить, только отключить.
+            </p>
+          )}
+        </div>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setModal(false)}>
+            Отмена
+          </Button>
+          <Button onClick={handleSave} disabled={saving || !form.nameUz.trim()}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {editing ? 'Сохранить' : 'Создать'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+    </div>
+  )
+}

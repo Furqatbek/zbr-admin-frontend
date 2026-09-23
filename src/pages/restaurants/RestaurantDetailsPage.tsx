@@ -41,6 +41,7 @@ import { useRestaurant, useUpdateRestaurantStatus, useToggleRestaurantOpen } fro
 import { useOrdersByRestaurant } from '@/hooks/useOrders'
 import type { RestaurantStatus, OrderStatus } from '@/types'
 import { OwnershipTransfer } from './OwnershipTransfer'
+import { CategoryAssignment } from './CategoryAssignment'
 
 const orderStatusLabels: Record<OrderStatus, string> = {
   CREATED: 'Создан',
@@ -376,6 +377,9 @@ export function RestaurantDetailsPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Cuisine category + featured switch */}
+          <CategoryAssignment restaurant={restaurant} />
+
           {/* Owner + ownership transfer */}
           <OwnershipTransfer restaurant={restaurant} />
 

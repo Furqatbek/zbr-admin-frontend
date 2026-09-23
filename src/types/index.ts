@@ -138,6 +138,38 @@ export interface CourierUpdateRequest {
   maxConcurrentOrders?: number
 }
 
+// Cuisine categories (admin: /admin/restaurant-categories, public: /restaurants/categories)
+export interface RestaurantCategory {
+  id: number
+  /** Immutable — analytics and deep links key on it, so a rename must not detach history. */
+  slug: string
+  /** Resolved server-side from Accept-Language. */
+  name: string
+  imageUrl?: string | null
+  sortOrder: number
+  active?: boolean
+  // The admin list also carries the per-locale names.
+  nameUz?: string
+  nameRu?: string
+  nameEn?: string
+}
+
+export interface CreateRestaurantCategoryRequest {
+  /** The only required field. */
+  nameUz: string
+  nameRu?: string
+  nameEn?: string
+  /** Optional — derived from nameEn, falling back to nameUz. */
+  slug?: string
+  sortOrder?: number
+  imageUrl?: string
+}
+
+/** PATCH is partial. `slug` is deliberately absent: it is never editable. */
+export type UpdateRestaurantCategoryRequest = Partial<
+  Omit<CreateRestaurantCategoryRequest, 'slug'>
+> & { active?: boolean }
+
 // Restaurant types
 export type RestaurantStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'CLOSED' | 'REJECTED'
 
@@ -163,6 +195,8 @@ export interface Restaurant {
   longitude?: number
   status: RestaurantStatus
   featured: boolean
+  /** Cuisine category, null/absent when unassigned. */
+  category?: RestaurantCategory | null
   acceptsDelivery: boolean
   acceptsTakeaway: boolean
   acceptsDineIn: boolean
